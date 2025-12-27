@@ -17,6 +17,8 @@
 - Go 1.21 или выше
 - Для получения MAC адресов может потребоваться запуск с правами администратора (на некоторых системах)
 
+> **Для macOS:** См. подробную инструкцию в [INSTALL.md](INSTALL.md)
+
 ## Быстрый старт
 
 ```bash
@@ -45,7 +47,11 @@ go mod download
 go build -o network-scanner
 
 # Или используйте скрипты сборки:
-# Linux/macOS
+# macOS (рекомендуется)
+chmod +x build-macos.sh
+./build-macos.sh
+
+# Linux/macOS (все платформы)
 chmod +x build.sh
 ./build.sh
 
