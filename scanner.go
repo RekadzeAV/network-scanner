@@ -38,6 +38,7 @@ type NetworkScanner struct {
 	timeout    time.Duration
 	portRange  string
 	threads    int
+	showClosed bool
 	results    []ScanResult
 	mu         sync.RWMutex
 	ctx        context.Context
@@ -46,16 +47,17 @@ type NetworkScanner struct {
 }
 
 // NewNetworkScanner создает новый сканер
-func NewNetworkScanner(network string, timeout time.Duration, portRange string, threads int) *NetworkScanner {
+func NewNetworkScanner(network string, timeout time.Duration, portRange string, threads int, showClosed bool) *NetworkScanner {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &NetworkScanner{
-		network:   network,
-		timeout:   timeout,
-		portRange: portRange,
-		threads:   threads,
-		results:   make([]ScanResult, 0),
-		ctx:       ctx,
-		cancel:    cancel,
+		network:    network,
+		timeout:    timeout,
+		portRange:  portRange,
+		threads:    threads,
+		showClosed: showClosed,
+		results:    make([]ScanResult, 0),
+		ctx:        ctx,
+		cancel:     cancel,
 	}
 }
 
@@ -222,20 +224,28 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 		default:
 		}
 
-		if isPortOpen(ipStr, port, ns.timeout) {
+		isOpen := isPortOpen(ipStr, port, ns.timeout)
+		if isOpen || ns.showClosed {
+			state := "open"
+			if !isOpen {
+				state = "closed"
+			}
+			
 			portInfo := PortInfo{
 				Port:     port,
-				State:    "open",
+				State:    state,
 				Protocol: "tcp",
 				Service:  getServiceName(port),
 			}
 			result.Ports = append(result.Ports, portInfo)
-			openPorts++
-
-			// Определяем протоколы по открытым портам
-			protocol := getProtocolFromPort(port)
-			if protocol != "" {
-				result.Protocols = appendIfNotExists(result.Protocols, protocol)
+			
+			if isOpen {
+				openPorts++
+				// Определяем протоколы по открытым портам
+				protocol := getProtocolFromPort(port)
+				if protocol != "" {
+					result.Protocols = appendIfNotExists(result.Protocols, protocol)
+				}
 			}
 		}
 	}

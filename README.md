@@ -159,12 +159,13 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 
 Проект включает подробную документацию:
 
+- **[README.md](README.md)** - Основная документация (этот файл)
 - **[USER_GUIDE.md](USER_GUIDE.md)** - Подробное руководство пользователя с примерами
+- **[INSTALL.md](INSTALL.md)** - Инструкции по установке для разных платформ
+- **[QUICKSTART-macOS.md](QUICKSTART-macOS.md)** - Быстрый старт для macOS
 - **[TECHNICAL.md](TECHNICAL.md)** - Техническая документация для разработчиков
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Описание архитектуры проекта
 - **[ANALYSIS.md](ANALYSIS.md)** - Анализ реализации и рекомендации
-- **[INSTALL.md](INSTALL.md)** - Инструкции по установке для разных платформ
-- **[QUICKSTART-macOS.md](QUICKSTART-macOS.md)** - Быстрый старт для macOS
 
 ## Поддержка
 

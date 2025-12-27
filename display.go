@@ -86,6 +86,9 @@ func formatPorts(ports []PortInfo) string {
 				portStr += fmt.Sprintf(" (%s)", p.Service)
 			}
 			portStrs = append(portStrs, portStr)
+		} else if p.State == "closed" {
+			portStr := fmt.Sprintf("%d/%s (closed)", p.Port, p.Protocol)
+			portStrs = append(portStrs, portStr)
 		}
 	}
 

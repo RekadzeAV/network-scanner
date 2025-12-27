@@ -36,7 +36,7 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	scanner := NewNetworkScanner(network, *timeout, *portRange, *threads)
+	scanner := NewNetworkScanner(network, *timeout, *portRange, *threads, *showClosed)
 	
 	// Запускаем сканирование в отдельной горутине
 	done := make(chan bool)
