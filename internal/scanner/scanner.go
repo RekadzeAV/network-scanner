@@ -57,7 +57,7 @@ func NewNetworkScanner(network string, timeout time.Duration, portRange string, 
 		portRange:  portRange,
 		threads:    threads,
 		showClosed: showClosed,
-		results:    make([]ScanResult, 0),
+		results:    make([]Result, 0),
 		ctx:        ctx,
 		cancel:     cancel,
 	}

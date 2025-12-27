@@ -111,7 +111,6 @@ func getMACAddress(ip net.IP) (string, error) {
 		return "", err
 	}
 
-	ipStr := ip.String()
 	for _, iface := range interfaces {
 		addrs, err := iface.Addrs()
 		if err != nil {
