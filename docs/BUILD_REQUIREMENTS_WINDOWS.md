@@ -202,3 +202,5 @@ go build -o network-scanner-gui.exe ./cmd/gui
 3. **CI/CD** - использовать GitHub Actions или другой CI/CD для автоматической сборки
 4. **GitHub Releases** - использовать готовые бинарники из релизов
 
+
+
