@@ -1,4 +1,4 @@
-package main
+package network
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// detectLocalNetwork определяет локальную сеть автоматически
-func detectLocalNetwork() (string, error) {
+// DetectLocalNetwork определяет локальную сеть автоматически
+func DetectLocalNetwork() (string, error) {
 	interfaces, err := net.Interfaces()
 	if err != nil {
 		return "", err
@@ -54,8 +54,8 @@ func detectLocalNetwork() (string, error) {
 	return "", fmt.Errorf("не найдена активная сеть")
 }
 
-// parseNetworkRange парсит диапазон сети (например, 192.168.1.0/24)
-func parseNetworkRange(network string) ([]net.IP, error) {
+// ParseNetworkRange парсит диапазон сети (например, 192.168.1.0/24)
+func ParseNetworkRange(network string) ([]net.IP, error) {
 	_, ipnet, err := net.ParseCIDR(network)
 	if err != nil {
 		return nil, err
@@ -144,8 +144,8 @@ func getMACFromARP(ip net.IP, ifaceName string) (string, error) {
 	return "", fmt.Errorf("не реализовано")
 }
 
-// isPortOpen проверяет, открыт ли порт
-func isPortOpen(host string, port int, timeout time.Duration) bool {
+// IsPortOpen проверяет, открыт ли порт
+func IsPortOpen(host string, port int, timeout time.Duration) bool {
 	address := fmt.Sprintf("%s:%d", host, port)
 	conn, err := net.DialTimeout("tcp", address, timeout)
 	if err != nil {
@@ -155,8 +155,8 @@ func isPortOpen(host string, port int, timeout time.Duration) bool {
 	return true
 }
 
-// getServiceName возвращает название сервиса по порту
-func getServiceName(port int) string {
+// GetServiceName возвращает название сервиса по порту
+func GetServiceName(port int) string {
 	services := map[int]string{
 		20:   "FTP-Data",
 		21:   "FTP",
@@ -183,8 +183,8 @@ func getServiceName(port int) string {
 	return "Unknown"
 }
 
-// parsePortRange парсит диапазон портов
-func parsePortRange(portRange string) ([]int, error) {
+// ParsePortRange парсит диапазон портов
+func ParsePortRange(portRange string) ([]int, error) {
 	var ports []int
 	
 	// Поддержка форматов: "1-1000", "80,443,8080", "80,443-445"

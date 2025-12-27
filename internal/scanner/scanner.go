@@ -1,4 +1,4 @@
-package main
+package scanner
 
 import (
 	"context"
@@ -10,10 +10,12 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+
+	"network-scanner/internal/network"
 )
 
-// ScanResult содержит результаты сканирования одного хоста
-type ScanResult struct {
+// Result содержит результаты сканирования одного хоста
+type Result struct {
 	IP        string
 	MAC       string
 	Hostname  string
@@ -39,7 +41,7 @@ type NetworkScanner struct {
 	portRange  string
 	threads    int
 	showClosed bool
-	results    []ScanResult
+	results    []Result
 	mu         sync.RWMutex
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -66,14 +68,14 @@ func (ns *NetworkScanner) Scan() {
 	fmt.Println("Начинаю сканирование сети...")
 	
 	// Парсим диапазон сети
-	ips, err := parseNetworkRange(ns.network)
+	ips, err := network.ParseNetworkRange(ns.network)
 	if err != nil {
 		fmt.Printf("Ошибка парсинга сети: %v\n", err)
 		return
 	}
 
 	// Парсим диапазон портов
-	ports, err := parsePortRange(ns.portRange)
+	ports, err := network.ParsePortRange(ns.portRange)
 	if err != nil {
 		fmt.Printf("Ошибка парсинга портов: %v\n", err)
 		return
@@ -193,7 +195,7 @@ func (ns *NetworkScanner) checkARP(ip string) bool {
 // scanHost сканирует один хост
 func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 	ipStr := ip.String()
-	result := ScanResult{
+	result := Result{
 		IP:        ipStr,
 		MAC:       "",
 		Hostname:  "",
@@ -224,7 +226,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 		default:
 		}
 
-		isOpen := isPortOpen(ipStr, port, ns.timeout)
+		isOpen := network.IsPortOpen(ipStr, port, ns.timeout)
 		if isOpen || ns.showClosed {
 			state := "open"
 			if !isOpen {
@@ -235,7 +237,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 				Port:     port,
 				State:    state,
 				Protocol: "tcp",
-				Service:  getServiceName(port),
+				Service:  network.GetServiceName(port),
 			}
 			result.Ports = append(result.Ports, portInfo)
 			
@@ -376,7 +378,7 @@ func (ns *NetworkScanner) getMACViaARPRequest(ip net.IP) (string, error) {
 }
 
 // detectDeviceType определяет тип устройства по открытым портам и MAC
-func (ns *NetworkScanner) detectDeviceType(result ScanResult) string {
+func (ns *NetworkScanner) detectDeviceType(result Result) string {
 	// Анализируем открытые порты для определения типа устройства
 	ports := make(map[int]bool)
 	for _, p := range result.Ports {
@@ -430,7 +432,7 @@ func (ns *NetworkScanner) Stop() {
 }
 
 // GetResults возвращает результаты сканирования
-func (ns *NetworkScanner) GetResults() []ScanResult {
+func (ns *NetworkScanner) GetResults() []Result {
 	ns.mu.RLock()
 	defer ns.mu.RUnlock()
 	return ns.results

@@ -1,4 +1,4 @@
-package main
+package display
 
 import (
 	"fmt"
@@ -7,10 +7,12 @@ import (
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
+
+	"network-scanner/internal/scanner"
 )
 
-// displayResults выводит результаты сканирования в виде таблицы
-func displayResults(results []ScanResult) {
+// DisplayResults выводит результаты сканирования в виде таблицы
+func DisplayResults(results []scanner.Result) {
 	if len(results) == 0 {
 		fmt.Println("Результаты сканирования не найдены")
 		return
@@ -73,7 +75,7 @@ func displayResults(results []ScanResult) {
 }
 
 // formatPorts форматирует список портов для отображения
-func formatPorts(ports []PortInfo) string {
+func formatPorts(ports []scanner.PortInfo) string {
 	if len(ports) == 0 {
 		return "-"
 	}
@@ -99,8 +101,8 @@ func formatPorts(ports []PortInfo) string {
 	return strings.Join(portStrs, ", ")
 }
 
-// displayAnalytics выводит аналитику по сети
-func displayAnalytics(results []ScanResult) {
+// DisplayAnalytics выводит аналитику по сети
+func DisplayAnalytics(results []scanner.Result) {
 	fmt.Println(strings.Repeat("=", 100))
 	fmt.Println("АНАЛИТИКА ПРОВОДНЫХ СЕТЕЙ")
 	fmt.Println(strings.Repeat("=", 100) + "\n")
@@ -192,7 +194,7 @@ func displayAnalytics(results []ScanResult) {
 		t.AppendHeader(table.Row{"Порт", "Количество устройств", "Сервис", "Назначение"})
 		
 		for _, item := range portList {
-			service := getServiceName(item.port)
+			service := getServiceNameForDisplay(item.port)
 			purpose := getPortPurpose(item.port)
 			t.AppendRow(table.Row{item.port, item.count, service, purpose})
 		}
@@ -248,6 +250,36 @@ func displayAnalytics(results []ScanResult) {
 	fmt.Println()
 }
 
+// getServiceNameForDisplay возвращает название сервиса по порту (для отображения)
+func getServiceNameForDisplay(port int) string {
+	// Используем функцию из пакета network
+	// Но для отображения можем использовать локальную версию
+	services := map[int]string{
+		20:   "FTP-Data",
+		21:   "FTP",
+		22:   "SSH",
+		23:   "Telnet",
+		25:   "SMTP",
+		53:   "DNS",
+		80:   "HTTP",
+		110:  "POP3",
+		143:  "IMAP",
+		443:  "HTTPS",
+		445:  "SMB",
+		3306: "MySQL",
+		3389: "RDP",
+		5432: "PostgreSQL",
+		5900: "VNC",
+		8080: "HTTP-Proxy",
+		8443: "HTTPS-Alt",
+	}
+	
+	if name, ok := services[port]; ok {
+		return name
+	}
+	return "Unknown"
+}
+
 // getProtocolDescription возвращает описание протокола
 func getProtocolDescription(protocol string) string {
 	descriptions := map[string]string{
@@ -301,7 +333,7 @@ func getPortPurpose(port int) string {
 	return "Неизвестное назначение"
 }
 
-func countDevicesWithOpenPorts(results []ScanResult) int {
+func countDevicesWithOpenPorts(results []scanner.Result) int {
 	count := 0
 	for _, result := range results {
 		if len(result.Ports) > 0 {
@@ -311,7 +343,7 @@ func countDevicesWithOpenPorts(results []ScanResult) int {
 	return count
 }
 
-func countTotalOpenPorts(results []ScanResult) int {
+func countTotalOpenPorts(results []scanner.Result) int {
 	count := 0
 	for _, result := range results {
 		for _, port := range result.Ports {

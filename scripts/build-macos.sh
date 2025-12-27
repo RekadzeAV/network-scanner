@@ -41,11 +41,11 @@ echo ""
 # Сборка для текущей архитектуры
 if [ "$ARCH" = "arm64" ]; then
     echo "🔨 Сборка для Apple Silicon (arm64)..."
-    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/network-scanner-darwin-arm64
+    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/network-scanner-darwin-arm64 ./cmd/network-scanner
     echo "✅ Собрано: dist/network-scanner-darwin-arm64"
 elif [ "$ARCH" = "x86_64" ]; then
     echo "🔨 Сборка для Intel (amd64)..."
-    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/network-scanner-darwin-amd64
+    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/network-scanner-darwin-amd64 ./cmd/network-scanner
     echo "✅ Собрано: dist/network-scanner-darwin-amd64"
 fi
 
@@ -57,10 +57,10 @@ echo "🔨 Попытка собрать универсальный бинарн
 if command -v lipo &> /dev/null; then
     # Собираем для обеих архитектур
     echo "Сборка для Intel (amd64)..."
-    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/network-scanner-darwin-amd64-temp
+    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/network-scanner-darwin-amd64-temp ./cmd/network-scanner
     
     echo "Сборка для Apple Silicon (arm64)..."
-    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/network-scanner-darwin-arm64-temp
+    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/network-scanner-darwin-arm64-temp ./cmd/network-scanner
     
     # Создаем universal binary
     echo "Создание universal binary..."
