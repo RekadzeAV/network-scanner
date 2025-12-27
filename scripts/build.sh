@@ -4,28 +4,33 @@
 
 echo "Сборка Network Scanner..."
 
-# Создаем директорию для бинарников
-mkdir -p dist
+# Создаем директорию для бинарников с датой сборки
+BUILD_DATE=$(date +%Y-%m-%d)
+RELEASE_DIR="Release/${BUILD_DATE}"
+mkdir -p "${RELEASE_DIR}"
+echo "📦 Бинарники будут сохранены в: ${RELEASE_DIR}/"
+echo ""
 
 # Текущая платформа
 echo "Сборка для текущей платформы..."
-go build -o dist/network-scanner ./cmd/network-scanner
+go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner" ./cmd/network-scanner
 
 # Linux 64-bit
 echo "Сборка для Linux 64-bit..."
-GOOS=linux GOARCH=amd64 go build -o dist/network-scanner-linux-amd64 ./cmd/network-scanner
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-linux-amd64" ./cmd/network-scanner
 
 # Windows 64-bit
 echo "Сборка для Windows 64-bit..."
-GOOS=windows GOARCH=amd64 go build -o dist/network-scanner-windows-amd64.exe ./cmd/network-scanner
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-windows-amd64.exe" ./cmd/network-scanner
 
 # macOS Intel
 echo "Сборка для macOS Intel..."
-GOOS=darwin GOARCH=amd64 go build -o dist/network-scanner-darwin-amd64 ./cmd/network-scanner
+GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-darwin-amd64" ./cmd/network-scanner
 
 # macOS Apple Silicon
 echo "Сборка для macOS Apple Silicon..."
-GOOS=darwin GOARCH=arm64 go build -o dist/network-scanner-darwin-arm64 ./cmd/network-scanner
+GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-darwin-arm64" ./cmd/network-scanner
 
-echo "Сборка завершена! Бинарники находятся в директории dist/"
+echo ""
+echo "✅ Сборка завершена! Бинарники находятся в директории ${RELEASE_DIR}/"
 

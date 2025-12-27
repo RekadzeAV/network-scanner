@@ -23,8 +23,12 @@ fi
 echo "✅ Go найден: $(go version)"
 echo ""
 
-# Создаем директорию для бинарников
-mkdir -p dist
+# Создаем директорию для бинарников с датой сборки
+BUILD_DATE=$(date +%Y-%m-%d)
+RELEASE_DIR="Release/${BUILD_DATE}"
+mkdir -p "${RELEASE_DIR}"
+echo "📦 Бинарники будут сохранены в: ${RELEASE_DIR}/"
+echo ""
 
 # Установка зависимостей
 echo "📦 Установка зависимостей..."
@@ -41,12 +45,12 @@ echo ""
 # Сборка для текущей архитектуры
 if [ "$ARCH" = "arm64" ]; then
     echo "🔨 Сборка для Apple Silicon (arm64)..."
-    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/network-scanner-darwin-arm64 ./cmd/network-scanner
-    echo "✅ Собрано: dist/network-scanner-darwin-arm64"
+    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-darwin-arm64" ./cmd/network-scanner
+    echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-darwin-arm64"
 elif [ "$ARCH" = "x86_64" ]; then
     echo "🔨 Сборка для Intel (amd64)..."
-    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/network-scanner-darwin-amd64 ./cmd/network-scanner
-    echo "✅ Собрано: dist/network-scanner-darwin-amd64"
+    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-darwin-amd64" ./cmd/network-scanner
+    echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-darwin-amd64"
 fi
 
 # Попытка собрать для обеих архитектур (если возможно)
@@ -55,25 +59,27 @@ echo "🔨 Попытка собрать универсальный бинарн
 
 # Проверяем наличие lipo (для создания universal binary)
 if command -v lipo &> /dev/null; then
+    # Создаем временную директорию для промежуточных файлов
+    TEMP_DIR=$(mktemp -d)
+    
     # Собираем для обеих архитектур
     echo "Сборка для Intel (amd64)..."
-    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/network-scanner-darwin-amd64-temp ./cmd/network-scanner
+    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${TEMP_DIR}/network-scanner-darwin-amd64-temp" ./cmd/network-scanner
     
     echo "Сборка для Apple Silicon (arm64)..."
-    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/network-scanner-darwin-arm64-temp ./cmd/network-scanner
+    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${TEMP_DIR}/network-scanner-darwin-arm64-temp" ./cmd/network-scanner
     
     # Создаем universal binary
     echo "Создание universal binary..."
     lipo -create \
-        dist/network-scanner-darwin-amd64-temp \
-        dist/network-scanner-darwin-arm64-temp \
-        -output dist/network-scanner-darwin-universal
+        "${TEMP_DIR}/network-scanner-darwin-amd64-temp" \
+        "${TEMP_DIR}/network-scanner-darwin-arm64-temp" \
+        -output "${RELEASE_DIR}/network-scanner-darwin-universal"
     
     # Удаляем временные файлы
-    rm dist/network-scanner-darwin-amd64-temp
-    rm dist/network-scanner-darwin-arm64-temp
+    rm -rf "${TEMP_DIR}"
     
-    echo "✅ Создан универсальный бинарник: dist/network-scanner-darwin-universal"
+    echo "✅ Создан универсальный бинарник: ${RELEASE_DIR}/network-scanner-darwin-universal"
 else
     echo "⚠️  lipo не найден, пропускаем создание universal binary"
     echo "   (это нормально, если вы не используете Xcode Command Line Tools)"
@@ -84,10 +90,10 @@ echo "=========================================="
 echo "✅ Сборка завершена!"
 echo "=========================================="
 echo ""
-echo "Собранные файлы находятся в директории dist/:"
-ls -lh dist/network-scanner-darwin* 2>/dev/null || echo "Файлы не найдены"
+echo "Собранные файлы находятся в директории ${RELEASE_DIR}/:"
+ls -lh "${RELEASE_DIR}"/network-scanner-darwin* 2>/dev/null || echo "Файлы не найдены"
 echo ""
 echo "Для запуска:"
-echo "  ./dist/network-scanner-darwin-<arch>"
+echo "  ./${RELEASE_DIR}/network-scanner-darwin-<arch>"
 echo ""
 
