@@ -56,14 +56,38 @@ func detectLocalNetwork() (string, error) {
 
 // parseNetworkRange парсит диапазон сети (например, 192.168.1.0/24)
 func parseNetworkRange(network string) ([]net.IP, error) {
-	ip, ipnet, err := net.ParseCIDR(network)
+	_, ipnet, err := net.ParseCIDR(network)
 	if err != nil {
 		return nil, err
 	}
 
 	var ips []net.IP
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-		ips = append(ips, net.IP{ip[0], ip[1], ip[2], ip[3]})
+	networkIP := ipnet.IP.Mask(ipnet.Mask)
+	
+	// Получаем broadcast адрес
+	broadcast := make(net.IP, len(networkIP))
+	copy(broadcast, networkIP)
+	for i := range broadcast {
+		broadcast[i] |= ^ipnet.Mask[i]
+	}
+
+	// Генерируем все IP адреса в подсети, исключая сетевой и broadcast адреса
+	ip := make(net.IP, len(networkIP))
+	copy(ip, networkIP)
+	inc(ip) // Пропускаем сетевой адрес
+	
+	for ipnet.Contains(ip) {
+		// Пропускаем broadcast адрес
+		if ip.Equal(broadcast) {
+			break
+		}
+		
+		// Создаем копию IP для добавления в список
+		ipCopy := make(net.IP, 4)
+		copy(ipCopy, ip.To4())
+		ips = append(ips, ipCopy)
+		
+		inc(ip)
 	}
 
 	return ips, nil

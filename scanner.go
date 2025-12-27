@@ -86,6 +86,8 @@ func (ns *NetworkScanner) Scan() {
 	fmt.Println("Проверка доступности хостов...")
 	aliveIPs := make([]net.IP, 0)
 	aliveMutex := sync.Mutex{}
+	checkedCount := 0
+	checkedMutex := sync.Mutex{}
 	
 	for _, ip := range ips {
 		select {
@@ -105,57 +107,84 @@ func (ns *NetworkScanner) Scan() {
 				aliveIPs = append(aliveIPs, ip)
 				aliveMutex.Unlock()
 			}
+			
+			// Обновляем счетчик прогресса
+			checkedMutex.Lock()
+			checkedCount++
+			if checkedCount%10 == 0 || checkedCount == len(ips) {
+				fmt.Printf("\rПроверено хостов: %d/%d, найдено активных: %d", checkedCount, len(ips), len(aliveIPs))
+			}
+			checkedMutex.Unlock()
 		}(ip)
 	}
 	ns.wg.Wait()
+	fmt.Println() // Новая строка после прогресса
 
 	fmt.Printf("Найдено %d активных хостов\n", len(aliveIPs))
 
 	// Сканируем порты на активных хостах
-	fmt.Println("Сканирование портов...")
-	for _, ip := range aliveIPs {
-		select {
-		case <-ns.ctx.Done():
-			return
-		default:
+	if len(aliveIPs) > 0 {
+		fmt.Println("Сканирование портов...")
+		scannedCount := 0
+		scannedMutex := sync.Mutex{}
+		
+		for _, ip := range aliveIPs {
+			select {
+			case <-ns.ctx.Done():
+				return
+			default:
+			}
+
+			sem <- struct{}{}
+			ns.wg.Add(1)
+			go func(ip net.IP) {
+				defer func() { <-sem }()
+				defer ns.wg.Done()
+
+				ns.scanHost(ip, ports)
+				
+				// Обновляем счетчик прогресса
+				scannedMutex.Lock()
+				scannedCount++
+				fmt.Printf("\rСканирование портов: %d/%d хостов", scannedCount, len(aliveIPs))
+				scannedMutex.Unlock()
+			}(ip)
 		}
-
-		sem <- struct{}{}
-		ns.wg.Add(1)
-		go func(ip net.IP) {
-			defer func() { <-sem }()
-			defer ns.wg.Done()
-
-			ns.scanHost(ip, ports)
-		}(ip)
+		ns.wg.Wait()
+		fmt.Println() // Новая строка после прогресса
 	}
-	ns.wg.Wait()
 
 	fmt.Println("Сканирование завершено")
 }
 
 // isHostAlive проверяет, доступен ли хост
 func (ns *NetworkScanner) isHostAlive(ip string) bool {
-	// Используем ICMP ping или TCP connect на порт 80/443
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(ip, "80"), ns.timeout)
-	if err != nil {
-		conn, err = net.DialTimeout("tcp", net.JoinHostPort(ip, "443"), ns.timeout)
-		if err != nil {
-			// Пробуем ARP
-			return ns.checkARP(ip)
+	// Используем TCP connect на несколько популярных портов
+	commonPorts := []string{"80", "443", "22", "135", "139", "445"}
+	
+	for _, port := range commonPorts {
+		select {
+		case <-ns.ctx.Done():
+			return false
+		default:
+		}
+		
+		conn, err := net.DialTimeout("tcp", net.JoinHostPort(ip, port), ns.timeout)
+		if err == nil {
+			conn.Close()
+			return true
 		}
 	}
-	if conn != nil {
-		conn.Close()
-		return true
-	}
+	
+	// Если ни один порт не ответил, считаем хост недоступным
+	// (ARP проверка слишком медленная для массового сканирования)
 	return false
 }
 
-// checkARP проверяет наличие хоста через ARP
+// checkARP проверяет наличие хоста через ARP (не используется в быстром сканировании)
 func (ns *NetworkScanner) checkARP(ip string) bool {
-	// Упрощенная проверка - пытаемся отправить ARP запрос
-	// В реальности нужно использовать gopacket для отправки ARP
+	// Эта функция оставлена для будущих улучшений
+	// ARP запросы слишком медленные для массового сканирования
 	return false
 }
 
