@@ -8,7 +8,7 @@ REM Получаем дату в формате YYYY-MM-DD
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
 set BUILD_DATE=%datetime:~0,4%-%datetime:~4,2%-%datetime:~6,2%
 
-set RELEASE_DIR=Release\%BUILD_DATE%
+set RELEASE_DIR=dist\%BUILD_DATE%
 if not exist "%RELEASE_DIR%" mkdir "%RELEASE_DIR%"
 echo 📦 Бинарники будут сохранены в: %RELEASE_DIR%\
 echo.

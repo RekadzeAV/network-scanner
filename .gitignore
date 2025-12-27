@@ -2,10 +2,13 @@
 network-scanner
 network-scanner.exe
 network-scanner-*
+gui
+gui.exe
+gui-*
 
-# Release builds
-Release/
+# Build outputs
 dist/
+Release/
 
 # Go
 *.exe

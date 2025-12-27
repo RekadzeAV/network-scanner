@@ -8,6 +8,7 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 
+	"network-scanner/internal/network"
 	"network-scanner/internal/scanner"
 )
 
@@ -252,32 +253,8 @@ func DisplayAnalytics(results []scanner.Result) {
 
 // getServiceNameForDisplay возвращает название сервиса по порту (для отображения)
 func getServiceNameForDisplay(port int) string {
-	// Используем функцию из пакета network
-	// Но для отображения можем использовать локальную версию
-	services := map[int]string{
-		20:   "FTP-Data",
-		21:   "FTP",
-		22:   "SSH",
-		23:   "Telnet",
-		25:   "SMTP",
-		53:   "DNS",
-		80:   "HTTP",
-		110:  "POP3",
-		143:  "IMAP",
-		443:  "HTTPS",
-		445:  "SMB",
-		3306: "MySQL",
-		3389: "RDP",
-		5432: "PostgreSQL",
-		5900: "VNC",
-		8080: "HTTP-Proxy",
-		8443: "HTTPS-Alt",
-	}
-	
-	if name, ok := services[port]; ok {
-		return name
-	}
-	return "Unknown"
+	// Используем функцию из пакета network для единообразия
+	return network.GetServiceName(port)
 }
 
 // getProtocolDescription возвращает описание протокола
@@ -353,5 +330,180 @@ func countTotalOpenPorts(results []scanner.Result) int {
 		}
 	}
 	return count
+}
+
+// FormatResultsAsText форматирует результаты сканирования в текстовый формат
+func FormatResultsAsText(results []scanner.Result) string {
+	if len(results) == 0 {
+		return "Результаты сканирования не найдены\n"
+	}
+
+	var sb strings.Builder
+	
+	// Заголовок
+	sb.WriteString(strings.Repeat("=", 100) + "\n")
+	sb.WriteString("РЕЗУЛЬТАТЫ СКАНИРОВАНИЯ СЕТИ\n")
+	sb.WriteString(strings.Repeat("=", 100) + "\n\n")
+	
+	// Заголовок таблицы
+	sb.WriteString(fmt.Sprintf("%-18s %-18s %-25s %-30s %-25s %-25s %-20s\n",
+		"IP", "MAC", "Hostname", "Порты", "Протоколы", "Тип устройства", "Производитель"))
+	sb.WriteString(strings.Repeat("-", 160) + "\n")
+	
+	// Данные
+	for _, result := range results {
+		portsStr := formatPorts(result.Ports)
+		protocolsStr := strings.Join(result.Protocols, ", ")
+		if protocolsStr == "" {
+			protocolsStr = "-"
+		}
+		
+		mac := result.MAC
+		if mac == "" {
+			mac = "-"
+		}
+		
+		hostname := result.Hostname
+		if hostname == "" {
+			hostname = "-"
+		}
+		
+		deviceType := result.DeviceType
+		if deviceType == "" {
+			deviceType = "Unknown"
+		}
+		
+		vendor := result.DeviceVendor
+		if vendor == "" {
+			vendor = "-"
+		}
+		
+		// Форматируем строку таблицы
+		sb.WriteString(fmt.Sprintf("%-18s %-18s %-25s %-30s %-25s %-25s %-20s\n",
+			result.IP, mac, hostname, portsStr, protocolsStr, deviceType, vendor))
+		sb.WriteString("\n")
+	}
+	
+	// Аналитика
+	sb.WriteString("\n" + strings.Repeat("=", 100) + "\n")
+	sb.WriteString("АНАЛИТИКА ПРОВОДНЫХ СЕТЕЙ\n")
+	sb.WriteString(strings.Repeat("=", 100) + "\n\n")
+	
+	// Статистика по протоколам
+	protocolStats := make(map[string]int)
+	portStats := make(map[int]int)
+	deviceTypes := make(map[string]int)
+	
+	for _, result := range results {
+		for _, protocol := range result.Protocols {
+			protocolStats[protocol]++
+		}
+		for _, port := range result.Ports {
+			if port.State == "open" {
+				portStats[port.Port]++
+			}
+		}
+		if result.DeviceType != "" {
+			deviceTypes[result.DeviceType]++
+		}
+	}
+	
+	sb.WriteString("ПРОТОКОЛЫ В СЕТИ:\n")
+	sb.WriteString(strings.Repeat("-", 100) + "\n")
+	if len(protocolStats) == 0 {
+		sb.WriteString("Протоколы не обнаружены\n")
+	} else {
+		protocolList := make([]struct {
+			name  string
+			count int
+		}, 0, len(protocolStats))
+		for protocol, count := range protocolStats {
+			protocolList = append(protocolList, struct {
+				name  string
+				count int
+			}{protocol, count})
+		}
+		sort.Slice(protocolList, func(i, j int) bool {
+			return protocolList[i].count > protocolList[j].count
+		})
+		
+		for _, item := range protocolList {
+			description := getProtocolDescription(item.name)
+			sb.WriteString(fmt.Sprintf("%s: %d устройств - %s\n", item.name, item.count, description))
+		}
+	}
+	sb.WriteString("\n")
+	
+	// Статистика по портам
+	sb.WriteString("ИСПОЛЬЗУЕМЫЕ ПОРТЫ:\n")
+	sb.WriteString(strings.Repeat("-", 100) + "\n")
+	if len(portStats) == 0 {
+		sb.WriteString("Открытые порты не обнаружены\n")
+	} else {
+		portList := make([]struct {
+			port  int
+			count int
+		}, 0, len(portStats))
+		for port, count := range portStats {
+			portList = append(portList, struct {
+				port  int
+				count int
+			}{port, count})
+		}
+		sort.Slice(portList, func(i, j int) bool {
+			return portList[i].count > portList[j].count
+		})
+		
+		for _, item := range portList {
+			service := getServiceNameForDisplay(item.port)
+			purpose := getPortPurpose(item.port)
+			sb.WriteString(fmt.Sprintf("Порт %d: %d устройств - %s (%s)\n", item.port, item.count, service, purpose))
+		}
+	}
+	sb.WriteString("\n")
+	
+	// Статистика по типам устройств
+	sb.WriteString("ТИПЫ УСТРОЙСТВ В СЕТИ:\n")
+	sb.WriteString(strings.Repeat("-", 100) + "\n")
+	if len(deviceTypes) == 0 {
+		sb.WriteString("Типы устройств не определены\n")
+	} else {
+		deviceList := make([]struct {
+			deviceType string
+			count      int
+		}, 0, len(deviceTypes))
+		for deviceType, count := range deviceTypes {
+			deviceList = append(deviceList, struct {
+				deviceType string
+				count      int
+			}{deviceType, count})
+		}
+		sort.Slice(deviceList, func(i, j int) bool {
+			return deviceList[i].count > deviceList[j].count
+		})
+		
+		for _, item := range deviceList {
+			sb.WriteString(fmt.Sprintf("%s: %d\n", item.deviceType, item.count))
+		}
+	}
+	sb.WriteString("\n")
+	
+	// Общая статистика
+	sb.WriteString("ОБЩАЯ СТАТИСТИКА:\n")
+	sb.WriteString(strings.Repeat("-", 100) + "\n")
+	sb.WriteString(fmt.Sprintf("Всего обнаружено устройств: %d\n", len(results)))
+	sb.WriteString(fmt.Sprintf("Устройств с открытыми портами: %d\n", countDevicesWithOpenPorts(results)))
+	sb.WriteString(fmt.Sprintf("Всего открытых портов: %d\n", countTotalOpenPorts(results)))
+	sb.WriteString(fmt.Sprintf("Уникальных протоколов: %d\n", len(protocolStats)))
+	sb.WriteString(fmt.Sprintf("Уникальных портов: %d\n", len(portStats)))
+	sb.WriteString("\n")
+	
+	return sb.String()
+}
+
+// SaveResultsToFile сохраняет результаты сканирования в текстовый файл
+func SaveResultsToFile(results []scanner.Result, filename string) error {
+	text := FormatResultsAsText(results)
+	return os.WriteFile(filename, []byte(text), 0644)
 }
 

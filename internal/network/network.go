@@ -93,7 +93,7 @@ func ParseNetworkRange(network string) ([]net.IP, error) {
 	return ips, nil
 }
 
-// inc увеличивает IP адрес на 1
+// inc увеличивает IP адрес на 1 (используется для генерации диапазона адресов)
 func inc(ip net.IP) {
 	for j := len(ip) - 1; j >= 0; j-- {
 		ip[j]++
@@ -103,49 +103,10 @@ func inc(ip net.IP) {
 	}
 }
 
-// getMACAddress получает MAC адрес по IP (через ARP таблицу)
-func getMACAddress(ip net.IP) (string, error) {
-	// Пытаемся найти MAC в ARP таблице
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		return "", err
-	}
-
-	for _, iface := range interfaces {
-		addrs, err := iface.Addrs()
-		if err != nil {
-			continue
-		}
-
-		for _, addr := range addrs {
-			if ipnet, ok := addr.(*net.IPNet); ok {
-				if ipnet.Contains(ip) {
-					// Пытаемся получить MAC через ARP
-					mac, err := getMACFromARP(ip, iface.Name)
-					if err == nil {
-						return mac, nil
-					}
-				}
-			}
-		}
-	}
-
-	return "", fmt.Errorf("MAC адрес не найден")
-}
-
-// getMACFromARP пытается получить MAC из ARP таблицы
-func getMACFromARP(ip net.IP, ifaceName string) (string, error) {
-	// Читаем /proc/net/arp на Linux или используем системные вызовы
-	// Для кроссплатформенности используем упрощенный подход
-	// В реальности нужно использовать gopacket для отправки ARP запросов
-	
-	// Пока возвращаем пустую строку, реальная реализация будет в scanner.go
-	return "", fmt.Errorf("не реализовано")
-}
 
 // IsPortOpen проверяет, открыт ли порт
 func IsPortOpen(host string, port int, timeout time.Duration) bool {
-	address := fmt.Sprintf("%s:%d", host, port)
+	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 	conn, err := net.DialTimeout("tcp", address, timeout)
 	if err != nil {
 		return false
@@ -220,6 +181,7 @@ func ParsePortRange(portRange string) ([]int, error) {
 	return ports, nil
 }
 
+// parseInt парсит строку в целое число
 func parseInt(s string) (int, error) {
 	var n int
 	_, err := fmt.Sscanf(s, "%d", &n)

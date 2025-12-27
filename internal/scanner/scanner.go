@@ -440,6 +440,7 @@ func (ns *NetworkScanner) GetResults() []Result {
 
 // Вспомогательные функции
 
+// getProtocolFromPort определяет протокол по номеру порта
 func getProtocolFromPort(port int) string {
 	protocols := map[int]string{
 		21:   "FTP",
@@ -462,9 +463,10 @@ func getProtocolFromPort(port int) string {
 	return protocols[port]
 }
 
+// getVendorFromMAC определяет производителя устройства по MAC адресу
+// Использует упрощенную проверку по OUI (первые 3 байта MAC адреса)
+// В реальности нужна полная база данных OUI
 func getVendorFromMAC(mac string) string {
-	// Упрощенная проверка по OUI (первые 3 байта MAC)
-	// В реальности нужна база данных OUI
 	if len(mac) < 8 {
 		return "Unknown"
 	}
@@ -492,6 +494,7 @@ func getVendorFromMAC(mac string) string {
 	return "Unknown"
 }
 
+// appendIfNotExists добавляет элемент в слайс, если его там еще нет
 func appendIfNotExists(slice []string, item string) []string {
 	for _, s := range slice {
 		if s == item {

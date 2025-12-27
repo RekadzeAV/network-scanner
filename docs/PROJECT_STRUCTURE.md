@@ -20,15 +20,20 @@
 ```
 Сканер локальной сети/
 ├── cmd/
-│   └── network-scanner/
-│       └── main.go              # Точка входа приложения
+│   ├── network-scanner/
+│   │   └── main.go              # Точка входа CLI приложения
+│   └── gui/
+│       └── main.go              # Точка входа GUI приложения
 ├── internal/
 │   ├── scanner/
 │   │   └── scanner.go           # Логика сканирования
 │   ├── network/
 │   │   └── network.go           # Работа с сетью
-│   └── display/
-│       └── display.go           # Отображение результатов
+│   ├── display/
+│   │   └── display.go           # Отображение результатов (CLI)
+│   └── gui/
+│       ├── app.go               # Основная логика GUI приложения
+│       └── formatter.go         # Форматирование результатов для GUI
 ├── docs/
 │   ├── README.md                # Основная документация
 │   ├── USER_GUIDE.md            # Руководство пользователя
@@ -68,16 +73,44 @@
 
 ## Изменения в импортах
 
-После реорганизации импорты будут выглядеть так:
+### CLI приложение (cmd/network-scanner/main.go)
 
 ```go
-// main.go
 package main
 
 import (
     "network-scanner/internal/scanner"
     "network-scanner/internal/network"
     "network-scanner/internal/display"
+)
+```
+
+### GUI приложение (cmd/gui/main.go)
+
+```go
+package main
+
+import (
+    "network-scanner/internal/gui"
+)
+
+func main() {
+    app := gui.NewApp()
+    app.Run()
+}
+```
+
+### GUI компоненты (internal/gui/app.go)
+
+```go
+package gui
+
+import (
+    "network-scanner/internal/scanner"
+    "network-scanner/internal/network"
+    "network-scanner/internal/display"
+    "fyne.io/fyne/v2"
+    // ... другие импорты Fyne
 )
 ```
 

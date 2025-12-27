@@ -6,7 +6,7 @@ echo "Сборка Network Scanner..."
 
 # Создаем директорию для бинарников с датой сборки
 BUILD_DATE=$(date +%Y-%m-%d)
-RELEASE_DIR="Release/${BUILD_DATE}"
+RELEASE_DIR="dist/${BUILD_DATE}"
 mkdir -p "${RELEASE_DIR}"
 echo "📦 Бинарники будут сохранены в: ${RELEASE_DIR}/"
 echo ""

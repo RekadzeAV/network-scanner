@@ -21,15 +21,30 @@
 
 ## Быстрый старт
 
+### CLI версия (командная строка)
+
 ```bash
 # Установите зависимости
 go mod download
 
 # Соберите для текущей платформы
-go build -o network-scanner
+go build -o network-scanner ./cmd/network-scanner
 
 # Запустите сканер (автоматически определит сеть)
 ./network-scanner
+```
+
+### GUI версия (графический интерфейс)
+
+```bash
+# Установите зависимости
+go mod download
+
+# Соберите GUI версию
+go build -o network-scanner-gui ./cmd/gui
+
+# Запустите GUI приложение
+./network-scanner-gui
 ```
 
 ## Установка
@@ -161,6 +176,7 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 
 - **[README.md](README.md)** - Основная документация (этот файл)
 - **[USER_GUIDE.md](USER_GUIDE.md)** - Подробное руководство пользователя с примерами
+- **[GUI.md](GUI.md)** - Документация по GUI версии приложения
 - **[INSTALL.md](INSTALL.md)** - Инструкции по установке для разных платформ
 - **[QUICKSTART-macOS.md](QUICKSTART-macOS.md)** - Быстрый старт для macOS
 - **[TECHNICAL.md](TECHNICAL.md)** - Техническая документация для разработчиков
