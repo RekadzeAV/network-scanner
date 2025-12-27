@@ -9,6 +9,7 @@ network-scanner-gui-*
 # Build outputs
 dist/
 Release/
+release/
 
 # Go
 *.exe

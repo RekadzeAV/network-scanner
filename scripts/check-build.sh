@@ -75,14 +75,14 @@ fi
 
 # Попытка сборки
 echo "🔨 Попытка сборки..."
-mkdir -p dist
-if go build -o dist/network-scanner-test ./cmd/network-scanner; then
+mkdir -p release
+if go build -o release/network-scanner-test ./cmd/network-scanner; then
     echo "✅ Сборка успешна!"
     echo ""
-    echo "Бинарник создан: dist/network-scanner-test"
+    echo "Бинарник создан: release/network-scanner-test"
     echo ""
     echo "Для запуска:"
-    echo "  ./dist/network-scanner-test"
+    echo "  ./release/network-scanner-test"
 else
     echo "❌ Ошибка сборки!"
     exit 1

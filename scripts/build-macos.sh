@@ -25,7 +25,7 @@ echo ""
 
 # Создаем директорию для бинарников с датой сборки
 BUILD_DATE=$(date +%Y-%m-%d)
-RELEASE_DIR="dist/${BUILD_DATE}"
+RELEASE_DIR="release/${BUILD_DATE}"
 mkdir -p "${RELEASE_DIR}"
 echo "📦 Бинарники будут сохранены в: ${RELEASE_DIR}/"
 echo ""
