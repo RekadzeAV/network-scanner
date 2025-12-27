@@ -1,6 +1,11 @@
 # Network Scanner - Сканер локальной сети
 
+[![GitHub](https://img.shields.io/github/license/RekadzeAV/network-scanner)](LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
+
 Кроссплатформенная утилита для сканирования локальных сетей с детальной аналитикой.
+
+**Репозиторий:** https://github.com/RekadzeAV/network-scanner
 
 ## 🚀 Быстрый старт
 
