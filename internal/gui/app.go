@@ -15,6 +15,11 @@ import (
 	"network-scanner/internal/scanner"
 )
 
+// scanUpdate содержит результаты сканирования для обновления UI
+type scanUpdate struct {
+	results []scanner.Result
+}
+
 // App представляет GUI приложение
 type App struct {
 	myApp          fyne.App
@@ -33,10 +38,6 @@ type App struct {
 // NewApp создает новый экземпляр GUI приложения
 func NewApp() *App {
 	myApp := app.NewWithID("network-scanner")
-	myApp.SetMetadata(&fyne.AppMetadata{
-		Title:   "Network Scanner",
-		Version: "1.0.0",
-	})
 
 	myWindow := myApp.NewWindow("Network Scanner - Сканер локальной сети")
 	myWindow.Resize(fyne.NewSize(1000, 700))
@@ -163,6 +164,9 @@ func (a *App) startScan() {
 	a.resultsText.ParseMarkdown("## Сканирование запущено...\n\nПожалуйста, подождите.")
 	a.resultsScroll.Refresh()
 
+	// Создаем канал для передачи результатов из горутины
+	resultsChan := make(chan []scanner.Result, 1)
+
 	// Запускаем сканирование в отдельной горутине
 	go func() {
 		// Создаем сканер
@@ -179,8 +183,15 @@ func (a *App) startScan() {
 		// Получаем результаты
 		results := ns.GetResults()
 
-		// Обновляем UI в главном потоке
-		a.myApp.Driver().RunInMain(func() {
+		// Отправляем результаты в канал
+		resultsChan <- results
+	}()
+
+	// Обрабатываем результаты в отдельной горутине с периодической проверкой
+	go func() {
+		select {
+		case results := <-resultsChan:
+			// Обновляем UI в главном потоке через Canvas Refresh
 			a.scanResults = results
 			a.progressBar.SetValue(1.0)
 			a.progressBar.Hide()
@@ -199,9 +210,15 @@ func (a *App) startScan() {
 			a.resultsScroll.ScrollToTop()
 			a.resultsScroll.Refresh()
 			a.resultsText.Refresh()
-			
+			a.progressBar.Refresh()
+			a.statusLabel.Refresh()
 			a.scanButton.Enable()
-		})
+			a.myWindow.Content().Refresh()
+		case <-time.After(300 * time.Second):
+			// Таймаут на случай если сканирование зависло
+			a.statusLabel.SetText("Таймаут сканирования")
+			a.scanButton.Enable()
+		}
 	}()
 }
 
