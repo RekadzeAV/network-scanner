@@ -4,13 +4,7 @@ REM Скрипт для сборки сканера сети для Windows
 echo Сборка Network Scanner...
 
 REM Создаем директорию для бинарников с датой сборки
-for /f "tokens=2-4 delims=/ " %%a in ('date /t') do (set mydate=%%c-%%a-%%b)
-for /f "tokens=1-2 delims=/ " %%a in ("%mydate%") do (
-    set BUILD_DATE=%%a
-)
-if "%BUILD_DATE:~4,1%"=="/" set BUILD_DATE=%BUILD_DATE:~0,4%-%BUILD_DATE:~5,2%-%BUILD_DATE:~8,2%
-
-REM Альтернативный способ получения даты в формате YYYY-MM-DD
+REM Получаем дату в формате YYYY-MM-DD
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
 set BUILD_DATE=%datetime:~0,4%-%datetime:~4,2%-%datetime:~6,2%
 

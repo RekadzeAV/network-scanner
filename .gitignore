@@ -3,6 +3,10 @@ network-scanner
 network-scanner.exe
 network-scanner-*
 
+# Release builds
+Release/
+dist/
+
 # Go
 *.exe
 *.exe~
