@@ -5,6 +5,8 @@ network-scanner-*
 network-scanner-gui
 network-scanner-gui.exe
 network-scanner-gui-*
+gui
+gui.exe
 
 # Build outputs
 dist/
