@@ -19,9 +19,16 @@ go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner" ./cmd/network-scan
 echo "Сборка для Linux 64-bit..."
 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-linux-amd64" ./cmd/network-scanner
 
-# Windows 64-bit
+# Windows 64-bit (требует mingw-w64 для CGO)
 echo "Сборка для Windows 64-bit..."
-GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-windows-amd64.exe" ./cmd/network-scanner
+if command -v x86_64-w64-mingw32-gcc &> /dev/null; then
+    GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-windows-amd64.exe" ./cmd/gui
+    echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-gui-windows-amd64.exe"
+else
+    echo "⚠️  mingw-w64 не найден, пропускаем сборку для Windows"
+    echo "   Установите: brew install mingw-w64"
+    echo "   Или используйте скрипт: ./scripts/build-windows.sh"
+fi
 
 # macOS Intel
 echo "Сборка для macOS Intel..."
