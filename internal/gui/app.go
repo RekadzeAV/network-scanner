@@ -40,8 +40,19 @@ func NewApp() *App {
 	myApp := app.NewWithID("network-scanner")
 
 	myWindow := myApp.NewWindow("Network Scanner - Сканер локальной сети")
-	myWindow.Resize(fyne.NewSize(1000, 700))
+	
+	// Устанавливаем размер окна, который гарантированно поместится на экране
+	// Используем консервативные размеры, которые подходят даже для маленьких экранов
+	// (например, ноутбуки с разрешением 1366x768)
+	width := float32(950)
+	height := float32(700)
+	
+	myWindow.Resize(fyne.NewSize(width, height))
 	myWindow.CenterOnScreen()
+	
+	// Устанавливаем максимальный размер окна, чтобы оно не выходило за границы экрана
+	// Fyne автоматически ограничит размер окна размером экрана
+	myWindow.SetFixedSize(false) // Позволяем изменять размер, но в пределах экрана
 
 	app := &App{
 		myApp:    myApp,
@@ -50,6 +61,7 @@ func NewApp() *App {
 
 	app.initUI()
 	app.setupEventHandlers()
+	app.autoDetectNetwork()
 
 	return app
 }
@@ -137,6 +149,28 @@ func (a *App) setupEventHandlers() {
 	a.saveButton.OnTapped = func() {
 		a.saveResults()
 	}
+}
+
+// autoDetectNetwork автоматически определяет сеть и заполняет поле ввода
+func (a *App) autoDetectNetwork() {
+	// Запускаем определение сети в отдельной горутине, чтобы не блокировать UI
+	go func() {
+		networkStr, err := network.DetectLocalNetwork()
+		// Обновляем UI в главном потоке через RunOnMainThread
+		a.myApp.Driver().RunOnMainThread(func() {
+			if err == nil && networkStr != "" {
+				// Обновляем UI в главном потоке
+				a.networkEntry.SetText(networkStr)
+				a.statusLabel.SetText(fmt.Sprintf("Сеть определена автоматически: %s", networkStr))
+				a.statusLabel.Refresh()
+				a.networkEntry.Refresh()
+			} else {
+				// Если не удалось определить, оставляем поле пустым
+				a.statusLabel.SetText("Готов к сканированию (сеть будет определена автоматически при запуске)")
+				a.statusLabel.Refresh()
+			}
+		})
+	}()
 }
 
 // startScan запускает процесс сканирования
