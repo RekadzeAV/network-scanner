@@ -82,14 +82,29 @@ go build -o network-scanner-gui ./cmd/gui
 # Linux/Unix
 ./scripts/build.sh
 
-# Windows
+# Windows (на Windows)
 scripts\build.bat
+
+# Сборка для Windows на macOS/Linux (кросскомпиляция)
+./scripts/build-windows.sh  # Требует mingw-w64
 ```
 
 ## 📦 Требования
 
 - Go 1.21 или выше
+- Для GUI версии требуется C компилятор (GCC) из-за CGO
+- Для кросскомпиляции в Windows на macOS/Linux требуется mingw-w64
 - Для получения MAC адресов может потребоваться запуск с правами администратора
+
+### Настройка для кросскомпиляции в Windows
+
+Если вы хотите собирать Windows версию на macOS:
+
+1. Установите mingw-w64: `brew install mingw-w64`
+2. Проверьте окружение: `./scripts/setup-windows-env.sh`
+3. Соберите: `./scripts/build-windows.sh`
+
+Подробнее: [QUICKSTART_WINDOWS_BUILD.md](QUICKSTART_WINDOWS_BUILD.md) или [docs/SETUP_WINDOWS_CROSS_COMPILE.md](docs/SETUP_WINDOWS_CROSS_COMPILE.md)
 
 ## 🎯 Основные возможности
 
