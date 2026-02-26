@@ -90,3 +90,4 @@ go build -o network-scanner-gui-darwin-amd64 ./cmd/gui
 
 **Последнее обновление:** 2024
 
+

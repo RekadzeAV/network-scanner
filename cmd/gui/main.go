@@ -8,7 +8,3 @@ func main() {
 	app := gui.NewApp()
 	app.Run()
 }
-
-
-
-

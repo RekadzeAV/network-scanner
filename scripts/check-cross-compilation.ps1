@@ -164,3 +164,4 @@ Write-Host ""
 Write-Host "Подробная информация: docs/CROSS_COMPILATION_WINDOWS.md" -ForegroundColor Gray
 Write-Host "========================================" -ForegroundColor Cyan
 
+

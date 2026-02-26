@@ -16,14 +16,14 @@ import (
 
 // Result содержит результаты сканирования одного хоста
 type Result struct {
-	IP        string
-	MAC       string
-	Hostname  string
-	Ports     []PortInfo
-	Protocols []string
-	DeviceType string
+	IP           string
+	MAC          string
+	Hostname     string
+	Ports        []PortInfo
+	Protocols    []string
+	DeviceType   string
 	DeviceVendor string
-	IsAlive   bool
+	IsAlive      bool
 }
 
 // PortInfo содержит информацию о порте
@@ -66,7 +66,7 @@ func NewNetworkScanner(network string, timeout time.Duration, portRange string, 
 // Scan запускает сканирование сети
 func (ns *NetworkScanner) Scan() {
 	fmt.Println("Начинаю сканирование сети...")
-	
+
 	// Парсим диапазон сети
 	ips, err := network.ParseNetworkRange(ns.network)
 	if err != nil {
@@ -85,14 +85,14 @@ func (ns *NetworkScanner) Scan() {
 
 	// Создаем пул горутин для сканирования
 	sem := make(chan struct{}, ns.threads)
-	
+
 	// Сначала проверяем доступность хостов (ping)
 	fmt.Println("Проверка доступности хостов...")
 	aliveIPs := make([]net.IP, 0)
 	aliveMutex := sync.Mutex{}
 	checkedCount := 0
 	checkedMutex := sync.Mutex{}
-	
+
 	for _, ip := range ips {
 		select {
 		case <-ns.ctx.Done():
@@ -111,7 +111,7 @@ func (ns *NetworkScanner) Scan() {
 				aliveIPs = append(aliveIPs, ip)
 				aliveMutex.Unlock()
 			}
-			
+
 			// Обновляем счетчик прогресса
 			checkedMutex.Lock()
 			checkedCount++
@@ -131,7 +131,7 @@ func (ns *NetworkScanner) Scan() {
 		fmt.Println("Сканирование портов...")
 		scannedCount := 0
 		scannedMutex := sync.Mutex{}
-		
+
 		for _, ip := range aliveIPs {
 			select {
 			case <-ns.ctx.Done():
@@ -146,7 +146,7 @@ func (ns *NetworkScanner) Scan() {
 				defer ns.wg.Done()
 
 				ns.scanHost(ip, ports)
-				
+
 				// Обновляем счетчик прогресса
 				scannedMutex.Lock()
 				scannedCount++
@@ -165,21 +165,21 @@ func (ns *NetworkScanner) Scan() {
 func (ns *NetworkScanner) isHostAlive(ip string) bool {
 	// Используем TCP connect на несколько популярных портов
 	commonPorts := []string{"80", "443", "22", "135", "139", "445"}
-	
+
 	for _, port := range commonPorts {
 		select {
 		case <-ns.ctx.Done():
 			return false
 		default:
 		}
-		
+
 		conn, err := net.DialTimeout("tcp", net.JoinHostPort(ip, port), ns.timeout)
 		if err == nil {
 			conn.Close()
 			return true
 		}
 	}
-	
+
 	// Если ни один порт не ответил, считаем хост недоступным
 	// (ARP проверка слишком медленная для массового сканирования)
 	return false
@@ -232,7 +232,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 			if !isOpen {
 				state = "closed"
 			}
-			
+
 			portInfo := PortInfo{
 				Port:     port,
 				State:    state,
@@ -240,7 +240,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 				Service:  network.GetServiceName(port),
 			}
 			result.Ports = append(result.Ports, portInfo)
-			
+
 			if isOpen {
 				openPorts++
 				// Определяем протоколы по открытым портам
@@ -470,9 +470,9 @@ func getVendorFromMAC(mac string) string {
 	if len(mac) < 8 {
 		return "Unknown"
 	}
-	
+
 	oui := mac[:8] // Берем первые 8 символов (XX:XX:XX)
-	
+
 	// Небольшая база известных OUI
 	vendors := map[string]string{
 		"00:50:56": "VMware",
@@ -486,11 +486,11 @@ func getVendorFromMAC(mac string) string {
 		"b8:27:eb": "Raspberry Pi",
 		"dc:a6:32": "Raspberry Pi",
 	}
-	
+
 	if vendor, ok := vendors[oui]; ok {
 		return vendor
 	}
-	
+
 	return "Unknown"
 }
 
@@ -503,4 +503,3 @@ func appendIfNotExists(slice []string, item string) []string {
 	}
 	return append(slice, item)
 }
-

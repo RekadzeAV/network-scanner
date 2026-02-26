@@ -10,23 +10,41 @@ echo 📦 Бинарники будут сохранены в: %RELEASE_DIR%\
 echo.
 
 REM Текущая платформа (Windows)
-echo Сборка для Windows 64-bit...
+echo Сборка CLI версии для Windows 64-bit...
+go build -ldflags="-s -w" -o "%RELEASE_DIR%\network-scanner.exe" ./cmd/network-scanner
+
+echo Сборка GUI версии для Windows 64-bit...
 go build -ldflags="-s -w" -o "%RELEASE_DIR%\network-scanner-gui.exe" ./cmd/gui
 
 REM Linux 64-bit
-echo Сборка для Linux 64-bit...
+echo Сборка CLI версии для Linux 64-bit...
+set GOOS=linux
+set GOARCH=amd64
+go build -ldflags="-s -w" -o "%RELEASE_DIR%\network-scanner-linux-amd64" ./cmd/network-scanner
+
+echo Сборка GUI версии для Linux 64-bit...
 set GOOS=linux
 set GOARCH=amd64
 go build -ldflags="-s -w" -o "%RELEASE_DIR%\network-scanner-gui-linux-amd64" ./cmd/gui
 
 REM macOS Intel
-echo Сборка для macOS Intel...
+echo Сборка CLI версии для macOS Intel...
+set GOOS=darwin
+set GOARCH=amd64
+go build -ldflags="-s -w" -o "%RELEASE_DIR%\network-scanner-darwin-amd64" ./cmd/network-scanner
+
+echo Сборка GUI версии для macOS Intel...
 set GOOS=darwin
 set GOARCH=amd64
 go build -ldflags="-s -w" -o "%RELEASE_DIR%\network-scanner-gui-darwin-amd64" ./cmd/gui
 
 REM macOS Apple Silicon
-echo Сборка для macOS Apple Silicon...
+echo Сборка CLI версии для macOS Apple Silicon...
+set GOOS=darwin
+set GOARCH=arm64
+go build -ldflags="-s -w" -o "%RELEASE_DIR%\network-scanner-darwin-arm64" ./cmd/network-scanner
+
+echo Сборка GUI версии для macOS Apple Silicon...
 set GOOS=darwin
 set GOARCH=arm64
 go build -ldflags="-s -w" -o "%RELEASE_DIR%\network-scanner-gui-darwin-arm64" ./cmd/gui

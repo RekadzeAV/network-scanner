@@ -44,13 +44,21 @@ echo ""
 
 # Сборка для текущей архитектуры
 if [ "$ARCH" = "arm64" ]; then
-    echo "🔨 Сборка для Apple Silicon (arm64)..."
+    echo "🔨 Сборка CLI версии для Apple Silicon (arm64)..."
     GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-darwin-arm64" ./cmd/network-scanner
     echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-darwin-arm64"
+    
+    echo "🔨 Сборка GUI версии для Apple Silicon (arm64)..."
+    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-darwin-arm64" ./cmd/gui
+    echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-gui-darwin-arm64"
 elif [ "$ARCH" = "x86_64" ]; then
-    echo "🔨 Сборка для Intel (amd64)..."
+    echo "🔨 Сборка CLI версии для Intel (amd64)..."
     GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-darwin-amd64" ./cmd/network-scanner
     echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-darwin-amd64"
+    
+    echo "🔨 Сборка GUI версии для Intel (amd64)..."
+    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-darwin-amd64" ./cmd/gui
+    echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-gui-darwin-amd64"
 fi
 
 # Попытка собрать для обеих архитектур (если возможно)
@@ -62,11 +70,11 @@ if command -v lipo &> /dev/null; then
     # Создаем временную директорию для промежуточных файлов
     TEMP_DIR=$(mktemp -d)
     
-    # Собираем для обеих архитектур
-    echo "Сборка для Intel (amd64)..."
+    # Собираем CLI версию для обеих архитектур
+    echo "Сборка CLI версии для Intel (amd64)..."
     GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${TEMP_DIR}/network-scanner-darwin-amd64-temp" ./cmd/network-scanner
     
-    echo "Сборка для Apple Silicon (arm64)..."
+    echo "Сборка CLI версии для Apple Silicon (arm64)..."
     GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${TEMP_DIR}/network-scanner-darwin-arm64-temp" ./cmd/network-scanner
     
     # Создаем universal binary

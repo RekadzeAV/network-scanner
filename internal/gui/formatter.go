@@ -14,7 +14,7 @@ func FormatResultsForDisplay(results []scanner.Result) string {
 	}
 
 	var sb strings.Builder
-	
+
 	sb.WriteString("## Результаты сканирования сети\n\n")
 	sb.WriteString(fmt.Sprintf("**Найдено устройств:** %d\n\n", len(results)))
 	sb.WriteString("---\n\n")
@@ -29,7 +29,7 @@ func FormatResultsForDisplay(results []scanner.Result) string {
 		if portsStr == "" {
 			portsStr = "-"
 		}
-		
+
 		// Форматируем протоколы
 		protocolsStr := strings.Join(result.Protocols, ", ")
 		if protocolsStr == "" {
@@ -150,7 +150,3 @@ func escapeMarkdown(s string) string {
 	s = strings.ReplaceAll(s, "\r", " ")
 	return s
 }
-
-
-
-

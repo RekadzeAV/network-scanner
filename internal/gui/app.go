@@ -93,7 +93,7 @@ func (a *App) initUI() {
 	// Область результатов с прокруткой
 	a.resultsText = widget.NewRichText()
 	a.resultsText.Wrapping = fyne.TextWrapWord
-	
+
 	// Создаем прокручиваемый контейнер для результатов
 	// Это ключевое изменение - используем Scroll контейнер для прокрутки результатов
 	a.resultsScroll = container.NewScroll(a.resultsText)
@@ -193,7 +193,7 @@ func (a *App) startScan() {
 	a.progressBar.Show()
 	a.progressBar.SetValue(0)
 	a.statusLabel.SetText("Сканирование запущено...")
-	
+
 	// Очищаем предыдущие результаты
 	a.resultsText.ParseMarkdown("## Сканирование запущено...\n\nПожалуйста, подождите.")
 	a.resultsScroll.Refresh()
@@ -229,7 +229,7 @@ func (a *App) startScan() {
 			a.scanResults = results
 			a.progressBar.SetValue(1.0)
 			a.progressBar.Hide()
-			
+
 			if len(results) == 0 {
 				a.statusLabel.SetText("Сканирование завершено. Результаты не найдены.")
 				a.resultsText.ParseMarkdown("## Результаты сканирования\n\nРезультаты сканирования не найдены.")
@@ -239,7 +239,7 @@ func (a *App) startScan() {
 				a.resultsText.ParseMarkdown(formattedResults)
 				a.saveButton.Enable()
 			}
-			
+
 			// Прокручиваем к началу результатов и обновляем отображение
 			a.resultsScroll.ScrollToTop()
 			a.resultsScroll.Refresh()
@@ -275,7 +275,7 @@ func (a *App) saveResults() {
 
 		// Форматируем результаты в текстовый формат
 		text := display.FormatResultsAsText(a.scanResults)
-		
+
 		_, err = writer.Write([]byte(text))
 		if err != nil {
 			dialog.ShowError(fmt.Errorf("ошибка при сохранении файла: %v", err), a.myWindow)
@@ -290,4 +290,3 @@ func (a *App) saveResults() {
 func (a *App) Run() {
 	a.myWindow.ShowAndRun()
 }
-

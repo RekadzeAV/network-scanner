@@ -63,7 +63,7 @@ func ParseNetworkRange(network string) ([]net.IP, error) {
 
 	var ips []net.IP
 	networkIP := ipnet.IP.Mask(ipnet.Mask)
-	
+
 	// Получаем broadcast адрес
 	broadcast := make(net.IP, len(networkIP))
 	copy(broadcast, networkIP)
@@ -75,18 +75,18 @@ func ParseNetworkRange(network string) ([]net.IP, error) {
 	ip := make(net.IP, len(networkIP))
 	copy(ip, networkIP)
 	inc(ip) // Пропускаем сетевой адрес
-	
+
 	for ipnet.Contains(ip) {
 		// Пропускаем broadcast адрес
 		if ip.Equal(broadcast) {
 			break
 		}
-		
+
 		// Создаем копию IP для добавления в список
 		ipCopy := make(net.IP, 4)
 		copy(ipCopy, ip.To4())
 		ips = append(ips, ipCopy)
-		
+
 		inc(ip)
 	}
 
@@ -102,7 +102,6 @@ func inc(ip net.IP) {
 		}
 	}
 }
-
 
 // IsPortOpen проверяет, открыт ли порт
 func IsPortOpen(host string, port int, timeout time.Duration) bool {
@@ -136,7 +135,7 @@ func GetServiceName(port int) string {
 		8080: "HTTP-Proxy",
 		8443: "HTTPS-Alt",
 	}
-	
+
 	if name, ok := services[port]; ok {
 		return name
 	}
@@ -146,7 +145,7 @@ func GetServiceName(port int) string {
 // ParsePortRange парсит диапазон портов
 func ParsePortRange(portRange string) ([]int, error) {
 	var ports []int
-	
+
 	// Поддержка форматов: "1-1000", "80,443,8080", "80,443-445"
 	parts := strings.Split(portRange, ",")
 	for _, part := range parts {
@@ -177,7 +176,7 @@ func ParsePortRange(portRange string) ([]int, error) {
 			ports = append(ports, port)
 		}
 	}
-	
+
 	return ports, nil
 }
 
@@ -187,4 +186,3 @@ func parseInt(s string) (int, error) {
 	_, err := fmt.Sscanf(s, "%d", &n)
 	return n, err
 }
-
