@@ -186,6 +186,8 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 - **[ANALYSIS.md](ANALYSIS.md)** - Анализ реализации и рекомендации
 - **[DEVELOPMENT_MAP.md](../DEVELOPMENT_MAP.md)** - Детальная карта разработки проекта
 - **[CHANGELOG.md](../CHANGELOG.md)** - История изменений проекта
+- **[QUICKSTART_WINDOWS_BUILD.md](../QUICKSTART_WINDOWS_BUILD.md)** - Быстрый старт: сборка для Windows на macOS
+- **[RELEASE_NOTES_1.0.3.md](../RELEASE_NOTES_1.0.3.md)** - Примечания к релизу 1.0.3
 
 ## Поддержка
 

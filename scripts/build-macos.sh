@@ -3,7 +3,7 @@
 # Скрипт для сборки Network Scanner для macOS
 # Поддерживает обе архитектуры: Intel (amd64) и Apple Silicon (arm64)
 
-set -e  # Остановка при ошибке
+# Не используем set -e, чтобы скрипт продолжал работу при ошибках сборки отдельных версий
 
 echo "=========================================="
 echo "Сборка Network Scanner для macOS"
@@ -50,52 +50,144 @@ ARCH=$(uname -m)
 echo "Текущая архитектура: $ARCH"
 echo ""
 
+# Флаги для отслеживания успешных сборок
+BUILT_CLI_AMD64=false
+BUILT_CLI_ARM64=false
+BUILT_GUI_AMD64=false
+BUILT_GUI_ARM64=false
+
 # Сборка для текущей архитектуры
 if [ "$ARCH" = "arm64" ]; then
     echo "🔨 Сборка CLI версии для Apple Silicon (arm64)..."
-    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-darwin-arm64" ./cmd/network-scanner
-    echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-darwin-arm64"
+    if GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-darwin-arm64" ./cmd/network-scanner; then
+        echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-darwin-arm64"
+        BUILT_CLI_ARM64=true
+    else
+        echo "❌ Ошибка сборки CLI для arm64"
+    fi
     
     echo "🔨 Сборка GUI версии для Apple Silicon (arm64)..."
-    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-darwin-arm64" ./cmd/gui
-    echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-gui-darwin-arm64"
+    # Fyne требует CGO для GUI приложений
+    if CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-darwin-arm64" ./cmd/gui; then
+        echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-gui-darwin-arm64"
+        BUILT_GUI_ARM64=true
+    else
+        echo "❌ Ошибка сборки GUI для arm64"
+        rm -f "${RELEASE_DIR}/network-scanner-gui-darwin-arm64"
+    fi
 elif [ "$ARCH" = "x86_64" ]; then
     echo "🔨 Сборка CLI версии для Intel (amd64)..."
-    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-darwin-amd64" ./cmd/network-scanner
-    echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-darwin-amd64"
+    if GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-darwin-amd64" ./cmd/network-scanner; then
+        echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-darwin-amd64"
+        BUILT_CLI_AMD64=true
+    else
+        echo "❌ Ошибка сборки CLI для amd64"
+    fi
     
     echo "🔨 Сборка GUI версии для Intel (amd64)..."
-    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-darwin-amd64" ./cmd/gui
-    echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-gui-darwin-amd64"
+    # Fyne требует CGO для GUI приложений
+    if CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-darwin-amd64" ./cmd/gui; then
+        echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-gui-darwin-amd64"
+        BUILT_GUI_AMD64=true
+    else
+        echo "❌ Ошибка сборки GUI для amd64"
+        rm -f "${RELEASE_DIR}/network-scanner-gui-darwin-amd64"
+    fi
 fi
 
-# Попытка собрать для обеих архитектур (если возможно)
+# Попытка собрать для обеих архитектур и создать universal binary
 echo ""
-echo "🔨 Попытка собрать универсальный бинарник (universal binary)..."
+echo "🔨 Попытка собрать универсальные бинарники (universal binary)..."
 
 # Проверяем наличие lipo (для создания universal binary)
 if command -v lipo &> /dev/null; then
     # Создаем временную директорию для промежуточных файлов
     TEMP_DIR=$(mktemp -d)
     
-    # Собираем CLI версию для обеих архитектур
-    echo "Сборка CLI версии для Intel (amd64)..."
-    GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${TEMP_DIR}/network-scanner-darwin-amd64-temp" ./cmd/network-scanner
+    # Собираем CLI версию для обеих архитектур (если еще не собраны)
+    if [ "$BUILT_CLI_AMD64" = false ]; then
+        echo "Сборка CLI версии для Intel (amd64)..."
+        if GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${TEMP_DIR}/network-scanner-darwin-amd64-temp" ./cmd/network-scanner; then
+            BUILT_CLI_AMD64=true
+        fi
+    else
+        if [ -f "${RELEASE_DIR}/network-scanner-darwin-amd64" ]; then
+            cp "${RELEASE_DIR}/network-scanner-darwin-amd64" "${TEMP_DIR}/network-scanner-darwin-amd64-temp"
+        else
+            BUILT_CLI_AMD64=false
+        fi
+    fi
     
-    echo "Сборка CLI версии для Apple Silicon (arm64)..."
-    GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${TEMP_DIR}/network-scanner-darwin-arm64-temp" ./cmd/network-scanner
+    if [ "$BUILT_CLI_ARM64" = false ]; then
+        echo "Сборка CLI версии для Apple Silicon (arm64)..."
+        if GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${TEMP_DIR}/network-scanner-darwin-arm64-temp" ./cmd/network-scanner; then
+            BUILT_CLI_ARM64=true
+        fi
+    else
+        if [ -f "${RELEASE_DIR}/network-scanner-darwin-arm64" ]; then
+            cp "${RELEASE_DIR}/network-scanner-darwin-arm64" "${TEMP_DIR}/network-scanner-darwin-arm64-temp"
+        else
+            BUILT_CLI_ARM64=false
+        fi
+    fi
     
-    # Создаем universal binary
-    echo "Создание universal binary..."
-    lipo -create \
-        "${TEMP_DIR}/network-scanner-darwin-amd64-temp" \
-        "${TEMP_DIR}/network-scanner-darwin-arm64-temp" \
-        -output "${RELEASE_DIR}/network-scanner-darwin-universal"
+    # Создаем universal binary для CLI
+    if [ "$BUILT_CLI_AMD64" = true ] && [ "$BUILT_CLI_ARM64" = true ]; then
+        echo "Создание universal binary для CLI..."
+        if lipo -create \
+            "${TEMP_DIR}/network-scanner-darwin-amd64-temp" \
+            "${TEMP_DIR}/network-scanner-darwin-arm64-temp" \
+            -output "${RELEASE_DIR}/network-scanner-darwin-universal" 2>&1; then
+            echo "✅ Создан универсальный бинарник CLI: ${RELEASE_DIR}/network-scanner-darwin-universal"
+        else
+            echo "⚠️  Не удалось создать universal binary для CLI"
+            rm -f "${RELEASE_DIR}/network-scanner-darwin-universal"
+        fi
+    fi
+    
+    # Собираем GUI версию для обеих архитектур (если еще не собраны)
+    if [ "$BUILT_GUI_AMD64" = false ]; then
+        echo "Сборка GUI версии для Intel (amd64)..."
+        if CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${TEMP_DIR}/network-scanner-gui-darwin-amd64-temp" ./cmd/gui 2>&1; then
+            BUILT_GUI_AMD64=true
+        fi
+    else
+        if [ -f "${RELEASE_DIR}/network-scanner-gui-darwin-amd64" ]; then
+            cp "${RELEASE_DIR}/network-scanner-gui-darwin-amd64" "${TEMP_DIR}/network-scanner-gui-darwin-amd64-temp"
+        else
+            BUILT_GUI_AMD64=false
+        fi
+    fi
+    
+    if [ "$BUILT_GUI_ARM64" = false ]; then
+        echo "Сборка GUI версии для Apple Silicon (arm64)..."
+        if CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${TEMP_DIR}/network-scanner-gui-darwin-arm64-temp" ./cmd/gui 2>&1; then
+            BUILT_GUI_ARM64=true
+        fi
+    else
+        if [ -f "${RELEASE_DIR}/network-scanner-gui-darwin-arm64" ]; then
+            cp "${RELEASE_DIR}/network-scanner-gui-darwin-arm64" "${TEMP_DIR}/network-scanner-gui-darwin-arm64-temp"
+        else
+            BUILT_GUI_ARM64=false
+        fi
+    fi
+    
+    # Создаем universal binary для GUI
+    if [ "$BUILT_GUI_AMD64" = true ] && [ "$BUILT_GUI_ARM64" = true ]; then
+        echo "Создание universal binary для GUI..."
+        if lipo -create \
+            "${TEMP_DIR}/network-scanner-gui-darwin-amd64-temp" \
+            "${TEMP_DIR}/network-scanner-gui-darwin-arm64-temp" \
+            -output "${RELEASE_DIR}/network-scanner-gui-darwin-universal" 2>&1; then
+            echo "✅ Создан универсальный бинарник GUI: ${RELEASE_DIR}/network-scanner-gui-darwin-universal"
+        else
+            echo "⚠️  Не удалось создать universal binary для GUI"
+            rm -f "${RELEASE_DIR}/network-scanner-gui-darwin-universal"
+        fi
+    fi
     
     # Удаляем временные файлы
     rm -rf "${TEMP_DIR}"
-    
-    echo "✅ Создан универсальный бинарник: ${RELEASE_DIR}/network-scanner-darwin-universal"
 else
     echo "⚠️  lipo не найден, пропускаем создание universal binary"
     echo "   (это нормально, если вы не используете Xcode Command Line Tools)"
@@ -115,9 +207,18 @@ echo "✅ Сборка завершена!"
 echo "=========================================="
 echo ""
 echo "Собранные файлы находятся в директории ${RELEASE_DIR}/:"
-ls -lh "${RELEASE_DIR}"/network-scanner-darwin* 2>/dev/null || echo "Файлы не найдены"
+echo ""
+echo "CLI версии:"
+ls -lh "${RELEASE_DIR}"/network-scanner-darwin-* 2>/dev/null | grep -v "gui" || echo "  (нет файлов)"
+echo ""
+echo "GUI версии:"
+ls -lh "${RELEASE_DIR}"/network-scanner-gui-darwin-* 2>/dev/null || echo "  (нет файлов)"
+echo ""
+echo "Универсальные бинарники:"
+ls -lh "${RELEASE_DIR}"/network-scanner*-universal 2>/dev/null || echo "  (нет файлов)"
 echo ""
 echo "Для запуска:"
-echo "  ./${RELEASE_DIR}/network-scanner-darwin-<arch>"
+echo "  CLI: ./${RELEASE_DIR}/network-scanner-darwin-<arch>"
+echo "  GUI: ./${RELEASE_DIR}/network-scanner-gui-darwin-<arch>"
 echo ""
 

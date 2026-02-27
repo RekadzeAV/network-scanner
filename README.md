@@ -61,6 +61,8 @@ go build -o network-scanner-gui ./cmd/gui
 - **[ANALYSIS.md](docs/ANALYSIS.md)** - Анализ проекта
 - **[DEVELOPMENT_MAP.md](DEVELOPMENT_MAP.md)** - Детальная карта разработки проекта
 - **[CHANGELOG.md](CHANGELOG.md)** - История изменений проекта
+- **[QUICKSTART_WINDOWS_BUILD.md](QUICKSTART_WINDOWS_BUILD.md)** - Быстрый старт: сборка для Windows на macOS
+- **[RELEASE_NOTES_1.0.3.md](RELEASE_NOTES_1.0.3.md)** - Примечания к релизу 1.0.3
 
 ## 🔧 Сборка
 
@@ -151,3 +153,4 @@ scripts\build.bat
 - [Анализ проекта](docs/ANALYSIS.md) - Анализ проекта
 - [Карта разработки](DEVELOPMENT_MAP.md) - Детальная карта разработки
 - [История изменений](CHANGELOG.md) - История изменений
+- [Быстрый старт: Windows сборка](QUICKSTART_WINDOWS_BUILD.md) - Сборка для Windows на macOS

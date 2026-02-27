@@ -24,14 +24,16 @@ echo "Сборка CLI версии для текущей платформы..."
 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner" ./cmd/network-scanner
 
 echo "Сборка GUI версии для текущей платформы..."
-go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui" ./cmd/gui
+# Fyne требует CGO для GUI приложений
+CGO_ENABLED=1 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui" ./cmd/gui
 
 # Linux 64-bit
 echo "Сборка CLI версии для Linux 64-bit..."
 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-linux-amd64" ./cmd/network-scanner
 
 echo "Сборка GUI версии для Linux 64-bit..."
-GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-linux-amd64" ./cmd/gui
+# Fyne требует CGO для GUI приложений
+CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-linux-amd64" ./cmd/gui
 
 # Windows 64-bit
 echo "Сборка CLI версии для Windows 64-bit..."
@@ -53,14 +55,16 @@ echo "Сборка CLI версии для macOS Intel..."
 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-darwin-amd64" ./cmd/network-scanner
 
 echo "Сборка GUI версии для macOS Intel..."
-GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-darwin-amd64" ./cmd/gui
+# Fyne требует CGO для GUI приложений
+CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-darwin-amd64" ./cmd/gui
 
 # macOS Apple Silicon
 echo "Сборка CLI версии для macOS Apple Silicon..."
 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-darwin-arm64" ./cmd/network-scanner
 
 echo "Сборка GUI версии для macOS Apple Silicon..."
-GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-darwin-arm64" ./cmd/gui
+# Fyne требует CGO для GUI приложений
+CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-darwin-arm64" ./cmd/gui
 
 # Копируем инструкцию по эксплуатации в папку релиза
 if [ -f "Инструкция по эксплуатации.md" ]; then

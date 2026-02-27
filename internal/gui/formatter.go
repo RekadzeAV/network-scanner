@@ -20,9 +20,9 @@ func FormatResultsForDisplay(results []scanner.Result) string {
 	sb.WriteString(fmt.Sprintf("**Найдено устройств:** %d\n\n", len(results)))
 	sb.WriteString("---\n\n")
 
-	// Таблица результатов - порядок колонок: HostName / IP / MAC / Порты / Протокол / Тип устройства / Производитель
-	sb.WriteString("| HostName | IP | MAC | Порты | Протокол | Тип устройства | Производитель |\n")
-	sb.WriteString("|----------|----|-----|-------|----------|----------------|---------------|\n")
+	// Таблица результатов - порядок колонок: HostName / IP / MAC / Порты
+	sb.WriteString("| HostName | IP | MAC | Порты |\n")
+	sb.WriteString("|----------|----|-----|-------|\n")
 
 	for _, result := range results {
 		// Форматируем порты
@@ -31,17 +31,8 @@ func FormatResultsForDisplay(results []scanner.Result) string {
 			portsStr = "-"
 		}
 
-		// Форматируем протоколы
-		protocolsStr := strings.Join(result.Protocols, ", ")
-		if protocolsStr == "" {
-			protocolsStr = "-"
-		}
-
-		// Форматируем MAC
+		// Форматируем MAC (если пустой, оставляем пустую строку)
 		mac := result.MAC
-		if mac == "" {
-			mac = "-"
-		}
 
 		// Форматируем hostname
 		hostname := result.Hostname
@@ -49,27 +40,42 @@ func FormatResultsForDisplay(results []scanner.Result) string {
 			hostname = "-"
 		}
 
-		deviceType := result.DeviceType
-		if deviceType == "" {
-			deviceType = "Unknown"
+		// Ограничиваем длину полей для корректного отображения в таблице (до экранирования)
+		hostname = strings.TrimSpace(hostname)
+		ip := strings.TrimSpace(result.IP)
+		mac = strings.TrimSpace(mac)
+		portsStr = strings.TrimSpace(portsStr)
+
+		// Убеждаемся, что пустые значения отображаются как "-" (кроме MAC, который может быть пустым)
+		if hostname == "" {
+			hostname = "-"
+		}
+		if ip == "" {
+			ip = "-"
+		}
+		// MAC может быть пустым, не заменяем на "-"
+		if portsStr == "" {
+			portsStr = "-"
 		}
 
-		vendor := result.DeviceVendor
-		if vendor == "" {
-			vendor = "-"
-		}
+		// Ограничиваем длину полей для корректного отображения в таблице
+		hostname = truncateString(hostname, 30)
+		ip = truncateString(ip, 18)
+		mac = truncateString(mac, 18)
+		// Порты не обрезаем слишком сильно, чтобы показать больше информации
+		portsStr = truncateString(portsStr, 500)
 
-		// Экранируем символы для Markdown таблицы
-		ip := escapeMarkdown(result.IP)
-		mac = escapeMarkdown(mac)
+		// Экранируем символы для Markdown таблицы (после обрезки)
 		hostname = escapeMarkdown(hostname)
+		ip = escapeMarkdown(ip)
+		// MAC может быть пустым, разрешаем пустую строку
+		mac = escapeMarkdown(mac, true)
 		portsStr = escapeMarkdown(portsStr)
-		protocolsStr = escapeMarkdown(protocolsStr)
-		deviceType = escapeMarkdown(deviceType)
-		vendor = escapeMarkdown(vendor)
 
-		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s | %s |\n",
-			hostname, ip, mac, portsStr, protocolsStr, deviceType, vendor))
+		// Формируем строку таблицы с правильным порядком колонок:
+		// HostName | IP | MAC | Порты
+		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s |\n",
+			hostname, ip, mac, portsStr))
 	}
 
 	sb.WriteString("\n---\n\n")
@@ -215,13 +221,20 @@ func FormatResultsForDisplay(results []scanner.Result) string {
 }
 
 // formatPorts форматирует список портов для отображения
+// Ограничивает количество портов для читаемости таблицы
 func formatPorts(ports []scanner.PortInfo) string {
 	if len(ports) == 0 {
 		return ""
 	}
 
 	var portStrs []string
-	for _, p := range ports {
+	maxPorts := 50 // Максимальное количество портов для отображения
+	for i, p := range ports {
+		if i >= maxPorts {
+			remaining := len(ports) - maxPorts
+			portStrs = append(portStrs, fmt.Sprintf("... и еще %d", remaining))
+			break
+		}
 		if p.State == "open" {
 			portStr := fmt.Sprintf("%d/%s", p.Port, p.Protocol)
 			if p.Service != "Unknown" {
@@ -235,10 +248,36 @@ func formatPorts(ports []scanner.PortInfo) string {
 }
 
 // escapeMarkdown экранирует специальные символы Markdown
-func escapeMarkdown(s string) string {
+// Если передать true для allowEmpty, пустая строка останется пустой (не заменится на "-")
+func escapeMarkdown(s string, allowEmpty ...bool) string {
+	allowEmptyStr := false
+	if len(allowEmpty) > 0 {
+		allowEmptyStr = allowEmpty[0]
+	}
+
+	if s == "" && !allowEmptyStr {
+		return "-"
+	}
+	if s == "" {
+		return ""
+	}
 	// Заменяем символы, которые могут сломать Markdown таблицу
 	s = strings.ReplaceAll(s, "|", "\\|")
 	s = strings.ReplaceAll(s, "\n", " ")
 	s = strings.ReplaceAll(s, "\r", " ")
+	s = strings.ReplaceAll(s, "\t", " ")
+	// Убираем множественные пробелы
+	s = strings.Join(strings.Fields(s), " ")
 	return s
+}
+
+// truncateString обрезает строку до указанной длины и добавляет "..."
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
 }

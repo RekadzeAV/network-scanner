@@ -20,7 +20,7 @@ func DetectLocalNetwork() (string, error) {
 		}
 		interfacesChan <- interfaces
 	}()
-	
+
 	var interfaces []net.Interface
 	select {
 	case interfaces = <-interfacesChan:
@@ -48,7 +48,7 @@ func DetectLocalNetwork() (string, error) {
 			}
 			addrsChan <- addrs
 		}()
-		
+
 		var addrs []net.Addr
 		select {
 		case addrs = <-addrsChan:
@@ -138,20 +138,20 @@ func inc(ip net.IP) {
 	}
 }
 
-// IsPortOpen проверяет, открыт ли порт
+// IsPortOpen проверяет, открыт ли TCP порт
 func IsPortOpen(host string, port int, timeout time.Duration) bool {
 	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
-	
+
 	// Используем Dialer с явным таймаутом для лучшей работы в Windows
 	dialer := &net.Dialer{
 		Timeout: timeout,
 	}
-	
+
 	conn, err := dialer.Dial("tcp", address)
 	if err != nil {
 		return false
 	}
-	
+
 	// Убеждаемся, что соединение закрыто немедленно
 	if conn != nil {
 		conn.Close()
@@ -159,26 +159,127 @@ func IsPortOpen(host string, port int, timeout time.Duration) bool {
 	return true
 }
 
+// IsUDPPortOpen проверяет, открыт ли UDP порт
+// UDP сканирование сложнее TCP, так как UDP не устанавливает соединение
+// Метод: отправляем UDP пакет и проверяем ответ (ICMP порт недоступен = закрыт, ответ = открыт)
+func IsUDPPortOpen(host string, port int, timeout time.Duration) bool {
+	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+
+	// Используем Dialer с явным таймаутом
+	dialer := &net.Dialer{
+		Timeout: timeout,
+	}
+
+	// Пытаемся отправить UDP пакет
+	conn, err := dialer.Dial("udp", address)
+	if err != nil {
+		return false
+	}
+	defer conn.Close()
+
+	// Устанавливаем таймаут для чтения
+	conn.SetReadDeadline(time.Now().Add(timeout))
+
+	// Отправляем пустой пакет (для некоторых сервисов это может вызвать ответ)
+	_, err = conn.Write([]byte{})
+	if err != nil {
+		// Если не можем отправить, порт скорее всего закрыт
+		return false
+	}
+
+	// Пытаемся прочитать ответ
+	buffer := make([]byte, 1024)
+	conn.SetReadDeadline(time.Now().Add(timeout))
+	_, err = conn.Read(buffer)
+
+	// Если получили ответ, порт открыт
+	if err == nil {
+		return true
+	}
+
+	// Если ошибка таймаута, порт может быть открыт (фильтруется) или закрыт
+	// Для UDP сложно определить точно без ICMP, но если нет ошибки соединения - считаем открытым/фильтрованным
+	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+		// Таймаут может означать, что порт фильтруется или открыт, но не отвечает
+		// В контексте сканирования считаем это потенциально открытым
+		return true
+	}
+
+	return false
+}
+
 // GetServiceName возвращает название сервиса по порту
 func GetServiceName(port int) string {
 	services := map[int]string{
-		20:   "FTP-Data",
-		21:   "FTP",
-		22:   "SSH",
-		23:   "Telnet",
-		25:   "SMTP",
-		53:   "DNS",
+		// FTP
+		20: "FTP-Data",
+		21: "FTP",
+		// SSH/Telnet
+		22: "SSH",
+		23: "Telnet",
+		// Email
+		25:  "SMTP",
+		110: "POP3",
+		143: "IMAP",
+		465: "SMTPS",
+		587: "SMTP-Submission",
+		993: "IMAPS",
+		995: "POP3S",
+		// DNS
+		53: "DNS",
+		// HTTP/HTTPS
 		80:   "HTTP",
-		110:  "POP3",
-		143:  "IMAP",
 		443:  "HTTPS",
-		445:  "SMB",
-		3306: "MySQL",
-		3389: "RDP",
-		5432: "PostgreSQL",
-		5900: "VNC",
 		8080: "HTTP-Proxy",
 		8443: "HTTPS-Alt",
+		8888: "HTTP-Alt",
+		// SMB/NetBIOS
+		135: "MSRPC",
+		139: "NetBIOS-SSN",
+		445: "SMB",
+		// Remote Desktop
+		3389: "RDP",
+		5900: "VNC",
+		5901: "VNC-1",
+		5902: "VNC-2",
+		// Database
+		1433:  "MSSQL",
+		3306:  "MySQL",
+		5432:  "PostgreSQL",
+		27017: "MongoDB",
+		6379:  "Redis",
+		// Network Services
+		67:   "DHCP",
+		68:   "DHCP-Client",
+		69:   "TFTP",
+		88:   "Kerberos",
+		123:  "NTP",
+		161:  "SNMP",
+		162:  "SNMP-Trap",
+		389:  "LDAP",
+		636:  "LDAPS",
+		873:  "RSync",
+		2049: "NFS",
+		// Web Services
+		8000: "HTTP-Alt",
+		8001: "HTTP-Alt",
+		8880: "HTTP-Alt",
+		9000: "SonarQube",
+		9090: "Prometheus",
+		// Development
+		3000: "Node.js",
+		5000: "Flask",
+		8008: "HTTP-Alt",
+		8081: "HTTP-Proxy-Alt",
+		// Gaming
+		25565: "Minecraft",
+		27015: "Steam",
+		// Other
+		514:  "Syslog",
+		1194: "OpenVPN",
+		1723: "PPTP",
+		5060: "SIP",
+		5061: "SIPS",
 	}
 
 	if name, ok := services[port]; ok {

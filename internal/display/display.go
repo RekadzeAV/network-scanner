@@ -79,20 +79,44 @@ func DisplayResults(results []scanner.Result) {
 }
 
 // formatPorts форматирует список портов для отображения
+// Ограничивает количество портов для читаемости таблицы
 func formatPorts(ports []scanner.PortInfo) string {
 	if len(ports) == 0 {
 		return "-"
 	}
 
 	var portStrs []string
+	maxPorts := 50 // Максимальное количество портов для отображения
+	openPortsCount := 0
+	totalOpenPorts := 0
+	
+	// Сначала считаем общее количество открытых портов
 	for _, p := range ports {
 		if p.State == "open" {
+			totalOpenPorts++
+		}
+	}
+	
+	for _, p := range ports {
+		if p.State == "open" {
+			if openPortsCount >= maxPorts {
+				remaining := totalOpenPorts - maxPorts
+				if remaining > 0 {
+					portStrs = append(portStrs, fmt.Sprintf("... и еще %d", remaining))
+				}
+				break
+			}
 			portStr := fmt.Sprintf("%d/%s", p.Port, p.Protocol)
 			if p.Service != "Unknown" {
 				portStr += fmt.Sprintf(" (%s)", p.Service)
 			}
 			portStrs = append(portStrs, portStr)
+			openPortsCount++
 		} else if p.State == "closed" {
+			// Для закрытых портов тоже ограничиваем, но отдельно
+			if len(portStrs) >= maxPorts*2 { // Учитываем и открытые, и закрытые
+				break
+			}
 			portStr := fmt.Sprintf("%d/%s (closed)", p.Port, p.Protocol)
 			portStrs = append(portStrs, portStr)
 		}
@@ -103,6 +127,17 @@ func formatPorts(ports []scanner.PortInfo) string {
 	}
 
 	return strings.Join(portStrs, ", ")
+}
+
+// truncateString обрезает строку до указанной длины и добавляет "..."
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
 }
 
 // DisplayAnalytics выводит аналитику по сети
@@ -349,9 +384,9 @@ func FormatResultsAsText(results []scanner.Result) string {
 	sb.WriteString(strings.Repeat("=", 100) + "\n\n")
 
 	// Заголовок таблицы
-	sb.WriteString(fmt.Sprintf("%-18s %-18s %-25s %-30s %-25s %-25s %-20s\n",
+	sb.WriteString(fmt.Sprintf("%-18s %-18s %-25s %-400s %-25s %-25s %-20s\n",
 		"IP", "MAC", "Hostname", "Порты", "Протоколы", "Тип устройства", "Производитель"))
-	sb.WriteString(strings.Repeat("-", 160) + "\n")
+	sb.WriteString(strings.Repeat("-", 530) + "\n")
 
 	// Данные
 	for _, result := range results {
@@ -381,9 +416,42 @@ func FormatResultsAsText(results []scanner.Result) string {
 			vendor = "-"
 		}
 
-		// Форматируем строку таблицы
-		sb.WriteString(fmt.Sprintf("%-18s %-18s %-25s %-30s %-25s %-25s %-20s\n",
-			result.IP, mac, hostname, portsStr, protocolsStr, deviceType, vendor))
+		// Ограничиваем длину полей для корректного отображения в таблице
+		// Ширины столбцов: IP(18), MAC(18), Hostname(25), Порты(400), Протоколы(25), Тип(25), Производитель(20)
+		ip := truncateString(strings.TrimSpace(result.IP), 18)
+		mac = truncateString(strings.TrimSpace(mac), 18)
+		hostname = truncateString(strings.TrimSpace(hostname), 25)
+		portsStr = truncateString(strings.TrimSpace(portsStr), 400)
+		protocolsStr = truncateString(strings.TrimSpace(protocolsStr), 25)
+		deviceType = truncateString(strings.TrimSpace(deviceType), 25)
+		vendor = truncateString(strings.TrimSpace(vendor), 20)
+
+		// Убеждаемся, что пустые значения отображаются как "-"
+		if ip == "" {
+			ip = "-"
+		}
+		if mac == "" {
+			mac = "-"
+		}
+		if hostname == "" {
+			hostname = "-"
+		}
+		if portsStr == "" {
+			portsStr = "-"
+		}
+		if protocolsStr == "" {
+			protocolsStr = "-"
+		}
+		if deviceType == "" {
+			deviceType = "-"
+		}
+		if vendor == "" {
+			vendor = "-"
+		}
+
+		// Форматируем строку таблицы с фиксированной шириной столбцов
+		sb.WriteString(fmt.Sprintf("%-18s %-18s %-25s %-400s %-25s %-25s %-20s\n",
+			ip, mac, hostname, portsStr, protocolsStr, deviceType, vendor))
 		sb.WriteString("\n")
 	}
 

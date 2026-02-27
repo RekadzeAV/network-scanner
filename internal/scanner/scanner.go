@@ -45,16 +45,17 @@ type ProgressCallback func(stage string, current int, total int, message string)
 
 // NetworkScanner выполняет сканирование сети
 type NetworkScanner struct {
-	network         string
-	timeout         time.Duration
-	portRange       string
-	threads         int
-	showClosed      bool
-	results         []Result
-	mu              sync.RWMutex
-	ctx             context.Context
-	cancel          context.CancelFunc
-	wg              sync.WaitGroup
+	network          string
+	timeout          time.Duration
+	portRange        string
+	threads          int
+	showClosed       bool
+	scanUDP          bool // Включить UDP сканирование
+	results          []Result
+	mu               sync.RWMutex
+	ctx              context.Context
+	cancel           context.CancelFunc
+	wg               sync.WaitGroup
 	progressCallback ProgressCallback
 }
 
@@ -62,14 +63,15 @@ type NetworkScanner struct {
 func NewNetworkScanner(network string, timeout time.Duration, portRange string, threads int, showClosed bool) *NetworkScanner {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &NetworkScanner{
-		network:         network,
-		timeout:         timeout,
-		portRange:       portRange,
-		threads:         threads,
-		showClosed:      showClosed,
-		results:         make([]Result, 0),
-		ctx:             ctx,
-		cancel:          cancel,
+		network:          network,
+		timeout:          timeout,
+		portRange:        portRange,
+		threads:          threads,
+		showClosed:       showClosed,
+		scanUDP:          false, // По умолчанию UDP сканирование выключено
+		results:          make([]Result, 0),
+		ctx:              ctx,
+		cancel:           cancel,
 		progressCallback: nil,
 	}
 }
@@ -79,12 +81,17 @@ func (ns *NetworkScanner) SetProgressCallback(callback ProgressCallback) {
 	ns.progressCallback = callback
 }
 
+// SetScanUDP включает или выключает UDP сканирование
+func (ns *NetworkScanner) SetScanUDP(enable bool) {
+	ns.scanUDP = enable
+}
+
 // Scan запускает сканирование сети
 func (ns *NetworkScanner) Scan() {
 	scanStartTime := time.Now()
 	fmt.Println("Начинаю сканирование сети...")
 	logger.Log("Начинаю сканирование сети: %s", ns.network)
-	logger.LogDebug("Параметры сканирования: сеть=%s, порты=%s, таймаут=%v, потоков=%d, showClosed=%v", 
+	logger.LogDebug("Параметры сканирования: сеть=%s, порты=%s, таймаут=%v, потоков=%d, showClosed=%v",
 		ns.network, ns.portRange, ns.timeout, ns.threads, ns.showClosed)
 
 	// Парсим диапазон сети
@@ -142,7 +149,7 @@ func (ns *NetworkScanner) Scan() {
 			hostCheckStart := time.Now()
 			isAlive := ns.isHostAlive(ip.String())
 			hostCheckDuration := time.Since(hostCheckStart)
-			
+
 			if isAlive {
 				logger.LogDebug("Хост %s доступен (проверка заняла %v)", ip.String(), hostCheckDuration)
 				aliveMutex.Lock()
@@ -247,7 +254,7 @@ func (ns *NetworkScanner) Scan() {
 	totalDuration := time.Since(scanStartTime)
 	fmt.Println("Сканирование завершено")
 	logger.Log("Сканирование завершено. Найдено устройств: %d (общее время: %v)", len(ns.results), totalDuration)
-	logger.LogDebug("Статистика сканирования: хостов проверено=%d, активных хостов=%d, устройств найдено=%d", 
+	logger.LogDebug("Статистика сканирования: хостов проверено=%d, активных хостов=%d, устройств найдено=%d",
 		len(ips), len(aliveIPs), len(ns.results))
 	if ns.progressCallback != nil {
 		ns.progressCallback("complete", len(ns.results), len(ns.results), fmt.Sprintf("Сканирование завершено. Найдено устройств: %d", len(ns.results)))
@@ -275,7 +282,7 @@ func (ns *NetworkScanner) isHostAlive(ip string) bool {
 		}
 		conn, err := dialer.Dial("tcp", net.JoinHostPort(ip, port))
 		portCheckDuration := time.Since(portCheckStart)
-		
+
 		if err == nil {
 			if conn != nil {
 				conn.Close()
@@ -319,7 +326,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 	macErrChan := make(chan error, 1)
 	hostnameChan := make(chan []string, 1)
 	hostnameErrChan := make(chan error, 1)
-	
+
 	// Запускаем получение MAC в фоне
 	go func() {
 		macStartTime := time.Now()
@@ -334,7 +341,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 		logger.LogDebug("MAC адрес для %s получен: %s (заняло %v)", ipStr, mac, macDuration)
 		macChan <- mac
 	}()
-	
+
 	// Запускаем получение hostname в фоне
 	go func() {
 		hostnameStartTime := time.Now()
@@ -362,7 +369,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 	portSem := make(chan struct{}, portThreads)
 	portResults := make(chan PortInfo, len(ports))
 	portWg := sync.WaitGroup{}
-	
+
 	// Запускаем параллельное сканирование портов
 	for _, port := range ports {
 		// Проверяем контекст перед запуском новой горутины
@@ -372,35 +379,35 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 			// Прерываем запуск новых горутин, но продолжаем собирать результаты уже запущенных
 		default:
 		}
-		
+
 		// Если контекст отменен, не запускаем новые горутины
 		if ns.ctx.Err() != nil {
 			break
 		}
-		
+
 		portSem <- struct{}{}
 		portWg.Add(1)
 		go func(p int) {
 			defer func() { <-portSem }()
 			defer portWg.Done()
-			
+
 			// Проверяем контекст перед проверкой порта
 			select {
 			case <-ns.ctx.Done():
 				return
 			default:
 			}
-			
+
 			portCheckStart := time.Now()
 			isOpen := network.IsPortOpen(ipStr, p, ns.timeout)
 			portCheckDuration := time.Since(portCheckStart)
-			
+
 			if isOpen {
 				logger.LogDebug("Хост %s: порт %d/%s открыт (проверка заняла %v)", ipStr, p, "tcp", portCheckDuration)
 			} else if ns.showClosed {
 				logger.LogDebug("Хост %s: порт %d/%s закрыт (проверка заняла %v)", ipStr, p, "tcp", portCheckDuration)
 			}
-			
+
 			if isOpen || ns.showClosed {
 				state := "open"
 				if !isOpen {
@@ -413,21 +420,21 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 					Protocol: "tcp",
 					Service:  network.GetServiceName(p),
 				}
-				
+
 				// Отправляем результат в канал
 				select {
 				case portResults <- portInfo:
 				case <-ns.ctx.Done():
 					return
 				}
-				
+
 				if isOpen {
 					logger.LogDebug("Хост %s: найден открытый порт %d (%s)", ipStr, p, portInfo.Service)
 				}
 			}
 		}(port)
 	}
-	
+
 	// Ждем завершения всех проверок портов в отдельной горутине
 	portDone := make(chan struct{})
 	go func() {
@@ -435,7 +442,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 		close(portResults)
 		close(portDone)
 	}()
-	
+
 	// Собираем результаты портов
 	openPorts := 0
 	portsCollected := false
@@ -448,7 +455,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 				break
 			}
 			result.Ports = append(result.Ports, portInfo)
-			
+
 			if portInfo.State == "open" {
 				openPorts++
 				// Определяем протоколы по открытым портам
@@ -477,6 +484,121 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 		}
 	}
 
+	// UDP сканирование (если включено)
+	if ns.scanUDP {
+		logger.LogDebug("Начинаю UDP сканирование для хоста %s", ipStr)
+		udpPorts := []int{53, 67, 68, 69, 123, 161, 162, 514, 1194} // Известные UDP порты
+		udpSem := make(chan struct{}, 50)                           // Ограничиваем параллельность UDP сканирования
+		udpWg := sync.WaitGroup{}
+		udpResults := make(chan PortInfo, len(udpPorts))
+		udpDone := make(chan struct{})
+
+		udpScanCancelled := false
+	udpPortLoop:
+		for _, udpPort := range udpPorts {
+			// Проверяем, не отменено ли сканирование
+			select {
+			case <-ns.ctx.Done():
+				logger.LogDebug("UDP сканирование хоста %s отменено", ipStr)
+				udpScanCancelled = true
+				break udpPortLoop
+			default:
+			}
+			if udpScanCancelled {
+				break udpPortLoop
+			}
+
+			udpSem <- struct{}{}
+			udpWg.Add(1)
+			go func(p int) {
+				defer func() { <-udpSem }()
+				defer udpWg.Done()
+
+				select {
+				case <-ns.ctx.Done():
+					return
+				default:
+				}
+
+				udpCheckStart := time.Now()
+				isOpen := network.IsUDPPortOpen(ipStr, p, ns.timeout)
+				udpCheckDuration := time.Since(udpCheckStart)
+
+				if isOpen {
+					logger.LogDebug("Хост %s: UDP порт %d открыт (проверка заняла %v)", ipStr, p, udpCheckDuration)
+					portInfo := PortInfo{
+						Port:     p,
+						State:    "open",
+						Protocol: "udp",
+						Service:  network.GetServiceName(p),
+					}
+					select {
+					case udpResults <- portInfo:
+					case <-ns.ctx.Done():
+						return
+					}
+				} else if ns.showClosed {
+					logger.LogDebug("Хост %s: UDP порт %d закрыт/фильтруется (проверка заняла %v)", ipStr, p, udpCheckDuration)
+					portInfo := PortInfo{
+						Port:     p,
+						State:    "filtered",
+						Protocol: "udp",
+						Service:  network.GetServiceName(p),
+					}
+					select {
+					case udpResults <- portInfo:
+					case <-ns.ctx.Done():
+						return
+					}
+				}
+			}(udpPort)
+		}
+
+		// Ждем завершения UDP сканирования
+		go func() {
+			udpWg.Wait()
+			close(udpResults)
+			close(udpDone)
+		}()
+
+		// Собираем UDP результаты
+		udpCollected := false
+		for !udpCollected {
+			select {
+			case udpPortInfo, ok := <-udpResults:
+				if !ok {
+					udpCollected = true
+					break
+				}
+				result.Ports = append(result.Ports, udpPortInfo)
+				if udpPortInfo.State == "open" {
+					openPorts++
+					protocol := getProtocolFromPort(udpPortInfo.Port)
+					if protocol != "" {
+						result.Protocols = appendIfNotExists(result.Protocols, protocol)
+						logger.LogDebug("Хост %s: определен протокол %s по UDP порту %d", ipStr, protocol, udpPortInfo.Port)
+					}
+				}
+			case <-ns.ctx.Done():
+				<-udpDone
+				for udpPortInfo := range udpResults {
+					result.Ports = append(result.Ports, udpPortInfo)
+					if udpPortInfo.State == "open" {
+						openPorts++
+						protocol := getProtocolFromPort(udpPortInfo.Port)
+						if protocol != "" {
+							result.Protocols = appendIfNotExists(result.Protocols, protocol)
+						}
+					}
+				}
+				udpCollected = true
+			case <-time.After(100 * time.Millisecond):
+				// Небольшая задержка для сбора результатов
+			}
+		}
+		logger.LogDebug("UDP сканирование для хоста %s завершено", ipStr)
+	}
+
 	// Собираем результаты MAC и hostname (неблокирующе)
 	select {
 	case mac := <-macChan:
@@ -493,7 +615,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 		logger.LogDebug("Хост %s: MAC адрес еще не готов", ipStr)
 		// Продолжаем без MAC, если он еще не готов
 	}
-	
+
 	select {
 	case hostname := <-hostnameChan:
 		if len(hostname) > 0 {
@@ -519,7 +641,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 	ns.mu.Lock()
 	ns.results = append(ns.results, result)
 	ns.mu.Unlock()
-	
+
 	logger.LogDebug("Хост %s: найдено открытых портов: %d", ipStr, openPorts)
 }
 
@@ -573,7 +695,7 @@ func (ns *NetworkScanner) readMACFromLinuxARP(ipStr string) (string, error) {
 			return "", fmt.Errorf("сканирование отменено")
 		default:
 		}
-		
+
 		line := scanner.Text()
 		fields := strings.Fields(line)
 		if len(fields) < 6 {
@@ -603,7 +725,7 @@ func (ns *NetworkScanner) readMACFromWindowsARP(ipStr string) (string, error) {
 	// Создаем контекст с таймаутом для избежания зависания в Windows
 	ctx, cancel := context.WithTimeout(ns.ctx, 3*time.Second)
 	defer cancel()
-	
+
 	cmd := exec.CommandContext(ctx, "arp", "-a", ipStr)
 	output, err := cmd.Output()
 	if err != nil {
@@ -651,7 +773,7 @@ func (ns *NetworkScanner) readMACFromDarwinARP(ipStr string) (string, error) {
 	// Создаем контекст с таймаутом
 	ctx, cancel := context.WithTimeout(ns.ctx, 3*time.Second)
 	defer cancel()
-	
+
 	cmd := exec.CommandContext(ctx, "arp", "-n", ipStr)
 	output, err := cmd.Output()
 	if err != nil {
@@ -722,7 +844,7 @@ func (ns *NetworkScanner) getMACViaARPRequest(ip net.IP) (string, error) {
 		}
 		interfacesChan <- interfaces
 	}()
-	
+
 	var interfaces []net.Interface
 	select {
 	case interfaces = <-interfacesChan:
@@ -751,7 +873,7 @@ func (ns *NetworkScanner) getMACViaARPRequest(ip net.IP) (string, error) {
 			}
 			addrsChan <- addrs
 		}()
-		
+
 		var addrs []net.Addr
 		select {
 		case addrs = <-addrsChan:
@@ -842,7 +964,8 @@ func (ns *NetworkScanner) getMACViaARPRequest(ip net.IP) (string, error) {
 	return "", fmt.Errorf("MAC адрес не найден")
 }
 
-// detectDeviceType определяет тип устройства по открытым портам и MAC
+// detectDeviceType определяет тип устройства по открытым портам, MAC и hostname
+// Использует улучшенную эвристику с учетом производителя и комбинаций портов
 func (ns *NetworkScanner) detectDeviceType(result Result) string {
 	// Анализируем открытые порты для определения типа устройства
 	ports := make(map[int]bool)
@@ -850,43 +973,130 @@ func (ns *NetworkScanner) detectDeviceType(result Result) string {
 		ports[p.Port] = true
 	}
 
+	// Определяем производителя для более точной классификации
+	vendor := strings.ToLower(result.DeviceVendor)
+	isNetworkVendor := strings.Contains(vendor, "cisco") || strings.Contains(vendor, "netgear") ||
+		strings.Contains(vendor, "d-link") || strings.Contains(vendor, "tp-link") ||
+		strings.Contains(vendor, "linksys") || strings.Contains(vendor, "asus") ||
+		strings.Contains(vendor, "belkin")
+	isRaspberryPi := strings.Contains(vendor, "raspberry")
+	isVM := strings.Contains(vendor, "vmware") || strings.Contains(vendor, "virtualbox") ||
+		strings.Contains(vendor, "qemu") || strings.Contains(vendor, "hyper-v") ||
+		strings.Contains(vendor, "parallels")
+
+	// Анализ hostname для дополнительной информации
+	hostname := strings.ToLower(result.Hostname)
+	isRouterHostname := strings.Contains(hostname, "router") || strings.Contains(hostname, "gateway") ||
+		strings.Contains(hostname, "ap") || strings.Contains(hostname, "accesspoint") ||
+		strings.Contains(hostname, "wifi") || strings.Contains(hostname, "wlan")
+
+	// Принтер (высокий приоритет - специфичные порты)
+	if ports[9100] || ports[515] || ports[631] || ports[161] {
+		return "Printer"
+	}
+
+	// База данных (высокий приоритет - специфичные порты)
+	if ports[3306] || ports[5432] || ports[1433] || ports[27017] || ports[6379] {
+		return "Database Server"
+	}
+
 	// Роутер/сетевое оборудование
-	if ports[80] || ports[443] || ports[8080] {
-		if ports[22] {
+	// Комбинация веб-портов + SSH + сетевой производитель или router в hostname
+	if (ports[80] || ports[443] || ports[8080]) && ports[22] {
+		if isNetworkVendor || isRouterHostname {
+			return "Router/Network Device"
+		}
+		// Если есть веб + SSH, но нет явных признаков сервера - вероятно роутер
+		if !ports[3306] && !ports[5432] && !ports[1433] {
 			return "Router/Network Device"
 		}
 	}
 
-	// Веб-сервер
-	if ports[80] || ports[443] || ports[8080] || ports[8443] {
-		return "Web Server"
+	// Сетевое оборудование по производителю и портам
+	if isNetworkVendor && (ports[80] || ports[443] || ports[8080] || ports[22] || ports[23]) {
+		return "Router/Network Device"
 	}
 
-	// База данных
-	if ports[3306] || ports[5432] || ports[1433] {
-		return "Database Server"
+	// Виртуальная машина
+	if isVM {
+		if ports[3306] || ports[5432] || ports[1433] {
+			return "Virtual Machine (Database)"
+		}
+		if ports[80] || ports[443] || ports[8080] {
+			return "Virtual Machine (Web Server)"
+		}
+		if ports[22] {
+			return "Virtual Machine (Linux Server)"
+		}
+		return "Virtual Machine"
 	}
 
-	// Windows машина
-	if ports[3389] || ports[445] {
+	// Raspberry Pi
+	if isRaspberryPi {
+		if ports[22] {
+			return "Raspberry Pi (Linux Server)"
+		}
+		if ports[80] || ports[443] {
+			return "Raspberry Pi (Web Server)"
+		}
+		return "Raspberry Pi"
+	}
+
+	// Windows машина (RDP, SMB, NetBIOS)
+	if ports[3389] || (ports[445] && ports[135]) || ports[139] {
 		return "Windows Computer"
 	}
 
-	// Linux/Unix сервер
+	// Linux/Unix сервер (SSH + другие серверные порты)
 	if ports[22] {
+		if ports[80] || ports[443] || ports[8080] {
+			return "Linux/Unix Server (Web)"
+		}
+		if ports[3306] || ports[5432] {
+			return "Linux/Unix Server (Database)"
+		}
 		return "Linux/Unix Server"
 	}
 
-	// Принтер
-	if ports[9100] || ports[515] {
-		return "Printer"
+	// Веб-сервер (HTTP/HTTPS без SSH)
+	if ports[80] || ports[443] || ports[8080] || ports[8443] {
+		// Если только веб-порты и нет других серверных портов
+		if !ports[22] && !ports[3306] && !ports[5432] {
+			return "Web Server"
+		}
 	}
 
-	// IoT устройство
+	// Медиа-сервер (DLNA, Plex, etc.)
+	if ports[32400] || ports[8200] || ports[5000] || ports[1900] {
+		return "Media Server"
+	}
+
+	// Игровая консоль или устройство
+	if ports[3074] || ports[9308] || ports[3658] {
+		return "Gaming Console"
+	}
+
+	// IoT устройство (мало портов, специфичные комбинации)
 	if len(result.Ports) > 0 && len(result.Ports) < 3 {
-		return "IoT Device"
+		// Проверяем на типичные IoT порты
+		if ports[1883] || ports[5683] || ports[8080] {
+			return "IoT Device"
+		}
+		// Если только один нестандартный порт
+		if len(result.Ports) == 1 {
+			port := result.Ports[0].Port
+			if port > 1024 && port < 65535 && !ports[80] && !ports[443] {
+				return "IoT Device"
+			}
+		}
 	}
 
+	// Сетевое хранилище (NAS)
+	if ports[2049] || ports[111] || (ports[445] && !ports[3389]) {
+		return "Network Storage (NAS)"
+	}
+
+	// Если ничего не подошло
 	return "Unknown Device"
 }
 
@@ -929,8 +1139,8 @@ func getProtocolFromPort(port int) string {
 }
 
 // getVendorFromMAC определяет производителя устройства по MAC адресу
-// Использует упрощенную проверку по OUI (первые 3 байта MAC адреса)
-// В реальности нужна полная база данных OUI
+// Использует проверку по OUI (первые 3 байта MAC адреса)
+// Расширенная база популярных производителей
 func getVendorFromMAC(mac string) string {
 	if len(mac) < 8 {
 		return "Unknown"
@@ -938,18 +1148,156 @@ func getVendorFromMAC(mac string) string {
 
 	oui := mac[:8] // Берем первые 8 символов (XX:XX:XX)
 
-	// Небольшая база известных OUI
+	// Расширенная база известных OUI производителей
 	vendors := map[string]string{
+		// Виртуализация
 		"00:50:56": "VMware",
 		"00:0c:29": "VMware",
 		"00:1c:42": "Parallels",
 		"08:00:27": "VirtualBox",
 		"52:54:00": "QEMU",
+		"00:15:5d": "Microsoft Hyper-V",
+		"00:03:ff": "Microsoft Hyper-V",
+
+		// Apple
 		"00:1b:21": "Apple",
 		"00:23:12": "Apple",
+		"00:25:00": "Apple",
+		"00:25:4b": "Apple",
+		"00:26:08": "Apple",
+		"00:26:4a": "Apple",
+		"00:26:bb": "Apple",
 		"ac:de:48": "Apple",
+		"a4:c1:38": "Apple",
+		"a8:60:b6": "Apple",
+		"c0:25:e9": "Apple",
+		"d0:03:4b": "Apple",
+		"e0:ac:cb": "Apple",
+		"f0:db:e2": "Apple",
+		"f4:f1:5a": "Apple",
+		"f8:1e:df": "Apple",
+
+		// Raspberry Pi
 		"b8:27:eb": "Raspberry Pi",
 		"dc:a6:32": "Raspberry Pi",
+		"e4:5f:01": "Raspberry Pi",
+
+		// Сетевые производители
+		"00:1e:13": "Cisco",
+		"00:1e:79": "Cisco",
+		"00:26:ca": "Cisco",
+		"00:50:f2": "Cisco",
+		"00:90:0c": "Cisco",
+		"00:90:21": "Cisco",
+		"00:90:2b": "Cisco",
+		"00:90:7f": "Cisco",
+		"00:a0:40": "Cisco",
+		"00:c0:4f": "Cisco",
+		"00:e0:1e": "Cisco",
+		"00:e0:f7": "Cisco",
+		"00:e0:fe": "Cisco",
+		"00:21:70": "Netgear",
+		"00:24:b2": "Netgear",
+		"00:09:5b": "Netgear",
+		"00:1f:33": "Netgear",
+		"00:0f:b5": "Belkin",
+		"00:17:3f": "Belkin",
+		"00:1e:c2": "Belkin",
+		"00:22:3f": "Belkin",
+		"00:1d:7e": "D-Link",
+		"00:21:91": "D-Link",
+		"00:24:01": "D-Link",
+		"00:26:5a": "D-Link",
+		"00:1b:11": "TP-Link",
+		"00:27:19": "TP-Link",
+		"00:50:fc": "TP-Link",
+		"00:0c:41": "TP-Link",
+		"00:1f:3a": "TP-Link",
+		"00:21:6a": "TP-Link",
+		"00:23:cd": "TP-Link",
+		"00:25:86": "TP-Link",
+		"00:27:22": "TP-Link",
+		"00:0d:0b": "ASUS",
+		"00:1d:60": "ASUS",
+		"00:22:15": "ASUS",
+		"00:24:8c": "ASUS",
+		"00:26:18": "ASUS",
+		"00:1e:8c": "ASUS",
+		"00:11:2f": "Linksys",
+		"00:13:10": "Linksys",
+		"00:14:bf": "Linksys",
+		"00:18:39": "Linksys",
+		"00:1a:70": "Linksys",
+		"00:1c:df": "Linksys",
+		"00:21:29": "Linksys",
+		"00:23:69": "Linksys",
+		"00:25:9c": "Linksys",
+
+		// Производители компьютеров
+		"00:1e:68": "Dell",
+		"00:14:22": "Dell",
+		"00:0b:db": "Dell",
+		"00:0d:56": "Dell",
+		"00:1a:a0": "Dell",
+		"00:1c:23": "Dell",
+		"00:1e:c9": "Dell",
+		"00:23:ae": "Dell",
+		"00:0a:95": "HP",
+		"00:0b:cd": "HP",
+		"00:0e:7f": "HP",
+		"00:11:85": "HP",
+		"00:14:38": "HP",
+		"00:17:a4": "HP",
+		"00:1e:0b": "HP",
+		"00:1f:29": "HP",
+		"00:21:5a": "HP",
+		"00:23:24": "HP",
+		"00:25:b3": "HP",
+		"00:26:55": "HP",
+		"00:27:0e": "HP",
+		"00:30:48": "HP",
+		"00:50:8b": "HP",
+		"00:21:cc": "Lenovo",
+		"00:23:7d": "Lenovo",
+		"00:25:64": "Lenovo",
+		"00:1f:16": "Samsung",
+		"00:23:39": "Samsung",
+		"00:24:90": "Samsung",
+		"00:26:5d": "Samsung",
+		"00:15:99": "Samsung",
+		"00:16:6c": "Samsung",
+		"00:18:af": "Samsung",
+		"00:1b:98": "Samsung",
+		"00:1d:25": "Samsung",
+		"00:1e:7d": "Samsung",
+		"00:21:4c": "Samsung",
+		"00:23:6c": "Samsung",
+		"00:25:66": "Samsung",
+		"00:26:e2": "Samsung",
+		"00:13:a9": "Sony",
+		"00:16:fe": "Sony",
+		"00:19:c5": "Sony",
+		"00:1a:80": "Sony",
+		"00:1d:0d": "Sony",
+		"00:1f:e4": "Sony",
+		"00:21:9e": "Sony",
+		"00:24:21": "Sony",
+		"00:26:4c": "Sony",
+
+		// Мобильные устройства
+		"00:46:4b": "Huawei",
+		"00:46:65": "Huawei",
+		"00:46:cf": "Huawei",
+		"00:25:9e": "Huawei",
+		"00:26:43": "Huawei",
+		"00:9e:c8": "Xiaomi",
+		"28:e3:1f": "Xiaomi",
+		"34:ce:00": "Xiaomi",
+		"50:8f:4c": "Xiaomi",
+		"64:09:80": "Xiaomi",
+		"ac:c1:ee": "Xiaomi",
+		"f0:b4:29": "Xiaomi",
+		"fc:64:ba": "Xiaomi",
 	}
 
 	if vendor, ok := vendors[oui]; ok {
@@ -968,5 +1316,3 @@ func appendIfNotExists(slice []string, item string) []string {
 	}
 	return append(slice, item)
 }
-
-
