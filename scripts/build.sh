@@ -4,11 +4,19 @@
 
 echo "Сборка Network Scanner..."
 
-# Создаем директорию для бинарников с датой сборки
+# Создаем директорию для бинарников с датой сборки и номером
 BUILD_DATE=$(date +%Y-%m-%d)
-RELEASE_DIR="release/${BUILD_DATE}"
+BUILD_NUM=1
+RELEASE_DIR="release/${BUILD_DATE}-${BUILD_NUM}"
+
+# Находим следующий доступный номер сборки
+while [ -d "${RELEASE_DIR}" ]; do
+    BUILD_NUM=$((BUILD_NUM + 1))
+    RELEASE_DIR="release/${BUILD_DATE}-${BUILD_NUM}"
+done
+
 mkdir -p "${RELEASE_DIR}"
-echo "📦 Бинарники будут сохранены в: ${RELEASE_DIR}/"
+echo "📦 Бинарники будут сохранены в: ${RELEASE_DIR}/ (сборка #${BUILD_NUM})"
 echo ""
 
 # Текущая платформа
@@ -32,7 +40,7 @@ GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-s
 # Windows 64-bit GUI (требует mingw-w64 для CGO)
 echo "Сборка GUI версии для Windows 64-bit..."
 if command -v x86_64-w64-mingw32-gcc &> /dev/null; then
-    GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-windows-amd64.exe" ./cmd/gui
+    GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 go build -ldflags="-s -w -H windowsgui" -o "${RELEASE_DIR}/network-scanner-gui-windows-amd64.exe" ./cmd/gui
     echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-gui-windows-amd64.exe"
 else
     echo "⚠️  mingw-w64 не найден, пропускаем сборку GUI для Windows"
@@ -53,6 +61,14 @@ GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-sc
 
 echo "Сборка GUI версии для macOS Apple Silicon..."
 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-darwin-arm64" ./cmd/gui
+
+# Копируем инструкцию по эксплуатации в папку релиза
+if [ -f "Инструкция по эксплуатации.md" ]; then
+    cp "Инструкция по эксплуатации.md" "${RELEASE_DIR}/"
+    echo "✅ Инструкция по эксплуатации скопирована в ${RELEASE_DIR}/"
+else
+    echo "⚠️  Файл 'Инструкция по эксплуатации.md' не найден в корне проекта"
+fi
 
 echo ""
 echo "✅ Сборка завершена! Бинарники находятся в директории ${RELEASE_DIR}/"

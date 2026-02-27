@@ -520,14 +520,6 @@ func SaveResultsToJSON(results []scanner.Result, filename string) error {
 		Service  string `json:"service"`
 	}
 
-	type JSONAnalytics struct {
-		Protocols            map[string]int `json:"protocols"`
-		Ports                map[int]int    `json:"ports"`
-		DeviceTypes          map[string]int `json:"device_types"`
-		TotalOpenPorts       int            `json:"total_open_ports"`
-		DevicesWithOpenPorts int            `json:"devices_with_open_ports"`
-	}
-
 	type JSONResult struct {
 		IP           string     `json:"ip"`
 		MAC          string     `json:"mac"`
@@ -539,11 +531,19 @@ func SaveResultsToJSON(results []scanner.Result, filename string) error {
 		IsAlive      bool       `json:"is_alive"`
 	}
 
+	type JSONAnalytics struct {
+		Protocols            map[string]int `json:"protocols"`
+		Ports                map[int]int    `json:"ports"`
+		DeviceTypes          map[string]int `json:"device_types"`
+		TotalOpenPorts       int            `json:"total_open_ports"`
+		DevicesWithOpenPorts int            `json:"devices_with_open_ports"`
+	}
+
 	type JSONExport struct {
-		ScanDate     string        `json:"scan_date"`
-		TotalDevices int           `json:"total_devices"`
-		Devices      []JSONResult  `json:"devices"`
-		Analytics    JSONAnalytics `json:"analytics"`
+		ScanDate     string          `json:"scan_date"`
+		TotalDevices int             `json:"total_devices"`
+		Devices      []JSONResult    `json:"devices"`
+		Analytics    JSONAnalytics   `json:"analytics"`
 	}
 
 	// Преобразуем результаты

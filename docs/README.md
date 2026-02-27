@@ -174,6 +174,8 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 
 Проект включает подробную документацию:
 
+- **[Инструкция по эксплуатации](../Инструкция%20по%20эксплуатации.md)** - Полная инструкция по эксплуатации программы (русский язык)
+- **[README.md](../README.md)** - Основная документация проекта
 - **[README.md](README.md)** - Основная документация (этот файл)
 - **[USER_GUIDE.md](USER_GUIDE.md)** - Подробное руководство пользователя с примерами
 - **[GUI.md](GUI.md)** - Документация по GUI версии приложения
@@ -182,6 +184,8 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 - **[TECHNICAL.md](TECHNICAL.md)** - Техническая документация для разработчиков
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Описание архитектуры проекта
 - **[ANALYSIS.md](ANALYSIS.md)** - Анализ реализации и рекомендации
+- **[DEVELOPMENT_MAP.md](../DEVELOPMENT_MAP.md)** - Детальная карта разработки проекта
+- **[CHANGELOG.md](../CHANGELOG.md)** - История изменений проекта
 
 ## Поддержка
 

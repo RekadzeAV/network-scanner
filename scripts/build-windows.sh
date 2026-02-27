@@ -58,11 +58,19 @@ fi
 
 echo ""
 
-# Создаем директорию для бинарников с датой сборки
+# Создаем директорию для бинарников с датой сборки и номером
 BUILD_DATE=$(date +%Y-%m-%d)
-RELEASE_DIR="release/${BUILD_DATE}"
+BUILD_NUM=1
+RELEASE_DIR="release/${BUILD_DATE}-${BUILD_NUM}"
+
+# Находим следующий доступный номер сборки
+while [ -d "${RELEASE_DIR}" ]; do
+    BUILD_NUM=$((BUILD_NUM + 1))
+    RELEASE_DIR="release/${BUILD_DATE}-${BUILD_NUM}"
+done
+
 mkdir -p "${RELEASE_DIR}"
-echo "📦 Бинарники будут сохранены в: ${RELEASE_DIR}/"
+echo "📦 Бинарники будут сохранены в: ${RELEASE_DIR}/ (сборка #${BUILD_NUM})"
 echo ""
 
 # Установка зависимостей
@@ -80,7 +88,7 @@ export CXX=x86_64-w64-mingw32-g++
 export CGO_ENABLED=1
 
 echo "🔨 Сборка GUI версии для Windows 64-bit..."
-go build -ldflags="-s -w" -o "${RELEASE_DIR}/network-scanner-gui-windows-amd64.exe" ./cmd/gui
+go build -ldflags="-s -w -H windowsgui" -o "${RELEASE_DIR}/network-scanner-gui-windows-amd64.exe" ./cmd/gui
 echo "✅ Собрано: ${RELEASE_DIR}/network-scanner-gui-windows-amd64.exe"
 
 # Сброс переменных окружения
@@ -88,6 +96,14 @@ unset GOOS
 unset GOARCH
 unset CC
 unset CXX
+
+# Копируем инструкцию по эксплуатации в папку релиза
+if [ -f "Инструкция по эксплуатации.md" ]; then
+    cp "Инструкция по эксплуатации.md" "${RELEASE_DIR}/"
+    echo "✅ Инструкция по эксплуатации скопирована в ${RELEASE_DIR}/"
+else
+    echo "⚠️  Файл 'Инструкция по эксплуатации.md' не найден в корне проекта"
+fi
 
 echo ""
 echo "=========================================="

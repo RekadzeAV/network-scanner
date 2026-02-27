@@ -9,9 +9,26 @@ import (
 
 // DetectLocalNetwork определяет локальную сеть автоматически
 func DetectLocalNetwork() (string, error) {
-	interfaces, err := net.Interfaces()
-	if err != nil {
+	// Получаем интерфейсы с таймаутом (избегаем зависания в Windows)
+	interfacesChan := make(chan []net.Interface, 1)
+	errChan := make(chan error, 1)
+	go func() {
+		interfaces, err := net.Interfaces()
+		if err != nil {
+			errChan <- err
+			return
+		}
+		interfacesChan <- interfaces
+	}()
+	
+	var interfaces []net.Interface
+	select {
+	case interfaces = <-interfacesChan:
+		// Успешно получили интерфейсы
+	case err := <-errChan:
 		return "", err
+	case <-time.After(5 * time.Second):
+		return "", fmt.Errorf("таймаут получения сетевых интерфейсов")
 	}
 
 	for _, iface := range interfaces {
@@ -20,8 +37,26 @@ func DetectLocalNetwork() (string, error) {
 			continue
 		}
 
-		addrs, err := iface.Addrs()
-		if err != nil {
+		// Получаем адреса интерфейса с таймаутом (избегаем зависания в Windows)
+		addrsChan := make(chan []net.Addr, 1)
+		addrErrChan := make(chan error, 1)
+		go func() {
+			addrs, err := iface.Addrs()
+			if err != nil {
+				addrErrChan <- err
+				return
+			}
+			addrsChan <- addrs
+		}()
+		
+		var addrs []net.Addr
+		select {
+		case addrs = <-addrsChan:
+			// Успешно получили адреса
+		case <-addrErrChan:
+			continue
+		case <-time.After(2 * time.Second):
+			// Таймаут для получения адресов интерфейса, пропускаем этот интерфейс
 			continue
 		}
 
@@ -106,11 +141,21 @@ func inc(ip net.IP) {
 // IsPortOpen проверяет, открыт ли порт
 func IsPortOpen(host string, port int, timeout time.Duration) bool {
 	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
-	conn, err := net.DialTimeout("tcp", address, timeout)
+	
+	// Используем Dialer с явным таймаутом для лучшей работы в Windows
+	dialer := &net.Dialer{
+		Timeout: timeout,
+	}
+	
+	conn, err := dialer.Dial("tcp", address)
 	if err != nil {
 		return false
 	}
-	defer conn.Close()
+	
+	// Убеждаемся, что соединение закрыто немедленно
+	if conn != nil {
+		conn.Close()
+	}
 	return true
 }
 

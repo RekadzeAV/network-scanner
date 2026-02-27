@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"network-scanner/internal/scanner"
@@ -15,13 +16,13 @@ func FormatResultsForDisplay(results []scanner.Result) string {
 
 	var sb strings.Builder
 
-	sb.WriteString("## Результаты сканирования сети\n\n")
+	sb.WriteString("## Устройства\n\n")
 	sb.WriteString(fmt.Sprintf("**Найдено устройств:** %d\n\n", len(results)))
 	sb.WriteString("---\n\n")
 
-	// Таблица результатов
-	sb.WriteString("| IP | MAC | Hostname | Порты | Протоколы | Тип устройства | Производитель |\n")
-	sb.WriteString("|----|-----|----------|-------|-----------|----------------|---------------|\n")
+	// Таблица результатов - порядок колонок: HostName / IP / MAC / Порты / Протокол / Тип устройства / Производитель
+	sb.WriteString("| HostName | IP | MAC | Порты | Протокол | Тип устройства | Производитель |\n")
+	sb.WriteString("|----------|----|-----|-------|----------|----------------|---------------|\n")
 
 	for _, result := range results {
 		// Форматируем порты
@@ -68,55 +69,146 @@ func FormatResultsForDisplay(results []scanner.Result) string {
 		vendor = escapeMarkdown(vendor)
 
 		sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s | %s | %s |\n",
-			ip, mac, hostname, portsStr, protocolsStr, deviceType, vendor))
+			hostname, ip, mac, portsStr, protocolsStr, deviceType, vendor))
 	}
 
 	sb.WriteString("\n---\n\n")
 
 	// Аналитика
-	sb.WriteString("## Аналитика\n\n")
+	sb.WriteString("## Сетевая аналитика\n\n")
 
 	// Статистика по протоколам
 	protocolStats := make(map[string]int)
-	portStats := make(map[int]int)
 	deviceTypes := make(map[string]int)
 
 	for _, result := range results {
 		for _, protocol := range result.Protocols {
 			protocolStats[protocol]++
 		}
-		for _, port := range result.Ports {
-			if port.State == "open" {
-				portStats[port.Port]++
-			}
-		}
 		if result.DeviceType != "" {
 			deviceTypes[result.DeviceType]++
 		}
 	}
 
+	// Таблица протоколов - каждый протокол как отдельная колонка
 	if len(protocolStats) > 0 {
 		sb.WriteString("### Протоколы в сети\n\n")
-		for protocol, count := range protocolStats {
-			sb.WriteString(fmt.Sprintf("- **%s**: %d устройств\n", protocol, count))
+
+		// Сортируем протоколы для единообразия
+		protocols := make([]string, 0, len(protocolStats))
+		for protocol := range protocolStats {
+			protocols = append(protocols, protocol)
 		}
-		sb.WriteString("\n")
+		sort.Strings(protocols)
+
+		// Создаем заголовок таблицы
+		header := "|"
+		separator := "|"
+		for _, protocol := range protocols {
+			header += fmt.Sprintf(" %s |", escapeMarkdown(protocol))
+			separator += "---|"
+		}
+		sb.WriteString(header + "\n")
+		sb.WriteString(separator + "\n")
+
+		// Создаем строку данных
+		dataRow := "|"
+		for _, protocol := range protocols {
+			dataRow += fmt.Sprintf(" %d |", protocolStats[protocol])
+		}
+		sb.WriteString(dataRow + "\n\n")
 	}
 
-	if len(portStats) > 0 {
-		sb.WriteString("### Используемые порты\n\n")
-		for port, count := range portStats {
-			sb.WriteString(fmt.Sprintf("- **Порт %d**: %d устройств\n", port, count))
-		}
-		sb.WriteString("\n")
-	}
-
+	// Таблица типов устройств - каждый тип как отдельная колонка
 	if len(deviceTypes) > 0 {
 		sb.WriteString("### Типы устройств\n\n")
-		for deviceType, count := range deviceTypes {
-			sb.WriteString(fmt.Sprintf("- **%s**: %d\n", deviceType, count))
+
+		// Нормализуем названия типов устройств для колонок
+		typeMapping := map[string]string{
+			// Network Device категория
+			"Router/Network Device": "Network Device",
+			"Network Device":        "Network Device",
+			"Router":                "Network Device",
+			"Printer":               "Network Device",
+			"IoT Device":            "Network Device",
+			"IoT":                   "Network Device",
+
+			// Computer категория
+			"Windows Computer": "Computer",
+			"Computer":         "Computer",
+			"Windows":          "Computer",
+			"PC":               "Computer",
+			"Desktop":          "Computer",
+			"Laptop":           "Computer",
+
+			// Server категория
+			"Web Server":        "Server",
+			"Database Server":   "Server",
+			"Linux/Unix Server": "Server",
+			"Server":            "Server",
+			"Linux Server":      "Server",
+			"Unix Server":       "Server",
+			"Linux":             "Server",
+			"Unix":              "Server",
+
+			// Unknown
+			"Unknown Device": "Unknown",
+			"Unknown":        "Unknown",
 		}
-		sb.WriteString("\n")
+
+		// Группируем по нормализованным типам
+		normalizedTypes := make(map[string]int)
+		for deviceType, count := range deviceTypes {
+			normalized := typeMapping[deviceType]
+			if normalized == "" {
+				normalized = deviceType
+			}
+			normalizedTypes[normalized] += count
+		}
+
+		// Определяем порядок колонок
+		columnOrder := []string{"Network Device", "Computer", "Server", "Unknown"}
+		existingTypes := make([]string, 0)
+
+		// Добавляем типы в нужном порядке, если они есть
+		for _, colType := range columnOrder {
+			if normalizedTypes[colType] > 0 {
+				existingTypes = append(existingTypes, colType)
+			}
+		}
+
+		// Добавляем остальные типы, которых нет в стандартном списке
+		for deviceType := range normalizedTypes {
+			found := false
+			for _, colType := range columnOrder {
+				if deviceType == colType {
+					found = true
+					break
+				}
+			}
+			if !found {
+				existingTypes = append(existingTypes, deviceType)
+			}
+		}
+
+		if len(existingTypes) > 0 {
+			// Создаем заголовок таблицы
+			header := "|"
+			separator := "|"
+			for _, deviceType := range existingTypes {
+				header += fmt.Sprintf(" %s |", escapeMarkdown(deviceType))
+				separator += "---|"
+			}
+			sb.WriteString(header + "\n")
+			sb.WriteString(separator + "\n")
+
+			// Создаем строку данных
+			dataRow := "|"
+			for _, deviceType := range existingTypes {
+				dataRow += fmt.Sprintf(" %d |", normalizedTypes[deviceType])
+			}
+			sb.WriteString(dataRow + "\n\n")
+		}
 	}
 
 	return sb.String()
