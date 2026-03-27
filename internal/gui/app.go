@@ -12,13 +12,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/storage"
@@ -54,59 +55,105 @@ type topologyBuildMetrics struct {
 
 // App представляет GUI приложение
 type App struct {
-	myApp          fyne.App
-	myWindow       fyne.Window
-	scanResults    []scanner.Result
-	networkScanner *scanner.NetworkScanner
-	networkEntry   *widget.Entry
-	portRangeEntry *widget.Entry
-	timeoutEntry   *widget.Entry
-	threadsEntry   *widget.Entry
-	scanUDPCheck   *widget.Check
-	presetQuickBtn *widget.Button
-	presetBalBtn   *widget.Button
-	presetDeepBtn  *widget.Button
-	statusLabel    *widget.Label
-	stageLabel     *widget.Label
-	progressBar    *widget.ProgressBar
-	resultsText    *widget.RichText
-	resultsScroll  *container.Scroll
-	scanButton     *widget.Button
-	stopButton     *widget.Button
-	saveButton     *widget.Button
-	buildTopoBtn   *widget.Button
-	stopTopoBtn    *widget.Button
-	saveTopoBtn    *widget.Button
-	copyPerfBtn    *widget.Button
-	savePerfBtn    *widget.Button
-	snmpCommEntry  *widget.Entry
-	snmpTimeoutEnt *widget.Entry
-	lastTopology   *topology.Topology
-	lastSNMPReport *snmpcollector.CollectReport
-	lastTopoMetric topologyBuildMetrics
-	topologyText   *widget.RichText
-	topologyScroll *container.Scroll
-	topologyStatus *widget.Label
-	snmpStageLabel *widget.Label
-	snmpProgress   *widget.ProgressBar
-	mainTabs       *container.AppTabs
-	topologyImage  *canvas.Image
-	topologyImgBox *fyne.Container
-	topologyImgScroll *container.Scroll
-	previewPath    string
-	refreshPreviewBtn *widget.Button
-	zoomSelect        *widget.Select
-	openPreviewBtn    *widget.Button
-	topologyCancel    context.CancelFunc
+	myApp              fyne.App
+	myWindow           fyne.Window
+	scanResults        []scanner.Result
+	networkScanner     *scanner.NetworkScanner
+	networkEntry       *widget.Entry
+	portRangeEntry     *widget.Entry
+	timeoutEntry       *widget.Entry
+	threadsEntry       *widget.Entry
+	scanUDPCheck       *widget.Check
+	presetQuickBtn     *widget.Button
+	presetBalBtn       *widget.Button
+	presetDeepBtn      *widget.Button
+	statusLabel        *widget.Label
+	resultsStateLabel  *widget.Label
+	stageLabel         *widget.Label
+	progressBar        *widget.ProgressBar
+	resultsScroll      *container.Scroll
+	resultsBody        *fyne.Container
+	resultsMode        string
+	resultsModeSel     *widget.RadioGroup
+	resultsSort        string
+	resultsSortSel     *widget.Select
+	resultsFilterEnt   *widget.Entry
+	resultsFilterQuery string
+	filtersInfoLabel   *widget.Label
+	clearFilterBtn     *widget.Button
+	chipLimitSel       *widget.Select
+	maxPortChips       int
+	onlyWithOpenPorts  bool
+	openPortsOnlyCheck *widget.Check
+	quickTypeChecks    map[string]*widget.Check
+	resetFiltersBtn    *widget.Button
+	scanButton         *widget.Button
+	stopButton         *widget.Button
+	saveButton         *widget.Button
+	buildTopoBtn       *widget.Button
+	stopTopoBtn        *widget.Button
+	saveTopoBtn        *widget.Button
+	copyPerfBtn        *widget.Button
+	savePerfBtn        *widget.Button
+	snmpCommEntry      *widget.Entry
+	snmpTimeoutEnt     *widget.Entry
+	lastTopology       *topology.Topology
+	lastSNMPReport     *snmpcollector.CollectReport
+	lastTopoMetric     topologyBuildMetrics
+	topologyText       *widget.RichText
+	topologyScroll     *container.Scroll
+	topologyStatus     *widget.Label
+	snmpStageLabel     *widget.Label
+	snmpProgress       *widget.ProgressBar
+	mainTabs           *container.AppTabs
+	topologyImage      *canvas.Image
+	topologyImgBox     *fyne.Container
+	topologyImgScroll  *container.Scroll
+	previewPath        string
+	refreshPreviewBtn  *widget.Button
+	zoomSelect         *widget.Select
+	openPreviewBtn     *widget.Button
+	topologyCancel     context.CancelFunc
+	resultsState       string
+	lastCanvasSize     fyne.Size
+	pieChartCache      map[string]fyne.Resource
 }
 
 const (
-	prefNetwork   = "scan.network"
-	prefPortRange = "scan.port_range"
-	prefTimeout   = "scan.timeout_sec"
-	prefThreads   = "scan.threads"
-	prefScanUDP   = "scan.udp"
-	prefPreset    = "scan.preset"
+	prefNetwork       = "scan.network"
+	prefPortRange     = "scan.port_range"
+	prefTimeout       = "scan.timeout_sec"
+	prefThreads       = "scan.threads"
+	prefScanUDP       = "scan.udp"
+	prefPreset        = "scan.preset"
+	prefViewMode      = "scan.results_view_mode"
+	prefSortMode      = "scan.results_sort_mode"
+	prefChipLimit     = "scan.results_chip_limit"
+	prefFilterQuery   = "scan.results_filter_query"
+	prefOnlyOpenPorts = "scan.results_only_open_ports"
+	prefTypeFilters   = "scan.results_type_filters"
+)
+
+const (
+	resultsStateIdle     = "idle"
+	resultsStateScanning = "scanning"
+	resultsStateDone     = "done"
+	resultsStateStopped  = "stopped"
+	resultsStateTimeout  = "timeout"
+)
+
+var (
+	chipBgColor        = color.RGBA{R: 222, G: 234, B: 255, A: 255}
+	tableRowBgColor    = color.RGBA{R: 250, G: 251, B: 253, A: 255}
+	tableHeaderBgColor = color.RGBA{R: 229, G: 236, B: 247, A: 255}
+	piePalette         = []color.RGBA{
+		{R: 37, G: 99, B: 235, A: 255},
+		{R: 59, G: 130, B: 246, A: 255},
+		{R: 14, G: 165, B: 233, A: 255},
+		{R: 99, G: 102, B: 241, A: 255},
+		{R: 168, G: 85, B: 247, A: 255},
+		{R: 71, G: 85, B: 105, A: 255},
+	}
 )
 
 // createAppIcon создает иконку приложения
@@ -190,8 +237,9 @@ func NewApp() *App {
 	myWindow.SetFixedSize(false) // Позволяем изменять размер, но в пределах экрана
 
 	app := &App{
-		myApp:    myApp,
-		myWindow: myWindow,
+		myApp:         myApp,
+		myWindow:      myWindow,
+		pieChartCache: make(map[string]fyne.Resource),
 	}
 
 	app.initUI()
@@ -251,6 +299,8 @@ func (a *App) initUI() {
 	// Статус
 	a.statusLabel = widget.NewLabel("Готов к сканированию")
 	a.statusLabel.Wrapping = fyne.TextWrapWord
+	a.resultsStateLabel = widget.NewLabel("Результаты еще не получены")
+	a.resultsStateLabel.Wrapping = fyne.TextWrapWord
 
 	// Метка этапа сканирования
 	a.stageLabel = widget.NewLabel("")
@@ -262,12 +312,89 @@ func (a *App) initUI() {
 	a.progressBar.Hide()
 
 	// Область результатов с прокруткой
-	a.resultsText = widget.NewRichText()
-	a.resultsText.Wrapping = fyne.TextWrapWord
+	a.resultsMode = "Таблица"
+	a.resultsSort = "IP"
+	a.maxPortChips = 24
+	a.resultsState = resultsStateIdle
+	a.resultsBody = container.NewMax(widget.NewLabel("Результаты сканирования появятся здесь после запуска."))
+	a.resultsModeSel = widget.NewRadioGroup([]string{"Таблица", "Карточки"}, func(value string) {
+		if strings.TrimSpace(value) == "" {
+			return
+		}
+		a.resultsMode = value
+		a.saveResultsViewSettings()
+		a.renderScanResultsView()
+	})
+	a.resultsModeSel.Horizontal = true
+	a.resultsModeSel.SetSelected(a.resultsMode)
+	a.resultsSortSel = widget.NewSelect([]string{"IP", "HostName"}, func(value string) {
+		if strings.TrimSpace(value) == "" {
+			return
+		}
+		a.resultsSort = value
+		a.saveResultsViewSettings()
+		a.renderScanResultsView()
+	})
+	a.resultsSortSel.SetSelected(a.resultsSort)
+	a.resultsFilterEnt = widget.NewEntry()
+	a.resultsFilterEnt.SetPlaceHolder("Фильтр: HostName/IP/MAC/тип")
+	a.resultsFilterEnt.OnChanged = func(value string) {
+		a.resultsFilterQuery = strings.TrimSpace(value)
+		a.saveResultsViewSettings()
+		a.renderScanResultsView()
+	}
+	a.clearFilterBtn = widget.NewButton("Очистить", func() {
+		a.resultsFilterQuery = ""
+		a.resultsFilterEnt.SetText("")
+		a.saveResultsViewSettings()
+		a.renderScanResultsView()
+	})
+	a.filtersInfoLabel = widget.NewLabel("Активных фильтров: 0")
+	a.filtersInfoLabel.Wrapping = fyne.TextWrapWord
+	a.quickTypeChecks = map[string]*widget.Check{}
+	typeKeys := []string{"Network Device", "Computer", "Server", "Unknown"}
+	typeCheckRow := make([]fyne.CanvasObject, 0, len(typeKeys)+2)
+	typeCheckRow = append(typeCheckRow, widget.NewLabel("Быстрые фильтры:"))
+	for _, key := range typeKeys {
+		label := key
+		ch := widget.NewCheck(label, func(_ bool) {
+			a.saveResultsViewSettings()
+			a.renderScanResultsView()
+		})
+		a.quickTypeChecks[key] = ch
+		typeCheckRow = append(typeCheckRow, ch)
+	}
+	a.openPortsOnlyCheck = widget.NewCheck("Только с открытыми портами", func(v bool) {
+		a.onlyWithOpenPorts = v
+		a.saveResultsViewSettings()
+		a.renderScanResultsView()
+	})
+	typeCheckRow = append(typeCheckRow, a.openPortsOnlyCheck)
+	a.resetFiltersBtn = widget.NewButton("Сбросить фильтры", func() {
+		a.resultsFilterQuery = ""
+		a.resultsFilterEnt.SetText("")
+		a.onlyWithOpenPorts = false
+		a.openPortsOnlyCheck.SetChecked(false)
+		for _, ch := range a.quickTypeChecks {
+			ch.SetChecked(false)
+		}
+		a.saveResultsViewSettings()
+		a.renderScanResultsView()
+	})
+	a.chipLimitSel = widget.NewSelect([]string{"12", "24", "48"}, func(value string) {
+		v, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil || v <= 0 {
+			return
+		}
+		a.maxPortChips = v
+		a.saveResultsViewSettings()
+		a.renderScanResultsView()
+	})
+	a.chipLimitSel.SetSelected(strconv.Itoa(a.maxPortChips))
 
 	// Создаем прокручиваемый контейнер для результатов
 	// Это ключевое изменение - используем Scroll контейнер для прокрутки результатов
-	a.resultsScroll = container.NewScroll(a.resultsText)
+	a.resultsScroll = container.NewScroll(a.resultsBody)
 	// Устанавливаем минимальный размер, чтобы контейнер был прокручиваемым
 	// и занимал доступное пространство
 	a.resultsScroll.SetMinSize(fyne.NewSize(0, 300))
@@ -306,7 +433,19 @@ func (a *App) initUI() {
 
 	// Контейнер с результатами (заголовок + прокручиваемая область)
 	resultsContainer := container.NewBorder(
-		container.NewVBox(separator, resultsLabel),
+		container.NewVBox(
+			separator,
+			resultsLabel,
+			a.resultsStateLabel,
+			container.NewHBox(widget.NewLabel("Режим отображения:"), a.resultsModeSel),
+			container.NewHBox(
+				widget.NewLabel("Сортировка:"), a.resultsSortSel,
+				widget.NewLabel("Чипов портов:"), a.chipLimitSel,
+			),
+			container.NewHBox(a.resultsFilterEnt, a.clearFilterBtn, a.filtersInfoLabel),
+			container.NewHBox(typeCheckRow...),
+			container.NewHBox(a.resetFiltersBtn),
+		),
 		nil,
 		nil,
 		nil,
@@ -372,7 +511,13 @@ func (a *App) initUI() {
 		container.NewTabItem("Сканирование", scanTabContent),
 		container.NewTabItem("Топология", topologyTabContent),
 	)
+	a.mainTabs.OnSelected = func(item *container.TabItem) {
+		if item != nil && item.Text == "Сканирование" {
+			a.renderScanResultsView()
+		}
+	}
 	a.myWindow.SetContent(a.mainTabs)
+	a.startResultsLayoutWatcher()
 }
 
 // setupEventHandlers настраивает обработчики событий
@@ -538,6 +683,68 @@ func (a *App) loadScanSettings() {
 	case "balanced":
 		a.statusLabel.SetText("Пресет: Баланс (восстановлен)")
 	}
+	viewMode := strings.TrimSpace(p.String(prefViewMode))
+	if viewMode == "Таблица" || viewMode == "Карточки" {
+		a.resultsMode = viewMode
+		a.resultsModeSel.SetSelected(viewMode)
+	}
+	sortMode := strings.TrimSpace(p.String(prefSortMode))
+	if sortMode == "IP" || sortMode == "HostName" {
+		a.resultsSort = sortMode
+		a.resultsSortSel.SetSelected(sortMode)
+	}
+	if v, err := strconv.Atoi(strings.TrimSpace(p.String(prefChipLimit))); err == nil && v > 0 {
+		a.maxPortChips = v
+		if a.chipLimitSel != nil {
+			a.chipLimitSel.SetSelected(strconv.Itoa(v))
+		}
+	}
+	if v := strings.TrimSpace(p.String(prefFilterQuery)); v != "" {
+		a.resultsFilterQuery = v
+		if a.resultsFilterEnt != nil {
+			a.resultsFilterEnt.SetText(v)
+		}
+	}
+	a.onlyWithOpenPorts = strings.EqualFold(strings.TrimSpace(p.String(prefOnlyOpenPorts)), "true")
+	if a.openPortsOnlyCheck != nil {
+		a.openPortsOnlyCheck.SetChecked(a.onlyWithOpenPorts)
+	}
+	if rawTypes := strings.TrimSpace(p.String(prefTypeFilters)); rawTypes != "" {
+		for _, typeName := range strings.Split(rawTypes, ",") {
+			name := strings.TrimSpace(typeName)
+			if check, ok := a.quickTypeChecks[name]; ok && check != nil {
+				check.SetChecked(true)
+			}
+		}
+	}
+	a.renderScanResultsView()
+}
+
+func (a *App) saveResultsViewSettings() {
+	if a == nil || a.myApp == nil {
+		return
+	}
+	p := a.myApp.Preferences()
+	p.SetString(prefViewMode, strings.TrimSpace(a.resultsMode))
+	p.SetString(prefSortMode, strings.TrimSpace(a.resultsSort))
+	p.SetString(prefChipLimit, strconv.Itoa(a.maxPortChips))
+	p.SetString(prefFilterQuery, strings.TrimSpace(a.resultsFilterQuery))
+	if a.onlyWithOpenPorts {
+		p.SetString(prefOnlyOpenPorts, "true")
+	} else {
+		p.SetString(prefOnlyOpenPorts, "false")
+	}
+	selectedTypes := make([]string, 0)
+	for typeName, check := range a.quickTypeChecks {
+		if check != nil && check.Checked {
+			selectedTypes = append(selectedTypes, typeName)
+		}
+	}
+	if len(selectedTypes) > 1 {
+		// Keep serialized settings deterministic for easier debugging.
+		sort.Strings(selectedTypes)
+	}
+	p.SetString(prefTypeFilters, strings.Join(selectedTypes, ","))
 }
 
 // startScan запускает процесс сканирования
@@ -581,7 +788,10 @@ func (a *App) startScan() {
 	a.stageLabel.SetText("Инициализация...")
 
 	// Очищаем предыдущие результаты
-	a.resultsText.ParseMarkdown("## Сканирование запущено...\n\nПожалуйста, подождите.")
+	a.scanResults = nil
+	a.pieChartCache = make(map[string]fyne.Resource)
+	a.resultsState = resultsStateScanning
+	a.renderScanResultsView()
 	a.resultsScroll.Refresh()
 	a.topologyText.ParseMarkdown("## Топология сети\n\nСканирование выполняется. После завершения станет доступно построение топологии.")
 	a.topologyScroll.Refresh()
@@ -735,30 +945,29 @@ func (a *App) startScan() {
 				// Обновляем UI через fyne.Do для выполнения в главном потоке
 				fyne.Do(func() {
 					a.scanResults = results
+					a.resultsState = resultsStateDone
 					a.progressBar.SetValue(1.0)
 					a.progressBar.Hide()
 					a.stageLabel.Hide()
 
 					if len(results) == 0 {
 						a.statusLabel.SetText("Сканирование завершено. Результаты не найдены.")
-						a.resultsText.ParseMarkdown("## Результаты сканирования\n\nРезультаты сканирования не найдены.")
 						a.topologyStatus.SetText("Нет результатов сканирования для построения топологии")
 					} else {
 						a.statusLabel.SetText(fmt.Sprintf("Сканирование завершено. Найдено устройств: %d", len(results)))
-						formattedResults := FormatResultsForDisplay(results)
-						a.resultsText.ParseMarkdown(formattedResults)
 						a.saveButton.Enable()
 						a.buildTopoBtn.Enable()
 						a.topologyStatus.SetText("Можно строить топологию: перейдите на вкладку 'Топология'")
 					}
+					a.renderScanResultsView()
 
 					// Прокручиваем к началу результатов и обновляем отображение
 					a.resultsScroll.ScrollToTop()
 					a.resultsScroll.Refresh()
-					a.resultsText.Refresh()
 					a.progressBar.Refresh()
 					a.stageLabel.Refresh()
 					a.statusLabel.Refresh()
+					a.resultsStateLabel.Refresh()
 					a.topologyStatus.Refresh()
 					a.scanButton.Enable()
 					a.stopButton.Disable()
@@ -781,14 +990,17 @@ func (a *App) startScan() {
 				// Таймаут на случай если сканирование зависло
 				fyne.Do(func() {
 					a.statusLabel.SetText("Таймаут сканирования")
+					a.resultsState = resultsStateTimeout
 					a.stageLabel.Hide()
 					a.scanButton.Enable()
 					a.stopButton.Disable()
 					a.networkScanner = nil
 					a.progressBar.Hide()
+					a.renderScanResultsView()
 					a.statusLabel.Refresh()
 					a.stageLabel.Refresh()
 					a.progressBar.Refresh()
+					a.resultsStateLabel.Refresh()
 				})
 				return
 			}
@@ -812,20 +1024,28 @@ func (a *App) stopScan() {
 	}
 	a.networkScanner.Stop()
 	a.statusLabel.SetText("Сканирование остановлено пользователем")
+	a.resultsState = resultsStateStopped
 	a.stageLabel.Hide()
 	a.progressBar.Hide()
 	a.scanButton.Enable()
 	a.stopButton.Disable()
 	a.networkScanner = nil
+	a.renderScanResultsView()
 	a.statusLabel.Refresh()
 	a.stageLabel.Refresh()
 	a.progressBar.Refresh()
+	a.resultsStateLabel.Refresh()
 }
 
 // saveResults сохраняет результаты в файл
 func (a *App) saveResults() {
 	if len(a.scanResults) == 0 {
 		dialog.ShowInformation("Информация", "Нет результатов для сохранения", a.myWindow)
+		return
+	}
+	resultsToSave := a.currentDisplayedResults()
+	if len(resultsToSave) == 0 {
+		dialog.ShowInformation("Информация", "После применения фильтров нет данных для сохранения", a.myWindow)
 		return
 	}
 
@@ -840,7 +1060,7 @@ func (a *App) saveResults() {
 		defer writer.Close()
 
 		// Форматируем результаты в текстовый формат
-		text := display.FormatResultsAsText(a.scanResults)
+		text := display.FormatResultsAsText(resultsToSave)
 
 		_, err = writer.Write([]byte(text))
 		if err != nil {
@@ -848,7 +1068,7 @@ func (a *App) saveResults() {
 			return
 		}
 
-		dialog.ShowInformation("Успех", "Результаты успешно сохранены", a.myWindow)
+		dialog.ShowInformation("Успех", fmt.Sprintf("Результаты успешно сохранены (устройств: %d)", len(resultsToSave)), a.myWindow)
 	}, a.myWindow)
 }
 
