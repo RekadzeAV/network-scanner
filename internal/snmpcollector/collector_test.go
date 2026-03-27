@@ -17,6 +17,18 @@ func TestParseMACFromOID(t *testing.T) {
 	}
 }
 
+func TestParseMACFromOIDQBridge(t *testing.T) {
+	// Q-BRIDGE dot1qTpFdbPort: индекс FDB + 6 октетов MAC (последние 6 — MAC).
+	got, err := ParseMACFromOID(".1.3.6.1.2.1.17.7.1.2.2.1.2.1.170.187.204.221.238.255")
+	if err != nil {
+		t.Fatalf("ParseMACFromOID error: %v", err)
+	}
+	want := "aa:bb:cc:dd:ee:ff"
+	if got != want {
+		t.Fatalf("ParseMACFromOID got %s, want %s", got, want)
+	}
+}
+
 func TestCollectWithReportSkipsNonSNMPDevices(t *testing.T) {
 	devices := []scanner.Result{
 		{IP: "192.168.1.10", SNMPEnabled: false},

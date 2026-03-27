@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +22,8 @@ const (
 	oidIfDescr    = ".1.3.6.1.2.1.2.2.1.2"
 	oidIfName     = ".1.3.6.1.2.1.31.1.1.1.1"
 	oidDot1dTpFdb = ".1.3.6.1.2.1.17.4.3.1.2"
+	// Q-BRIDGE-MIB dot1qTpFdbPort — VLAN-aware FDB (часто заполнена, когда dot1d пуста).
+	oidDot1qTpFdb = ".1.3.6.1.2.1.17.7.1.2.2.1.2"
 
 	oidLldpRemSysName = ".1.0.8802.1.1.2.1.4.1.1.9"
 	oidLldpRemPortID  = ".1.0.8802.1.1.2.1.4.1.1.7"
@@ -60,6 +63,16 @@ type CollectReport struct {
 	Partial          int
 	Failed           int
 	Failures         []DeviceFailure
+	// DeviceSummaries — краткая диагностика по каждому опрошенному IP (порядок по IP).
+	DeviceSummaries []DeviceQuerySummary
+}
+
+// DeviceQuerySummary помогает понять, почему топология пустая: FDB/LLDP и текст ошибок.
+type DeviceQuerySummary struct {
+	IP              string
+	MACEntries      int
+	LLDPNeighbors   int
+	QueryErrors     string
 }
 
 type ProgressCallback func(current int, total int, ip string, message string)
@@ -71,7 +84,7 @@ type SNMPClient interface {
 	GetSysDescr() (string, error)
 	GetIfTable() (map[int]*IfEntry, error)
 	GetMacTable() (map[string]int, error)
-	GetLldpNeighbors() (map[int]*LldpNeighbor, error)
+	GetLldpNeighbors() ([]*LldpNeighbor, error)
 }
 
 type GoSNMPClient struct {
@@ -93,7 +106,7 @@ func (g *GoSNMPClient) Connect(ip, community string) error {
 		Community: community,
 		Version:   gosnmp.Version2c,
 		Timeout:   g.timeout,
-		Retries:   0,
+		Retries:   2,
 	}
 	if err := c.Connect(); err != nil {
 		return err
@@ -160,7 +173,7 @@ func (g *GoSNMPClient) GetIfTable() (map[int]*IfEntry, error) {
 
 func (g *GoSNMPClient) GetMacTable() (map[string]int, error) {
 	out := make(map[string]int)
-	err := g.walk(oidDot1dTpFdb, func(pdu gosnmp.SnmpPDU) error {
+	errDot1d := g.walk(oidDot1dTpFdb, func(pdu gosnmp.SnmpPDU) error {
 		mac, parseErr := ParseMACFromOID(pdu.Name)
 		if parseErr != nil {
 			return nil
@@ -179,20 +192,59 @@ func (g *GoSNMPClient) GetMacTable() (map[string]int, error) {
 		}
 		return nil
 	})
-	return out, err
-}
-
-func (g *GoSNMPClient) GetLldpNeighbors() (map[int]*LldpNeighbor, error) {
-	out := make(map[int]*LldpNeighbor)
-	if err := g.walk(oidLldpRemSysName, func(pdu gosnmp.SnmpPDU) error {
-		localIdx := lldpLocalIfIndexFromOID(pdu.Name)
-		if localIdx <= 0 {
+	errDot1q := g.walk(oidDot1qTpFdb, func(pdu gosnmp.SnmpPDU) error {
+		mac, parseErr := ParseMACFromOID(pdu.Name)
+		if parseErr != nil {
 			return nil
 		}
-		n := out[localIdx]
+		switch v := pdu.Value.(type) {
+		case int:
+			if _, ok := out[mac]; !ok {
+				out[mac] = v
+			}
+		case uint:
+			if _, ok := out[mac]; !ok {
+				out[mac] = int(v)
+			}
+		case uint32:
+			if _, ok := out[mac]; !ok {
+				out[mac] = int(v)
+			}
+		case int64:
+			if _, ok := out[mac]; !ok {
+				out[mac] = int(v)
+			}
+		case uint64:
+			if _, ok := out[mac]; !ok {
+				out[mac] = int(v)
+			}
+		}
+		return nil
+	})
+	if len(out) > 0 {
+		return out, nil
+	}
+	if errDot1d != nil {
+		return out, errDot1d
+	}
+	return out, errDot1q
+}
+
+func (g *GoSNMPClient) GetLldpNeighbors() ([]*LldpNeighbor, error) {
+	rows := make(map[string]*LldpNeighbor)
+	if err := g.walk(oidLldpRemSysName, func(pdu gosnmp.SnmpPDU) error {
+		key := lldpRowKeyFromOID(pdu.Name)
+		if key == "" {
+			return nil
+		}
+		lp := lldpLocalPortFromOID(pdu.Name)
+		if lp <= 0 {
+			return nil
+		}
+		n := rows[key]
 		if n == nil {
-			n = &LldpNeighbor{LocalIfIndex: localIdx}
-			out[localIdx] = n
+			n = &LldpNeighbor{LocalIfIndex: lp}
+			rows[key] = n
 		}
 		n.RemoteSys = pduValueString(pdu)
 		return nil
@@ -200,31 +252,37 @@ func (g *GoSNMPClient) GetLldpNeighbors() (map[int]*LldpNeighbor, error) {
 		return nil, err
 	}
 	_ = g.walk(oidLldpRemPortID, func(pdu gosnmp.SnmpPDU) error {
-		localIdx := lldpLocalIfIndexFromOID(pdu.Name)
-		if localIdx <= 0 {
+		key := lldpRowKeyFromOID(pdu.Name)
+		if key == "" {
 			return nil
 		}
-		n := out[localIdx]
+		lp := lldpLocalPortFromOID(pdu.Name)
+		n := rows[key]
 		if n == nil {
-			n = &LldpNeighbor{LocalIfIndex: localIdx}
-			out[localIdx] = n
+			n = &LldpNeighbor{LocalIfIndex: lp}
+			rows[key] = n
 		}
 		n.RemotePortID = pduValueString(pdu)
 		return nil
 	})
 	_ = g.walk(oidLldpRemChassis, func(pdu gosnmp.SnmpPDU) error {
-		localIdx := lldpLocalIfIndexFromOID(pdu.Name)
-		if localIdx <= 0 {
+		key := lldpRowKeyFromOID(pdu.Name)
+		if key == "" {
 			return nil
 		}
-		n := out[localIdx]
+		lp := lldpLocalPortFromOID(pdu.Name)
+		n := rows[key]
 		if n == nil {
-			n = &LldpNeighbor{LocalIfIndex: localIdx}
-			out[localIdx] = n
+			n = &LldpNeighbor{LocalIfIndex: lp}
+			rows[key] = n
 		}
-		n.RemoteMac = strings.ToLower(strings.ReplaceAll(pduValueString(pdu), "-", ":"))
+		n.RemoteMac = lldpChassisToMACString(pdu)
 		return nil
 	})
+	out := make([]*LldpNeighbor, 0, len(rows))
+	for _, n := range rows {
+		out = append(out, n)
+	}
 	return out, nil
 }
 
@@ -348,10 +406,10 @@ func CollectWithReportProgressContext(ctx context.Context, devices []scanner.Res
 						queryErrs = append(queryErrs, "macTable: "+errMacTable.Error())
 						macTable = map[string]int{}
 					}
-					lldpMap, errLLDP := c.GetLldpNeighbors()
+					lldpList, errLLDP := c.GetLldpNeighbors()
 					if errLLDP != nil {
 						queryErrs = append(queryErrs, "lldp: "+errLLDP.Error())
-						lldpMap = map[int]*LldpNeighbor{}
+						lldpList = nil
 					}
 					_ = c.Close()
 
@@ -364,7 +422,7 @@ func CollectWithReportProgressContext(ctx context.Context, devices []scanner.Res
 						SNMPCommunity: trimmedCommunity,
 						Ports:         make([]topology.Port, 0, len(ifTable)),
 						MacTable:      macTable,
-						LldpNeighbors: make(map[int]*topology.LldpNeighbor),
+						LldpNeighbors: make([]*topology.LldpNeighbor, 0, len(lldpList)),
 					}
 					for idx, ifEntry := range ifTable {
 						dev.Ports = append(dev.Ports, topology.Port{
@@ -373,12 +431,16 @@ func CollectWithReportProgressContext(ctx context.Context, devices []scanner.Res
 							Description: ifEntry.Description,
 						})
 					}
-					for idx, n := range lldpMap {
-						dev.LldpNeighbors[idx] = &topology.LldpNeighbor{
+					for _, n := range lldpList {
+						if n == nil {
+							continue
+						}
+						dev.LldpNeighbors = append(dev.LldpNeighbors, &topology.LldpNeighbor{
+							LocalIfIndex:    n.LocalIfIndex,
 							RemoteChassisID: n.RemoteMac,
 							RemotePortID:    n.RemotePortID,
 							RemoteSysName:   n.RemoteSys,
-						}
+						})
 					}
 
 					key := dev.MAC
@@ -386,9 +448,17 @@ func CollectWithReportProgressContext(ctx context.Context, devices []scanner.Res
 						key = dev.IP
 					}
 
+					summary := DeviceQuerySummary{
+						IP:            d.IP,
+						MACEntries:    len(macTable),
+						LLDPNeighbors: len(dev.LldpNeighbors),
+						QueryErrors:   strings.Join(queryErrs, "; "),
+					}
+
 					mu.Lock()
 					out[key] = dev
 					report.Connected++
+					report.DeviceSummaries = append(report.DeviceSummaries, summary)
 					if len(queryErrs) > 0 {
 						report.Partial++
 						report.Failures = append(report.Failures, DeviceFailure{
@@ -452,6 +522,10 @@ func CollectWithReportProgressContext(ctx context.Context, devices []scanner.Res
 		return out, report, ctx.Err()
 	}
 
+	sort.Slice(report.DeviceSummaries, func(i, j int) bool {
+		return report.DeviceSummaries[i].IP < report.DeviceSummaries[j].IP
+	})
+
 	return out, report, nil
 }
 
@@ -498,17 +572,48 @@ func suffixInt(oid string) int {
 	return n
 }
 
-func lldpLocalIfIndexFromOID(oid string) int {
+// lldpRowKeyFromOID — уникальный ключ строки lldpRemTable (timeMark, localPortNum, remIndex).
+func lldpRowKeyFromOID(oid string) string {
+	parts := strings.Split(strings.TrimPrefix(strings.TrimSpace(oid), "."), ".")
+	if len(parts) < 3 {
+		return ""
+	}
+	return strings.Join(parts[len(parts)-3:], ".")
+}
+
+// lldpLocalPortFromOID — lldpRemLocalPortNum (не обязательно совпадает с ifIndex).
+func lldpLocalPortFromOID(oid string) int {
 	parts := strings.Split(strings.TrimPrefix(strings.TrimSpace(oid), "."), ".")
 	if len(parts) < 3 {
 		return -1
 	}
-	// LLDP OID index ends with timeMark.localPort.remIndex
 	n, err := strconv.Atoi(parts[len(parts)-2])
 	if err != nil {
 		return -1
 	}
 	return n
+}
+
+func lldpChassisToMACString(pdu gosnmp.SnmpPDU) string {
+	switch v := pdu.Value.(type) {
+	case []byte:
+		if len(v) == 6 {
+			return bytesToMAC(v)
+		}
+		s := strings.TrimSpace(string(v))
+		return strings.ToLower(strings.ReplaceAll(s, "-", ":"))
+	default:
+		s := pduValueString(pdu)
+		return strings.ToLower(strings.ReplaceAll(s, "-", ":"))
+	}
+}
+
+func bytesToMAC(b []byte) string {
+	parts := make([]string, len(b))
+	for i := range b {
+		parts[i] = fmt.Sprintf("%02x", b[i])
+	}
+	return strings.Join(parts, ":")
 }
 
 func pduValueString(pdu gosnmp.SnmpPDU) string {

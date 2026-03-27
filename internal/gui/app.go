@@ -67,6 +67,10 @@ type App struct {
 	presetQuickBtn     *widget.Button
 	presetBalBtn       *widget.Button
 	presetDeepBtn      *widget.Button
+	scanTCPPortsCheck  *widget.Check
+	portWellKnownBtn   *widget.Button
+	portRegisteredBtn  *widget.Button
+	portDynamicBtn     *widget.Button
 	statusLabel        *widget.Label
 	resultsStateLabel  *widget.Label
 	stageLabel         *widget.Label
@@ -125,6 +129,7 @@ const (
 	prefTimeout       = "scan.timeout_sec"
 	prefThreads       = "scan.threads"
 	prefScanUDP       = "scan.udp"
+	prefScanTCPPorts  = "scan.scan_tcp_ports"
 	prefPreset        = "scan.preset"
 	prefViewMode      = "scan.results_view_mode"
 	prefSortMode      = "scan.results_sort_mode"
@@ -260,12 +265,22 @@ func (a *App) initUI() {
 	a.networkEntry = widget.NewEntry()
 	a.networkEntry.SetPlaceHolder("Оставьте пустым для автоматического определения")
 	a.portRangeEntry = widget.NewEntry()
-	a.portRangeEntry.SetText("1-1000")
+	a.portRangeEntry.SetPlaceHolder("1-65535")
+	a.portRangeEntry.SetText("1-65535")
+	a.scanTCPPortsCheck = widget.NewCheck("Сканировать TCP порты", func(v bool) {
+		a.setPortRangeControlsEnabled(v)
+		a.saveScanSettings()
+	})
+	a.portWellKnownBtn = widget.NewButton("Системные (Well-Known): 0–1023", nil)
+	a.portRegisteredBtn = widget.NewButton("Зарегистрированные: 1024–49151", nil)
+	a.portDynamicBtn = widget.NewButton("Динамические / частные: 49152–65535", nil)
 	a.timeoutEntry = widget.NewEntry()
 	a.timeoutEntry.SetText("2")
 	a.threadsEntry = widget.NewEntry()
 	a.threadsEntry.SetText("50")
 	a.scanUDPCheck = widget.NewCheck("Включить UDP сканирование", nil)
+	// SetChecked после создания полей, которые читает saveScanSettings (колбэк срабатывает сразу).
+	a.scanTCPPortsCheck.SetChecked(true)
 	a.presetQuickBtn = widget.NewButton("Быстро", nil)
 	a.presetBalBtn = widget.NewButton("Баланс", nil)
 	a.presetDeepBtn = widget.NewButton("Глубоко", nil)
@@ -350,7 +365,7 @@ func (a *App) initUI() {
 		a.renderScanResultsView()
 	})
 	a.filtersInfoLabel = widget.NewLabel("Активных фильтров: 0")
-	a.filtersInfoLabel.Wrapping = fyne.TextWrapWord
+	a.filtersInfoLabel.Wrapping = fyne.TextTruncate
 	a.quickTypeChecks = map[string]*widget.Check{}
 	typeKeys := []string{"Network Device", "Computer", "Server", "Unknown"}
 	typeCheckRow := make([]fyne.CanvasObject, 0, len(typeKeys)+2)
@@ -395,16 +410,27 @@ func (a *App) initUI() {
 	// Создаем прокручиваемый контейнер для результатов
 	// Это ключевое изменение - используем Scroll контейнер для прокрутки результатов
 	a.resultsScroll = container.NewScroll(a.resultsBody)
-	// Устанавливаем минимальный размер, чтобы контейнер был прокручиваемым
-	// и занимал доступное пространство
-	a.resultsScroll.SetMinSize(fyne.NewSize(0, 300))
+	// Минимальная высота области результатов (базово 75 dp × 1,55; прокрутка внутри)
+	a.resultsScroll.SetMinSize(fyne.NewSize(0, float32(75*1.55)))
+
+	portClassHint := widget.NewLabel("Системные (Well-Known) 0–1023 — резерв под известные и системные службы; для части портов нужны права администратора. Примеры: 21 FTP, 22 SSH, 25 SMTP, 53 DNS, 80 HTTP, 443 HTTPS. " +
+		"Зарегистрированные (Registered) 1024–49151 — назначения IANA для приложений (например 1433 MSSQL, 3306 MySQL, 8080 HTTP-alt). " +
+		"Динамические/частные (Dynamic/Private) 49152–65535 — эфемерные и частные порты.")
+	portClassHint.Wrapping = fyne.TextWrapWord
 
 	// Верхняя панель сканирования
 	scanControlsContainer := container.NewVBox(
 		networkLabel,
 		a.networkEntry,
-		widget.NewLabel("Диапазон TCP портов (например 1-1000):"),
+		a.scanTCPPortsCheck,
+		widget.NewLabel("Диапазон TCP портов (например 1-65535 или 80,443):"),
 		a.portRangeEntry,
+		portClassHint,
+		container.NewVBox(
+			a.portWellKnownBtn,
+			a.portRegisteredBtn,
+			a.portDynamicBtn,
+		),
 		container.NewHBox(
 			widget.NewLabel("Пресет:"),
 			a.presetQuickBtn,
@@ -442,7 +468,12 @@ func (a *App) initUI() {
 				widget.NewLabel("Сортировка:"), a.resultsSortSel,
 				widget.NewLabel("Чипов портов:"), a.chipLimitSel,
 			),
-			container.NewHBox(a.resultsFilterEnt, a.clearFilterBtn, a.filtersInfoLabel),
+			container.NewBorder(
+				nil, nil,
+				nil,
+				container.NewHBox(a.clearFilterBtn, a.filtersInfoLabel),
+				a.resultsFilterEnt,
+			),
 			container.NewHBox(typeCheckRow...),
 			container.NewHBox(a.resetFiltersBtn),
 		),
@@ -517,6 +548,7 @@ func (a *App) initUI() {
 		}
 	}
 	a.myWindow.SetContent(a.mainTabs)
+	a.setPortRangeControlsEnabled(a.scanTCPPortsCheck.Checked)
 	a.startResultsLayoutWatcher()
 }
 
@@ -550,6 +582,18 @@ func (a *App) setupEventHandlers() {
 		a.saveScanSettings()
 	}
 	a.scanUDPCheck.OnChanged = func(_ bool) {
+		a.saveScanSettings()
+	}
+	a.portWellKnownBtn.OnTapped = func() {
+		a.portRangeEntry.SetText("0-1023")
+		a.saveScanSettings()
+	}
+	a.portRegisteredBtn.OnTapped = func() {
+		a.portRangeEntry.SetText("1024-49151")
+		a.saveScanSettings()
+	}
+	a.portDynamicBtn.OnTapped = func() {
+		a.portRangeEntry.SetText("49152-65535")
 		a.saveScanSettings()
 	}
 
@@ -654,6 +698,38 @@ func (a *App) saveScanSettings() {
 	} else {
 		p.SetString(prefScanUDP, "false")
 	}
+	if a.scanTCPPortsCheck != nil {
+		if a.scanTCPPortsCheck.Checked {
+			p.SetString(prefScanTCPPorts, "true")
+		} else {
+			p.SetString(prefScanTCPPorts, "false")
+		}
+	}
+}
+
+func (a *App) setPortRangeControlsEnabled(enabled bool) {
+	if a == nil {
+		return
+	}
+	if a.portRangeEntry != nil {
+		if enabled {
+			a.portRangeEntry.Enable()
+		} else {
+			a.portRangeEntry.Disable()
+		}
+	}
+	for _, b := range []*widget.Button{
+		a.presetQuickBtn, a.presetBalBtn, a.presetDeepBtn,
+		a.portWellKnownBtn, a.portRegisteredBtn, a.portDynamicBtn,
+	} {
+		if b != nil {
+			if enabled {
+				b.Enable()
+			} else {
+				b.Disable()
+			}
+		}
+	}
 }
 
 func (a *App) loadScanSettings() {
@@ -674,6 +750,15 @@ func (a *App) loadScanSettings() {
 		a.threadsEntry.SetText(v)
 	}
 	a.scanUDPCheck.SetChecked(strings.EqualFold(strings.TrimSpace(p.String(prefScanUDP)), "true"))
+	if a.scanTCPPortsCheck != nil {
+		tcpPref := strings.TrimSpace(p.String(prefScanTCPPorts))
+		if tcpPref == "" || strings.EqualFold(tcpPref, "true") {
+			a.scanTCPPortsCheck.SetChecked(true)
+		} else {
+			a.scanTCPPortsCheck.SetChecked(false)
+		}
+		a.setPortRangeControlsEnabled(a.scanTCPPortsCheck.Checked)
+	}
 
 	switch strings.TrimSpace(p.String(prefPreset)) {
 	case "quick":
@@ -809,7 +894,7 @@ func (a *App) startScan() {
 		}
 		portRange := strings.TrimSpace(a.portRangeEntry.Text)
 		if portRange == "" {
-			portRange = "1-1000"
+			portRange = "1-65535"
 		}
 		threads := 50
 		if v, err := strconv.Atoi(strings.TrimSpace(a.threadsEntry.Text)); err == nil && v > 0 {
@@ -821,6 +906,7 @@ func (a *App) startScan() {
 		logger.LogDebug("Создание сканера в GUI: сеть=%s, порты=%s, таймаут=%v, потоков=%d, showClosed=%v",
 			networkStr, portRange, time.Duration(timeoutSec)*time.Second, threads, showClosed)
 		ns := scanner.NewNetworkScanner(networkStr, time.Duration(timeoutSec)*time.Second, portRange, threads, showClosed)
+		ns.SetScanTCPPorts(a.scanTCPPortsCheck.Checked)
 		ns.SetScanUDP(scanUDP)
 		a.networkScanner = ns
 

@@ -1,17 +1,20 @@
-# Binaries
-network-scanner
-network-scanner.exe
-network-scanner-*
-network-scanner-gui
-network-scanner-gui.exe
-network-scanner-gui-*
-gui
-gui.exe
+# Binaries (только в корне репозитория — не скрывать cmd/network-scanner и internal/gui)
+/network-scanner
+/network-scanner.exe
+/network-scanner-*
+/network-scanner-gui
+/network-scanner-gui.exe
+/network-scanner-gui-*
+/gui
+/gui.exe
 
 # Build outputs
 dist/
 Release/
 release/
+
+# Local test artifacts
+internal/ports/test.zip
 
 # Go
 *.exe

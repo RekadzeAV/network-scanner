@@ -106,7 +106,7 @@ func TestGetProtocolFromPort(t *testing.T) {
 		{"MySQL", 3306, "MySQL"},
 		{"PostgreSQL", 5432, "PostgreSQL"},
 		{"RDP", 3389, "RDP"},
-		{"Unknown port", 9999, ""},
+		{"IANA distinct", 9999, "Distinct"},
 	}
 
 	for _, tt := range tests {

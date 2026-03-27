@@ -5,6 +5,8 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	portdb "network-scanner/internal/ports"
 )
 
 // DetectLocalNetwork определяет локальную сеть автоматически
@@ -208,84 +210,9 @@ func IsUDPPortOpen(host string, port int, timeout time.Duration) bool {
 	return false
 }
 
-// GetServiceName возвращает название сервиса по порту
+// GetServiceName возвращает название сервиса по порту (IANA + локальные подписи).
 func GetServiceName(port int) string {
-	services := map[int]string{
-		// FTP
-		20: "FTP-Data",
-		21: "FTP",
-		// SSH/Telnet
-		22: "SSH",
-		23: "Telnet",
-		// Email
-		25:  "SMTP",
-		110: "POP3",
-		143: "IMAP",
-		465: "SMTPS",
-		587: "SMTP-Submission",
-		993: "IMAPS",
-		995: "POP3S",
-		// DNS
-		53: "DNS",
-		// HTTP/HTTPS
-		80:   "HTTP",
-		443:  "HTTPS",
-		8080: "HTTP-Proxy",
-		8443: "HTTPS-Alt",
-		8888: "HTTP-Alt",
-		// SMB/NetBIOS
-		135: "MSRPC",
-		139: "NetBIOS-SSN",
-		445: "SMB",
-		// Remote Desktop
-		3389: "RDP",
-		5900: "VNC",
-		5901: "VNC-1",
-		5902: "VNC-2",
-		// Database
-		1433:  "MSSQL",
-		3306:  "MySQL",
-		5432:  "PostgreSQL",
-		27017: "MongoDB",
-		6379:  "Redis",
-		// Network Services
-		67:   "DHCP",
-		68:   "DHCP-Client",
-		69:   "TFTP",
-		88:   "Kerberos",
-		123:  "NTP",
-		161:  "SNMP",
-		162:  "SNMP-Trap",
-		389:  "LDAP",
-		636:  "LDAPS",
-		873:  "RSync",
-		2049: "NFS",
-		// Web Services
-		8000: "HTTP-Alt",
-		8001: "HTTP-Alt",
-		8880: "HTTP-Alt",
-		9000: "SonarQube",
-		9090: "Prometheus",
-		// Development
-		3000: "Node.js",
-		5000: "Flask",
-		8008: "HTTP-Alt",
-		8081: "HTTP-Proxy-Alt",
-		// Gaming
-		25565: "Minecraft",
-		27015: "Steam",
-		// Other
-		514:  "Syslog",
-		1194: "OpenVPN",
-		1723: "PPTP",
-		5060: "SIP",
-		5061: "SIPS",
-	}
-
-	if name, ok := services[port]; ok {
-		return name
-	}
-	return "Unknown"
+	return portdb.LookupServiceName(port)
 }
 
 // ParsePortRange парсит диапазон портов

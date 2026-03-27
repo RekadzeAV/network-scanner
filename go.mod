@@ -8,6 +8,7 @@ require (
 	github.com/gosnmp/gosnmp v1.43.2
 	github.com/jedib0t/go-pretty/v6 v6.5.4
 	github.com/jung-kurt/gofpdf/v2 v2.17.3
+	golang.org/x/text v0.34.0
 )
 
 require (
@@ -43,6 +44,5 @@ require (
 	golang.org/x/image v0.24.0 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/text v0.34.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -18,6 +18,7 @@ import (
 
 	"network-scanner/internal/logger"
 	"network-scanner/internal/network"
+	portdb "network-scanner/internal/ports"
 )
 
 // Result содержит результаты сканирования одного хоста
@@ -51,6 +52,7 @@ type NetworkScanner struct {
 	portRange        string
 	threads          int
 	showClosed       bool
+	scanTCPPorts     bool // Сканировать TCP-порты из portRange (если false — только ping/MAC/hostname)
 	scanUDP          bool // Включить UDP сканирование
 	results          []Result
 	mu               sync.RWMutex
@@ -69,6 +71,7 @@ func NewNetworkScanner(network string, timeout time.Duration, portRange string, 
 		portRange:        portRange,
 		threads:          threads,
 		showClosed:       showClosed,
+		scanTCPPorts:     true,
 		scanUDP:          false, // По умолчанию UDP сканирование выключено
 		results:          make([]Result, 0),
 		ctx:              ctx,
@@ -85,6 +88,11 @@ func (ns *NetworkScanner) SetProgressCallback(callback ProgressCallback) {
 // SetScanUDP включает или выключает UDP сканирование
 func (ns *NetworkScanner) SetScanUDP(enable bool) {
 	ns.scanUDP = enable
+}
+
+// SetScanTCPPorts включает или отключает перебор TCP-портов (при false выполняется только обнаружение хостов и сбор MAC/имени).
+func (ns *NetworkScanner) SetScanTCPPorts(enable bool) {
+	ns.scanTCPPorts = enable
 }
 
 // Scan запускает сканирование сети
@@ -107,13 +115,19 @@ func (ns *NetworkScanner) Scan() {
 	logger.LogDebug("Парсинг сети завершен: %d IP адресов за %v", len(ips), parseDuration)
 
 	// Парсим диапазон портов
-	ports, err := network.ParsePortRange(ns.portRange)
-	if err != nil {
-		logger.LogError(err, "Парсинг портов")
-		fmt.Printf("Ошибка парсинга портов: %v\n", err)
-		return
+	var ports []int
+	if ns.scanTCPPorts {
+		var err error
+		ports, err = network.ParsePortRange(ns.portRange)
+		if err != nil {
+			logger.LogError(err, "Парсинг портов")
+			fmt.Printf("Ошибка парсинга портов: %v\n", err)
+			return
+		}
+		logger.LogDebug("Парсинг портов завершен: %d портов", len(ports))
+	} else {
+		logger.LogDebug("TCP сканирование портов отключено")
 	}
-	logger.LogDebug("Парсинг портов завершен: %d портов", len(ports))
 
 	fmt.Printf("Сканирование %d хостов, порты: %d\n", len(ips), len(ports))
 	logger.Log("Сканирование %d хостов, порты: %d, таймаут: %v, потоков: %d", len(ips), len(ports), ns.timeout, ns.threads)
@@ -195,8 +209,13 @@ func (ns *NetworkScanner) Scan() {
 	// Сканируем порты на активных хостах
 	if len(aliveIPs) > 0 {
 		portsScanStartTime := time.Now()
-		fmt.Println("Сканирование портов...")
-		logger.Log("Начало сканирования портов на %d хостах, портов на хост: %d", len(aliveIPs), len(ports))
+		if len(ports) > 0 {
+			fmt.Println("Сканирование портов...")
+			logger.Log("Начало сканирования портов на %d хостах, портов на хост: %d", len(aliveIPs), len(ports))
+		} else {
+			fmt.Println("Сбор данных о хостах (TCP-порты не сканируются)...")
+			logger.Log("Сбор данных о хостах на %d адресах без перебора TCP-портов", len(aliveIPs))
+		}
 		logger.LogDebug("Всего портов для сканирования: %d хостов × %d портов = %d проверок", len(aliveIPs), len(ports), len(aliveIPs)*len(ports))
 		if ns.progressCallback != nil {
 			ns.progressCallback("ports", 0, len(aliveIPs), "Сканирование портов...")
@@ -1150,27 +1169,9 @@ func (ns *NetworkScanner) GetResults() []Result {
 
 // Вспомогательные функции
 
-// getProtocolFromPort определяет протокол по номеру порта
+// getProtocolFromPort определяет протокол по номеру порта (для списка «протоколы» на хосте).
 func getProtocolFromPort(port int) string {
-	protocols := map[int]string{
-		21:   "FTP",
-		22:   "SSH",
-		23:   "Telnet",
-		25:   "SMTP",
-		53:   "DNS",
-		80:   "HTTP",
-		110:  "POP3",
-		143:  "IMAP",
-		443:  "HTTPS",
-		445:  "SMB",
-		3306: "MySQL",
-		3389: "RDP",
-		5432: "PostgreSQL",
-		5900: "VNC",
-		8080: "HTTP",
-		8443: "HTTPS",
-	}
-	return protocols[port]
+	return portdb.ProtocolLabel(port)
 }
 
 // getVendorFromMAC определяет производителя устройства по MAC адресу

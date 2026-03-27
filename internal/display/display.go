@@ -12,6 +12,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 
 	"network-scanner/internal/network"
+	portdb "network-scanner/internal/ports"
 	"network-scanner/internal/scanner"
 )
 
@@ -320,8 +321,11 @@ func getProtocolDescription(protocol string) string {
 	return "Неизвестный протокол"
 }
 
-// getPortPurpose возвращает назначение порта
+// getPortPurpose возвращает назначение порта (описание из реестра IANA, при отсутствии — краткая русская справка).
 func getPortPurpose(port int) string {
+	if d := portdb.Description(port); d != "" {
+		return d
+	}
 	purposes := map[int]string{
 		20:   "FTP - передача данных",
 		21:   "FTP - управление соединением",
@@ -341,7 +345,6 @@ func getPortPurpose(port int) string {
 		8080: "HTTP - альтернативный порт для веб",
 		8443: "HTTPS - альтернативный порт для защищенного веб",
 	}
-
 	if purpose, ok := purposes[port]; ok {
 		return purpose
 	}

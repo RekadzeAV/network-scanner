@@ -1,0 +1,4 @@
+// Windows resource file to hide console window
+// This sets the subsystem to Windows (GUI) instead of Console
+
+1 RT_MANIFEST "winres.manifest"

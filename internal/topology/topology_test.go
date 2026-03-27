@@ -101,8 +101,8 @@ func TestBuildTopologyPrefersLLDPOverFDBForSameEndpoints(t *testing.T) {
 			MacTable: map[string]int{
 				"ba:bb:bb:bb:bb:bb": 10,
 			},
-			LldpNeighbors: map[int]*LldpNeighbor{
-				10: {RemoteChassisID: "ba:bb:bb:bb:bb:bb", RemotePortID: "Gi0/1", RemoteSysName: "sw2"},
+			LldpNeighbors: []*LldpNeighbor{
+				{LocalIfIndex: 10, RemoteChassisID: "ba:bb:bb:bb:bb:bb", RemotePortID: "Gi0/1", RemoteSysName: "sw2"},
 			},
 		},
 	}

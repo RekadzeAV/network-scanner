@@ -41,7 +41,7 @@ type Device struct {
 	SNMPCommunity string
 	Ports         []Port
 	MacTable      map[string]int
-	LldpNeighbors map[int]*LldpNeighbor
+	LldpNeighbors []*LldpNeighbor
 }
 
 type Link struct {
@@ -76,6 +76,7 @@ const (
 )
 
 type LldpNeighbor struct {
+	LocalIfIndex    int
 	RemoteChassisID string
 	RemotePortID    string
 	RemotePortDescr string
@@ -164,10 +165,11 @@ func BuildTopology(results []scanner.Result, snmpData map[string]*Device) (*Topo
 			continue
 		}
 		// LLDP links
-		for localIf, n := range dev.LldpNeighbors {
+		for _, n := range dev.LldpNeighbors {
 			if n == nil {
 				continue
 			}
+			localIf := n.LocalIfIndex
 			remote := findNeighbor(byMAC, byHostname, n)
 			if remote == nil || remote == dev {
 				continue
