@@ -29,6 +29,7 @@ type Result struct {
 	Protocols    []string
 	DeviceType   string
 	DeviceVendor string
+	SNMPEnabled  bool
 	IsAlive      bool
 }
 
@@ -263,39 +264,63 @@ func (ns *NetworkScanner) Scan() {
 
 // isHostAlive проверяет, доступен ли хост
 func (ns *NetworkScanner) isHostAlive(ip string) bool {
-	// Используем TCP connect на несколько популярных портов
+	// Быстрая проверка живости: запускаем probe по нескольким портам параллельно
+	// и завершаем проверку сразу после первого успешного подключения.
 	commonPorts := []string{"80", "443", "22", "135", "139", "445"}
 	logger.LogDebug("Проверка доступности хоста %s через порты: %v", ip, commonPorts)
 
+	probeTimeout := ns.timeout / 3
+	if probeTimeout < 150*time.Millisecond {
+		probeTimeout = 150 * time.Millisecond
+	}
+	if probeTimeout > 800*time.Millisecond {
+		probeTimeout = 800 * time.Millisecond
+	}
+
+	ctx, cancel := context.WithCancel(ns.ctx)
+	defer cancel()
+	results := make(chan bool, len(commonPorts))
+
 	for _, port := range commonPorts {
+		go func(port string) {
+			select {
+			case <-ctx.Done():
+				results <- false
+				return
+			default:
+			}
+
+			portCheckStart := time.Now()
+			dialer := &net.Dialer{Timeout: probeTimeout}
+			conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(ip, port))
+			portCheckDuration := time.Since(portCheckStart)
+
+			if err == nil {
+				if conn != nil {
+					conn.Close()
+				}
+				logger.LogDebug("Хост %s доступен через порт %s (проверка заняла %v)", ip, port, portCheckDuration)
+				results <- true
+				cancel()
+				return
+			}
+			logger.LogDebug("Хост %s не отвечает на порт %s: %v (проверка заняла %v)", ip, port, err, portCheckDuration)
+			results <- false
+		}(port)
+	}
+
+	for i := 0; i < len(commonPorts); i++ {
 		select {
 		case <-ns.ctx.Done():
 			logger.LogDebug("Проверка хоста %s отменена", ip)
 			return false
-		default:
-		}
-
-		portCheckStart := time.Now()
-		// Используем Dialer с явным таймаутом для лучшей работы в Windows
-		dialer := &net.Dialer{
-			Timeout: ns.timeout,
-		}
-		conn, err := dialer.Dial("tcp", net.JoinHostPort(ip, port))
-		portCheckDuration := time.Since(portCheckStart)
-
-		if err == nil {
-			if conn != nil {
-				conn.Close()
+		case ok := <-results:
+			if ok {
+				return true
 			}
-			logger.LogDebug("Хост %s доступен через порт %s (проверка заняла %v)", ip, port, portCheckDuration)
-			return true
-		} else {
-			logger.LogDebug("Хост %s не отвечает на порт %s: %v (проверка заняла %v)", ip, port, err, portCheckDuration)
 		}
 	}
 
-	// Если ни один порт не ответил, считаем хост недоступным
-	// (ARP проверка слишком медленная для массового сканирования)
 	logger.LogDebug("Хост %s недоступен (ни один из проверенных портов не ответил)", ip)
 	return false
 }
@@ -635,6 +660,16 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 
 	// Определяем тип устройства
 	result.DeviceType = ns.detectDeviceType(result)
+	// SNMP определяем по уже собранным данным; активный probe используем только при необходимости
+	// и с коротким таймаутом, чтобы не замедлять массовое сканирование.
+	result.SNMPEnabled = hasOpenPort(result.Ports, 161, "udp") || hasOpenPort(result.Ports, 161, "tcp")
+	if !result.SNMPEnabled {
+		snmpProbeTimeout := ns.timeout
+		if snmpProbeTimeout > 500*time.Millisecond {
+			snmpProbeTimeout = 500 * time.Millisecond
+		}
+		result.SNMPEnabled = network.IsUDPPortOpen(ipStr, 161, snmpProbeTimeout)
+	}
 	logger.LogDebug("Хост %s: определен тип устройства: %s", ipStr, result.DeviceType)
 
 	// Сохраняем результат
@@ -1315,4 +1350,15 @@ func appendIfNotExists(slice []string, item string) []string {
 		}
 	}
 	return append(slice, item)
+}
+
+func hasOpenPort(ports []PortInfo, targetPort int, protocol string) bool {
+	for _, p := range ports {
+		if p.Port == targetPort && p.State == "open" {
+			if protocol == "" || strings.EqualFold(p.Protocol, protocol) {
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -1,7 +1,7 @@
 # Network Scanner - Сканер локальной сети
 
 [![GitHub](https://img.shields.io/github/license/RekadzeAV/network-scanner)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://go.dev/)
 
 Кроссплатформенная утилита для сканирования локальных сетей с детальной аналитикой.
 
@@ -94,9 +94,27 @@ scripts\build.bat
 ./scripts/build-windows.sh  # Требует mingw-w64
 ```
 
+### Smoke-проверки (регрессии CLI)
+
+```bash
+# Linux/macOS: базовый режим без топологии
+./scripts/smoke-cli-no-topology.sh
+
+# Linux/macOS: режим с топологией (проверка SNMP summary)
+./scripts/smoke-cli-topology.sh
+```
+
+```powershell
+# Windows PowerShell
+.\scripts\smoke-cli-no-topology.ps1
+.\scripts\smoke-cli-topology.ps1
+```
+
+Оба smoke-скрипта используют `127.0.0.1/32` и короткий диапазон портов для быстрого прогона.
+
 ## 📦 Требования
 
-- Go 1.21 или выше
+- Go 1.24 или выше
 - Для GUI версии требуется C компилятор (GCC) из-за CGO
 - Для кросскомпиляции в Windows на macOS/Linux требуется mingw-w64
 - Для получения MAC адресов может потребоваться запуск с правами администратора
@@ -116,10 +134,38 @@ scripts\build.bat
 - 🔍 Автоматическое определение локальной сети
 - 📡 Сканирование активных хостов
 - 🔌 Сканирование портов TCP
+- 🧭 Опциональный SNMP-опрос и построение топологии (`--topology`)
+- 🗺️ Экспорт топологии в `json`, `graphml`, `png`, `svg` (для изображений нужен Graphviz `dot`)
 - 🖥️ Определение типов устройств
 - 📊 Аналитика по протоколам и портам
 - 🏷️ Определение производителя по MAC адресу
 - 📋 Красивый табличный вывод результатов
+
+## 🧪 Новые CLI команды для топологии
+
+```bash
+# Базовое сканирование + построение топологии (вывод связей в консоль)
+./network-scanner --topology
+
+# Построение топологии и сохранение в JSON
+./network-scanner --topology --output-format json --output-file topology.json
+
+# Построение топологии и сохранение в GraphML
+./network-scanner --topology --output-format graphml --output-file topology.graphml
+
+# Построение топологии и экспорт в PNG (требуется Graphviz/dot)
+./network-scanner --topology --output-format png --output-file topology.png
+
+# Несколько SNMP community и увеличенный таймаут
+./network-scanner --topology --snmp-community public,private,monitor --snmp-timeout 4
+```
+
+Ключевые флаги:
+- `--topology` включает построение топологии после обычного сканирования.
+- `--output-format` поддерживает `json`, `graphml`, `png`, `svg`.
+- `--output-file` задает путь и имя файла для сохранения.
+- `--snmp-community` принимает одну или несколько community-строк через запятую.
+- `--snmp-timeout` задает SNMP-таймаут в секундах.
 
 ## 📝 Лицензия
 

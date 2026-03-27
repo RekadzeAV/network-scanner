@@ -5,6 +5,42 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 и проект придерживается [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [Unreleased]
+
+## [1.0.4] - 2026-03-27
+
+### Добавлено
+- **Формализованный SNMP отчет в topology режиме:**
+  - Новый API `CollectWithReport(...)` в `internal/snmpcollector`
+  - Метрики: `TotalSNMPTargets`, `Connected`, `Partial`, `Failed`
+  - Детализация ошибок по устройствам (`connect_error`, `query_error`)
+- **Модель происхождения/достоверности связей в топологии:**
+  - Поля `Link.SourceType` (`lldp|fdb|inferred`)
+  - Поля `Link.Confidence` (`high|medium|low`)
+  - Поле `Link.Evidence` для диагностируемости
+- **Regression smoke-проверки CLI:**
+  - `scripts/smoke-cli-no-topology.sh` / `.ps1`
+  - `scripts/smoke-cli-topology.sh` / `.ps1`
+
+### Изменено
+- **Улучшена дедупликация связей LLDP/FDB:**
+  - При конфликте для одной пары endpoint выбирается связь с более высоким confidence
+  - LLDP-связи имеют приоритет над FDB при равном endpoint наборе
+- **CLI и GUI переведены на расширенный SNMP flow:**
+  - Используется `CollectWithReport(...)` вместо "немого" сбора
+  - В интерфейсах выводится итог SNMP-опроса (ok/partial/failed)
+- **Документация синхронизирована с текущей реализацией:**
+  - Обновлены `README.md`, `docs/USER_GUIDE.md`, `docs/TECHNICAL.md`, `docs/ARCHITECTURE.md`
+
+### Исправлено
+- **Фильтрация MAC-адресов в FDB-логике топологии:**
+  - Исправлена обработка multicast через проверку I/G бита первого байта
+  - Отфильтрованы `broadcast` и `00:00:00:00:00:00`
+  - Исключены self-MAC связи коммутатора
+- **Устойчивость GUI при длительном построении топологии:**
+  - Блокировка действий построения/сохранения/превью на время SNMP+Build
+  - Возврат кнопок в рабочее состояние после завершения/ошибки
+
 ## [1.0.3] - 2026-02-27
 
 ### Добавлено

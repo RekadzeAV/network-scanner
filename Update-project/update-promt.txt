@@ -1,0 +1,204 @@
+Промт: Добавление SNMP-опроса и построения топологии сети в network-scanner
+Цель
+Расширить существующую утилиту network-scanner (Go) возможностью:
+
+Собирать информацию о сетевых устройствах через SNMP (MAC-таблицы, LLDP, порты).
+
+Строить топологию сети с указанием портов коммутаторов, к которым подключены устройства.
+
+Сохранять результаты в графическом виде (PNG/SVG) и/или в виде проекта (JSON, GraphML).
+
+Требования к доработке
+Сохранить существующую функциональность: ARP-сканирование, определение производителя по MAC, сканирование портов, CLI и GUI.
+
+Добавить новые пакеты internal/topology и internal/snmpcollector.
+
+Не нарушать обратную совместимость CLI и GUI (новые функции опциональны).
+
+Подробные задачи
+1. Добавить структуры данных для топологии
+Создать пакет internal/topology со следующими типами:
+
+go
+type DeviceType string
+const (
+    DeviceTypeSwitch DeviceType = "switch"
+    DeviceTypeRouter DeviceType = "router"
+    DeviceTypeHost   DeviceType = "host"
+    DeviceTypeUnknown DeviceType = "unknown"
+)
+
+type Port struct {
+    Index          int
+    Name           string
+    Description    string
+    Neighbor       *Device
+    NeighborPort   string
+    ConnectedDevices []*Device
+}
+
+type Device struct {
+    IP            string
+    MAC           string
+    Hostname      string
+    Type          DeviceType
+    SNMPEnabled   bool
+    SNMPCommunity string
+    Ports         []Port
+}
+
+type Link struct {
+    Source     *Device
+    SourcePort *Port
+    Target     *Device
+    TargetPort *Port
+}
+
+type Topology struct {
+    Devices map[string]*Device
+    Links   []Link
+}
+2. Реализовать SNMP-клиент
+Использовать библиотеку github.com/gosnmp/gosnmp.
+
+Создать интерфейс SNMPClient и его реализацию GoSNMPClient.
+
+Реализовать методы:
+
+Connect(ip, community string) error
+
+GetSysName() (string, error)
+
+GetSysDescr() (string, error)
+
+GetIfTable() (map[int]*IfEntry, error)
+
+GetMacTable() (map[string]int, error) – маппинг MAC → ifIndex
+
+GetLldpNeighbors() (map[int]*LldpNeighbor, error) – маппинг локальный ifIndex → сосед
+
+Добавить конфигурацию: community (строка или список), таймаут, версия SNMP (начать с v2c).
+
+3. Расширить сканирование для обнаружения SNMP-устройств
+В существующем scanner.Scan() после получения списка активных устройств добавить этап определения поддержки SNMP (проверка открытости порта 161).
+
+Добавить поле SNMPEnabled в scanner.Device (или создать новую структуру, расширяющую существующую).
+
+В CLI добавить флаги:
+
+--snmp-community (можно указать несколько через запятую, по умолчанию public)
+
+--snmp-timeout (сек)
+
+В GUI добавить соответствующие поля ввода.
+
+4. Собрать SNMP-данные
+Создать пакет internal/snmpcollector с функцией:
+
+go
+func Collect(devices []*scanner.Device, communities []string, timeout int) (map[string]*topology.Device, error)
+Для каждого устройства с SNMPEnabled == true перебирать community строки.
+
+При успешном подключении заполнить topology.Device: IP, MAC, Hostname (sysName), Type (определить по sysDescr или наличию таблицы dot1d), Ports (из ifTable), MAC-таблицу и LLDP-таблицу сохранить для последующего построения топологии (можно сохранить временно в структуре).
+
+Возвращать map, где ключ – MAC устройства.
+
+5. Построить топологию
+В пакете internal/topology реализовать функцию:
+
+go
+func BuildTopology(devices []*scanner.Device, snmpData map[string]*topology.Device) (*Topology, error)
+Создать объект Topology.
+
+Добавить все устройства из devices (и обогатить их данными из snmpData, если есть).
+
+Для каждого SNMP-устройства (коммутатора) обработать:
+
+LLDP: для каждого соседа найти устройство в Topology.Devices (по MAC или hostname) и добавить Link с указанием портов.
+
+MAC-таблица: для каждого MAC (исключая мультикастные и broadcast) найти устройство в Topology.Devices и добавить Link, если связи ещё нет. Для хостов, не найденных в общем списке (например, не ответили на ARP), можно создать новое устройство с типом DeviceTypeHost и пометить как "неактивное" (или не добавлять).
+
+Сортировать связи (опционально).
+
+6. Сохранение результатов
+Добавить новые команды в CLI и кнопки в GUI:
+
+Сохранение проекта в JSON: сериализовать Topology в JSON-файл.
+
+Сохранение в GraphML: сгенерировать XML-файл по спецификации GraphML (упрощённо, можно сделать простую реализацию).
+
+Генерация PNG/SVG через Graphviz:
+
+Преобразовать Topology в DOT-формат (функция Topology.ToDot(w io.Writer)).
+
+Вызвать внешнюю программу dot (из пакета Graphviz) через os/exec для рендеринга в PNG или SVG.
+
+Если dot не найден, выводить сообщение об ошибке и предложить установить Graphviz.
+
+7. Интеграция в CLI
+Добавить новые флаги:
+
+text
+--topology                 (включить построение топологии)
+--output-format graphml|png|svg|json
+--output-file string       (имя файла для сохранения)
+--snmp-community string    (community строки через запятую)
+--snmp-timeout int         (таймаут SNMP в секундах)
+Пример использования:
+
+text
+./network-scanner --topology --output-format png --output-file topology.png
+Если указан --topology без формата, по умолчанию выводить в консоль краткую информацию о связях (список устройств и порты).
+
+8. Интеграция в GUI (Fyne)
+Добавить вкладку/панель "Топология".
+
+Поля ввода: Community, Timeout.
+
+Кнопка "Построить топологию".
+
+После построения отображать схему (можно открыть сгенерированный PNG во внешнем окне или встроить виджет).
+
+Кнопки сохранения в форматах (JSON, GraphML, PNG).
+
+9. Обработка ошибок и производительность
+Использовать таймауты для SNMP-запросов (не ждать вечно).
+
+Пропускать устройства, не отвечающие на SNMP.
+
+Для больших сетей добавить возможность ограничения количества опрашиваемых коммутаторов (например, только из списка, указанного пользователем).
+
+В логике построения связей по MAC-таблицам игнорировать MAC-адреса самого коммутатора (если они появляются в таблице).
+
+10. Тестирование
+Протестировать на эмуляторах (например, GNS3) с коммутаторами Cisco, D-Link, Huawei.
+
+Убедиться, что существующие тесты (если есть) проходят.
+
+Добавить unit-тесты для новых функций: парсинг MAC из OID, генерация DOT, сериализация.
+
+Ожидаемый результат
+Утилита network-scanner после доработки умеет:
+
+Сканировать сеть (как и раньше).
+
+По желанию пользователя (флаг --topology) опрашивать коммутаторы по SNMP.
+
+Строить топологию: связи между устройствами с указанием портов.
+
+Сохранять топологию в JSON, GraphML, PNG/SVG.
+
+Код расширен модульно, без нарушения существующей логики.
+
+Документация обновлена (README, инструкции).
+
+Примечания
+Используемая библиотека SNMP: github.com/gosnmp/gosnmp.
+
+Для работы с Graphviz потребуется, чтобы программа dot была установлена в системе (в противном случае выдавать предупреждение).
+
+Графический интерфейс (GUI) на Fyne может отображать изображение PNG с помощью виджета widget.Image (если загрузить из файла) или открыть внешнее окно.
+
+Сроки (ориентировочно)
+10–15 дней разработки.
+
