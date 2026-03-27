@@ -26,6 +26,7 @@
 ### Документация
 - Обновлены `README.md`, `docs/USER_GUIDE.md` и `docs/GUI_SMOKE_CHECKLIST.md` с описанием новых фильтров и поведения сохранения.
 - Добавлен краткий релиз-итог `docs/RELEASE_SUMMARY_UI_RESULTS.md`.
+- Добавлена дорожная карта приоритетов P1–P3: `docs/ROADMAP_P1_P3.md` (ссылка в корневом `README.md`).
 
 ## [1.0.4] - 2026-03-27
 

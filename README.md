@@ -63,6 +63,7 @@ go build -o network-scanner-gui ./cmd/gui
 - **[PR_DESCRIPTION_UI_RESULTS.md](docs/PR_DESCRIPTION_UI_RESULTS.md)** - Готовое описание PR по доработкам UI результатов
 - **[RELEASE_ACCEPTANCE_CHECKLIST.md](docs/RELEASE_ACCEPTANCE_CHECKLIST.md)** - Финальный чеклист приемки перед релизом
 - **[DEVELOPMENT_MAP.md](DEVELOPMENT_MAP.md)** - Детальная карта разработки проекта
+- **[ROADMAP_P1_P3.md](docs/ROADMAP_P1_P3.md)** - Дорожная карта приоритетов P1–P3 (два этапа развития)
 - **[CHANGELOG.md](CHANGELOG.md)** - История изменений проекта
 - **[QUICKSTART_WINDOWS_BUILD.md](QUICKSTART_WINDOWS_BUILD.md)** - Быстрый старт: сборка для Windows на macOS
 - **[RELEASE_NOTES_1.0.3.md](RELEASE_NOTES_1.0.3.md)** - Примечания к релизу 1.0.3
