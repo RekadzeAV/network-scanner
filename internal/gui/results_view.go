@@ -1,11 +1,11 @@
 package gui
 
 import (
+	"bytes"
 	"fmt"
-	"image/color"
+	"net"
 	"sort"
 	"strings"
-	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -15,302 +15,408 @@ import (
 	"network-scanner/internal/scanner"
 )
 
+// filteredSortedResults применяет фильтры и сортировку к a.scanResults.
+func (a *App) filteredSortedResults() []scanner.Result {
+	if len(a.scanResults) == 0 {
+		return nil
+	}
+	out := make([]scanner.Result, 0, len(a.scanResults))
+	for _, r := range a.scanResults {
+		if !a.passesTextFilter(r) {
+			continue
+		}
+		if !a.passesTypeFilters(r) {
+			continue
+		}
+		if a.onlyWithOpenPorts && !deviceHasOpenPort(r) {
+			continue
+		}
+		if !a.passesCIDRFilter(r) {
+			continue
+		}
+		if !a.passesPortStateMode(r) {
+			continue
+		}
+		out = append(out, r)
+	}
+	sortResultsSlice(out, a.resultsSort)
+	return out
+}
+
+func (a *App) currentDisplayedResults() []scanner.Result {
+	return a.filteredSortedResults()
+}
+
+func deviceHasOpenPort(r scanner.Result) bool {
+	for _, p := range r.Ports {
+		if p.State == "open" {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *App) passesTextFilter(r scanner.Result) bool {
+	q := strings.TrimSpace(strings.ToLower(a.resultsFilterQuery))
+	if q == "" {
+		return true
+	}
+	hay := strings.ToLower(strings.Join([]string{
+		r.IP, r.MAC, r.Hostname, r.DeviceType, r.DeviceVendor,
+	}, " "))
+	return strings.Contains(hay, q)
+}
+
+func normalizedDeviceCategory(dt string) string {
+	typeMapping := map[string]string{
+		"Router/Network Device": "Network Device",
+		"Network Device":        "Network Device",
+		"Router":                "Network Device",
+		"Printer":               "Network Device",
+		"IoT Device":            "Network Device",
+		"IoT":                   "Network Device",
+		"Windows Computer":      "Computer",
+		"Computer":              "Computer",
+		"Windows":               "Computer",
+		"PC":                    "Computer",
+		"Desktop":               "Computer",
+		"Laptop":                "Computer",
+		"Web Server":            "Server",
+		"Database Server":       "Server",
+		"Linux/Unix Server":     "Server",
+		"Server":                "Server",
+		"Linux Server":          "Server",
+		"Unix Server":           "Server",
+		"Linux":                 "Server",
+		"Unix":                  "Server",
+		"Unknown Device":        "Unknown",
+		"Unknown":               "Unknown",
+	}
+	if v, ok := typeMapping[strings.TrimSpace(dt)]; ok {
+		return v
+	}
+	return strings.TrimSpace(dt)
+}
+
+func (a *App) passesTypeFilters(r scanner.Result) bool {
+	any := false
+	for _, ch := range a.quickTypeChecks {
+		if ch != nil && ch.Checked {
+			any = true
+			break
+		}
+	}
+	if !any {
+		return true
+	}
+	cat := normalizedDeviceCategory(r.DeviceType)
+	for name, ch := range a.quickTypeChecks {
+		if ch != nil && ch.Checked && name == cat {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *App) passesCIDRFilter(r scanner.Result) bool {
+	if a.resultsCidrFilterEnt == nil {
+		return true
+	}
+	cidr := strings.TrimSpace(a.resultsCidrFilterEnt.Text)
+	if cidr == "" {
+		return true
+	}
+	_, ipnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return true
+	}
+	ip := net.ParseIP(strings.TrimSpace(r.IP))
+	if ip == nil {
+		return false
+	}
+	return ipnet.Contains(ip)
+}
+
+func (a *App) passesPortStateMode(r scanner.Result) bool {
+	mode := strings.TrimSpace(a.resultsPortStateMode)
+	if mode == "" || mode == "all" {
+		return true
+	}
+	switch mode {
+	case "has_open":
+		for _, p := range r.Ports {
+			if p.State == "open" {
+				return true
+			}
+		}
+		return false
+	case "has_closed":
+		for _, p := range r.Ports {
+			if p.State == "closed" {
+				return true
+			}
+		}
+		return false
+	case "has_filtered":
+		for _, p := range r.Ports {
+			if p.State == "filtered" {
+				return true
+			}
+		}
+		return false
+	default:
+		return true
+	}
+}
+
+func sortResultsSlice(results []scanner.Result, mode string) {
+	sort.SliceStable(results, func(i, j int) bool {
+		if strings.TrimSpace(mode) == "HostName" {
+			hi := strings.ToLower(strings.TrimSpace(results[i].Hostname))
+			hj := strings.ToLower(strings.TrimSpace(results[j].Hostname))
+			if hi != hj {
+				return hi < hj
+			}
+		}
+		a1 := net.ParseIP(strings.TrimSpace(results[i].IP))
+		a2 := net.ParseIP(strings.TrimSpace(results[j].IP))
+		if a1 != nil && a1.To4() != nil && a2 != nil && a2.To4() != nil {
+			return bytes.Compare(a1.To4(), a2.To4()) < 0
+		}
+		return strings.TrimSpace(results[i].IP) < strings.TrimSpace(results[j].IP)
+	})
+}
+
+func (a *App) activeFilterCount() int {
+	n := 0
+	if strings.TrimSpace(a.resultsFilterQuery) != "" {
+		n++
+	}
+	for _, ch := range a.quickTypeChecks {
+		if ch != nil && ch.Checked {
+			n++
+		}
+	}
+	if a.onlyWithOpenPorts {
+		n++
+	}
+	if a.resultsCidrFilterEnt != nil && strings.TrimSpace(a.resultsCidrFilterEnt.Text) != "" {
+		n++
+	}
+	if a.resultsPortStateMode != "" && a.resultsPortStateMode != "all" {
+		n++
+	}
+	return n
+}
+
+func (a *App) updateFiltersInfoLabel() {
+	if a.filtersInfoLabel == nil {
+		return
+	}
+	a.filtersInfoLabel.SetText(fmt.Sprintf("Активных фильтров: %d", a.activeFilterCount()))
+}
+
+// renderScanResultsView перерисовывает область результатов (таблица или карточки).
 func (a *App) renderScanResultsView() {
 	if a.resultsBody == nil {
 		return
 	}
+	a.updateFiltersInfoLabel()
+
 	switch a.resultsState {
-	case resultsStateScanning:
-		a.resultsStateLabel.SetText("Сканирование выполняется...")
+	case resultsStateIdle:
 		a.resultsBody.Objects = []fyne.CanvasObject{
-			widget.NewCard("Сканирование", "", widget.NewLabel("Идет сбор данных, пожалуйста подождите.")),
+			container.NewCenter(widget.NewLabel("Результаты сканирования появятся здесь после запуска.")),
 		}
 		a.resultsBody.Refresh()
 		return
-	case resultsStateStopped:
-		a.resultsStateLabel.SetText("Сканирование остановлено пользователем")
-	case resultsStateTimeout:
-		a.resultsStateLabel.SetText("Сканирование завершилось по таймауту")
-	case resultsStateDone:
-		a.resultsStateLabel.SetText(fmt.Sprintf("Результаты получены: %d устройств", len(a.scanResults)))
-	default:
-		a.resultsStateLabel.SetText("Результаты еще не получены")
+	case resultsStateScanning:
+		a.resultsBody.Objects = []fyne.CanvasObject{
+			container.NewCenter(widget.NewLabel("Сканирование...")),
+		}
+		a.resultsBody.Refresh()
+		return
 	}
 
+	filtered := a.filteredSortedResults()
 	if len(a.scanResults) == 0 {
+		msg := "Результаты не найдены."
+		switch a.resultsState {
+		case resultsStateStopped:
+			msg = "Сканирование остановлено. Результаты могут быть неполными."
+		case resultsStateTimeout:
+			msg = "Сканирование прервано по таймауту."
+		}
+		a.resultsBody.Objects = []fyne.CanvasObject{container.NewCenter(widget.NewLabel(msg))}
+		a.resultsBody.Refresh()
+		return
+	}
+
+	if len(filtered) == 0 {
 		a.resultsBody.Objects = []fyne.CanvasObject{
-			widget.NewCard("Результаты сканирования", "", widget.NewLabel("Результаты сканирования не найдены.")),
+			container.NewCenter(widget.NewLabel("Нет устройств, подходящих под текущие фильтры.")),
 		}
 		a.resultsBody.Refresh()
 		return
 	}
-	selectedTypes := a.selectedQuickTypes()
-	if a.filtersInfoLabel != nil {
-		activeFilters := len(selectedTypes)
-		if strings.TrimSpace(a.resultsFilterQuery) != "" {
-			activeFilters++
-		}
-		if a.onlyWithOpenPorts {
-			activeFilters++
-		}
-		a.filtersInfoLabel.SetText(fmt.Sprintf("Активных фильтров: %d", activeFilters))
-	}
-	results := a.currentDisplayedResults()
-	if len(results) == 0 {
-		a.resultsBody.Objects = []fyne.CanvasObject{
-			widget.NewCard("Результаты сканирования", "", widget.NewLabel("По текущему фильтру ничего не найдено.")),
-		}
-		a.resultsBody.Refresh()
-		return
-	}
+
 	if a.resultsMode == "Карточки" {
-		a.resultsBody.Objects = []fyne.CanvasObject{a.buildCardsResultsView(results)}
+		a.resultsBody.Objects = []fyne.CanvasObject{a.buildCardsView(filtered)}
 	} else {
-		a.resultsBody.Objects = []fyne.CanvasObject{a.buildTableResultsView(results)}
+		a.resultsBody.Objects = []fyne.CanvasObject{a.buildTableView(filtered)}
 	}
 	a.resultsBody.Refresh()
 }
 
-func (a *App) selectedQuickTypes() []string {
-	selectedTypes := make([]string, 0)
-	for typeName, ch := range a.quickTypeChecks {
-		if ch != nil && ch.Checked {
-			selectedTypes = append(selectedTypes, typeName)
-		}
-	}
-	return selectedTypes
-}
-
-func (a *App) currentDisplayedResults() []scanner.Result {
-	selectedTypes := a.selectedQuickTypes()
-	filtered := filterResultsForDisplayAdvanced(a.scanResults, a.resultsFilterQuery, selectedTypes, a.onlyWithOpenPorts)
-	return sortedResultsForDisplayWithMode(filtered, a.resultsSort)
-}
-
-func (a *App) startResultsLayoutWatcher() {
-	if a == nil || a.myWindow == nil {
-		return
-	}
-	a.lastCanvasSize = a.myWindow.Canvas().Size()
-	go func() {
-		ticker := time.NewTicker(350 * time.Millisecond)
-		defer ticker.Stop()
-		for range ticker.C {
-			if a.myWindow == nil {
+func (a *App) buildTableView(data []scanner.Result) fyne.CanvasObject {
+	rows := len(data) + 1
+	cols := 8
+	t := widget.NewTable(
+		func() (int, int) { return rows, cols },
+		func() fyne.CanvasObject {
+			return widget.NewLabel("")
+		},
+		func(id widget.TableCellID, obj fyne.CanvasObject) {
+			l := obj.(*widget.Label)
+			l.TextStyle = fyne.TextStyle{}
+			headers := []string{"Host", "IP", "MAC", "Тип", "Производитель", "ОС (оценка)", "SNMP", "Порты (открытые)"}
+			if id.Row == 0 {
+				l.TextStyle = fyne.TextStyle{Bold: true}
+				if id.Col < len(headers) {
+					l.SetText(headers[id.Col])
+				}
 				return
 			}
-			size := a.myWindow.Canvas().Size()
-			if size == a.lastCanvasSize {
-				continue
+			r := data[id.Row-1]
+			switch id.Col {
+			case 0:
+				l.SetText(nullDash(r.Hostname))
+			case 1:
+				l.SetText(r.IP)
+			case 2:
+				l.SetText(nullDash(r.MAC))
+			case 3:
+				l.SetText(nullDash(r.DeviceType))
+			case 4:
+				l.SetText(nullDash(r.DeviceVendor))
+			case 5:
+				l.SetText(osGuessLine(r))
+			case 6:
+				if r.SNMPEnabled {
+					l.SetText("да")
+				} else {
+					l.SetText("нет")
+				}
+			case 7:
+				l.SetText(formatPorts(r.Ports))
+			default:
+				l.SetText("")
 			}
-			a.lastCanvasSize = size
-			if a.resultsMode != "Карточки" || len(a.scanResults) == 0 {
-				continue
-			}
-			fyne.Do(func() {
-				a.renderScanResultsView()
-				a.resultsScroll.Refresh()
-			})
-		}
-	}()
+		},
+	)
+	t.SetColumnWidth(0, 140)
+	t.SetColumnWidth(1, 120)
+	t.SetColumnWidth(2, 130)
+	t.SetColumnWidth(3, 120)
+	t.SetColumnWidth(4, 120)
+	t.SetColumnWidth(5, 140)
+	t.SetColumnWidth(6, 52)
+	t.SetColumnWidth(7, 280)
+	return t
 }
 
-func (a *App) buildTableResultsView(results []scanner.Result) fyne.CanvasObject {
-	const (
-		colHost  = float32(220)
-		colIP    = float32(170)
-		colMAC   = float32(190)
-		colPorts = float32(560)
-	)
-
-	makeCell := func(text string, width float32, bold bool) fyne.CanvasObject {
-		label := widget.NewLabel(text)
-		label.Wrapping = fyne.TextTruncate
-		label.TextStyle = fyne.TextStyle{Bold: bold}
-		bgColor := tableRowBgColor
-		if bold {
-			bgColor = tableHeaderBgColor
+func osGuessLine(r scanner.Result) string {
+	if strings.TrimSpace(r.GuessOS) != "" {
+		if strings.TrimSpace(r.GuessOSConfidence) != "" {
+			return fmt.Sprintf("%s (%s)", strings.TrimSpace(r.GuessOS), strings.TrimSpace(r.GuessOSConfidence))
 		}
-		bg := canvas.NewRectangle(bgColor)
-		content := container.NewPadded(label)
-		cell := container.NewStack(bg, content)
-		return container.NewGridWrap(fyne.NewSize(width, 44), cell)
+		return strings.TrimSpace(r.GuessOS)
 	}
-
-	makePortCell := func(ports []scanner.PortInfo, width float32, bold bool) fyne.CanvasObject {
-		if bold {
-			return makeCell("Порты", width, true)
-		}
-		portLabels := openPortLabels(ports, a.maxPortChips)
-		if len(portLabels) == 0 {
-			return makeCell("-", width, false)
-		}
-		rows := a.makeChipRows(portLabels, width-24)
-		bg := canvas.NewRectangle(color.RGBA{R: 247, G: 248, B: 250, A: 255})
-		box := container.NewStack(bg, container.NewPadded(container.NewVBox(rows...)))
-		minH := float32(48 + (len(rows)-1)*30)
-		return container.NewGridWrap(fyne.NewSize(width, minH), box)
-	}
-
-	header := container.NewHBox(
-		makeCell("HostName", colHost, true),
-		makeCell("IP", colIP, true),
-		makeCell("MAC", colMAC, true),
-		makePortCell(nil, colPorts, true),
-	)
-
-	rows := []fyne.CanvasObject{header}
-	for _, r := range results {
-		hostname := formatDeviceValue(r.Hostname)
-		ip := formatDeviceValue(r.IP)
-		mac := formatDeviceValue(r.MAC)
-		rows = append(rows, container.NewHBox(
-			makeCell(hostname, colHost, false),
-			makeCell(ip, colIP, false),
-			makeCell(mac, colMAC, false),
-			makePortCell(r.Ports, colPorts, false),
-		))
-	}
-
-	tableWidth := colHost + colIP + colMAC + colPorts + 12
-	tableBody := container.NewVBox(rows...)
-	tableFixed := container.NewGridWrap(fyne.NewSize(tableWidth, tableBody.MinSize().Height), tableBody)
-	tableScroll := container.NewScroll(tableFixed)
-	tableScroll.SetMinSize(fyne.NewSize(0, 340))
-
-	protocols, types := collectAnalytics(results)
-	analyticsCols := 2
-	if a.myWindow != nil && a.myWindow.Canvas().Size().Width < 900 {
-		analyticsCols = 1
-	}
-	analytics := container.NewGridWithColumns(analyticsCols,
-		a.buildSimpleStatsTable("Протоколы", protocols),
-		a.buildSimpleStatsTable("Типы устройств", normalizeDeviceTypes(types)),
-	)
-	return container.NewVBox(
-		widget.NewCard("Текстовый режим: Таблица", "", tableScroll),
-		widget.NewLabel("Аналитика"),
-		analytics,
-	)
+	return "-"
 }
 
-func (a *App) buildCardsResultsView(results []scanner.Result) fyne.CanvasObject {
-	width := a.myWindow.Canvas().Size().Width
-	cols := 3
-	if width < 1200 {
-		cols = 2
+func nullDash(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "-"
 	}
-	if width < 768 {
-		cols = 1
-	}
-	cardWidth := float32(320)
-	if cols == 2 {
-		cardWidth = 360
-	}
-	if cols == 1 {
-		cardWidth = width - 72
-		if cardWidth < 280 {
-			cardWidth = 280
-		}
-	}
-	cardHeight := float32(220)
+	return s
+}
 
-	cards := make([]fyne.CanvasObject, 0, len(results))
-	for _, r := range results {
-		hostname := formatDeviceValue(r.Hostname)
-		ip := formatDeviceValue(r.IP)
-		mac := formatDeviceValue(r.MAC)
-		portLabels := openPortLabels(r.Ports, a.maxPortChips)
-		rows := a.makeChipRows(portLabels, 300)
-		if len(rows) == 0 {
-			rows = []fyne.CanvasObject{widget.NewLabel("-")}
+func (a *App) buildCardsView(data []scanner.Result) fyne.CanvasObject {
+	objs := make([]fyne.CanvasObject, 0, len(data))
+	for _, r := range data {
+		title := strings.TrimSpace(r.Hostname)
+		if title == "" {
+			title = r.IP
 		}
-		body := container.NewVBox(
-			widget.NewLabelWithStyle(hostname, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			widget.NewLabel("IP: "+ip),
-			widget.NewLabel("MAC: "+mac),
+		head := widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+		sub := widget.NewLabel(fmt.Sprintf("%s · %s · %s", r.IP, nullDash(r.MAC), nullDash(r.DeviceType)))
+		sub.Wrapping = fyne.TextWrapWord
+		chipRow := a.buildPortChips(r)
+		card := container.NewVBox(
+			head,
+			sub,
+			widget.NewLabel(fmt.Sprintf("Производитель: %s", nullDash(r.DeviceVendor))),
+			widget.NewLabel(fmt.Sprintf("ОС (оценка): %s", osGuessLine(r))),
+			widget.NewLabel("Порты:"),
+			chipRow,
 			widget.NewSeparator(),
-			container.NewVBox(rows...),
 		)
-		card := widget.NewCard("", "", body)
-		cards = append(cards, container.NewGridWrap(fyne.NewSize(cardWidth, cardHeight), card))
+		bg := canvas.NewRectangle(tableRowBgColor)
+		bg.CornerRadius = 4
+		objs = append(objs, container.NewMax(bg, container.NewPadded(card)))
 	}
-
-	protocols, types := collectAnalytics(results)
-	charts := container.NewGridWithColumns(2,
-		a.buildPieChart("Протоколы", protocols),
-		a.buildPieChart("Типы устройств", normalizeDeviceTypes(types)),
-	)
-	if width < 768 {
-		charts = container.NewGridWithColumns(1,
-			a.buildPieChart("Протоколы", protocols),
-			a.buildPieChart("Типы устройств", normalizeDeviceTypes(types)),
-		)
-	}
-
-	return container.NewVBox(
-		widget.NewCard("Текстовый режим: Карточки", "", container.NewGridWithColumns(cols, cards...)),
-		widget.NewLabel("Аналитика"),
-		charts,
-	)
+	return container.NewVBox(objs...)
 }
 
-func (a *App) makeChipRows(chips []string, maxWidth float32) []fyne.CanvasObject {
-	if len(chips) == 0 {
-		return nil
-	}
-	rows := make([]fyne.CanvasObject, 0)
-	currentRow := make([]fyne.CanvasObject, 0)
-	currentWidth := float32(0)
-	for _, chipText := range chips {
-		approxWidth := estimateChipWidth(chipText)
-		if currentWidth > 0 && currentWidth+approxWidth > maxWidth {
-			rows = append(rows, container.NewHBox(currentRow...))
-			currentRow = make([]fyne.CanvasObject, 0)
-			currentWidth = 0
+func (a *App) buildPortChips(r scanner.Result) fyne.CanvasObject {
+	var open []scanner.PortInfo
+	for _, p := range r.Ports {
+		if p.State == "open" {
+			open = append(open, p)
 		}
-		chip := makeDecorativeChip(chipText, approxWidth)
-		currentRow = append(currentRow, chip)
-		currentWidth += approxWidth + 8
 	}
-	if len(currentRow) > 0 {
-		rows = append(rows, container.NewHBox(currentRow...))
+	if len(open) == 0 {
+		return widget.NewLabel("нет открытых")
 	}
-	return rows
+	limit := a.maxPortChips
+	if limit <= 0 {
+		limit = 24
+	}
+	row := make([]fyne.CanvasObject, 0)
+	for i, p := range open {
+		if i >= limit {
+			row = append(row, widget.NewLabel(fmt.Sprintf("… +%d", len(open)-limit)))
+			break
+		}
+		lbl := p.Service
+		if lbl == "" || lbl == "Unknown" {
+			lbl = fmt.Sprintf("%d/%s", p.Port, p.Protocol)
+		} else {
+			lbl = fmt.Sprintf("%d %s", p.Port, lbl)
+		}
+		if strings.TrimSpace(p.Banner) != "" {
+			lbl += " · " + truncateStr(p.Banner, 40)
+		}
+		t := widget.NewLabel(lbl)
+		bg := canvas.NewRectangle(chipBgColor)
+		bg.CornerRadius = 3
+		row = append(row, container.NewMax(bg, container.NewPadded(t)))
+	}
+	return container.NewHBox(row...)
 }
 
-func (a *App) buildSimpleStatsTable(title string, data map[string]int) fyne.CanvasObject {
-	if len(data) == 0 {
-		return widget.NewCard(title, "", widget.NewLabel("Нет данных"))
+func truncateStr(s string, n int) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= n {
+		return s
 	}
-	keys := make([]string, 0, len(data))
-	for k := range data {
-		keys = append(keys, k)
+	if n <= 3 {
+		return s[:n]
 	}
-	sort.Strings(keys)
-	rows := make([]fyne.CanvasObject, 0, len(keys))
-	for _, k := range keys {
-		rows = append(rows, container.NewGridWithColumns(2, widget.NewLabel(k), widget.NewLabel(fmt.Sprintf("%d", data[k]))))
-	}
-	return widget.NewCard(title, "", container.NewVBox(rows...))
+	return s[:n-3] + "..."
 }
 
-func estimateChipWidth(text string) float32 {
-	w := float32(len([]rune(text))*7 + 28)
-	if w < 72 {
-		return 72
-	}
-	if w > 260 {
-		return 260
-	}
-	return w
-}
-
-func makeDecorativeChip(text string, width float32) fyne.CanvasObject {
-	bg := canvas.NewRectangle(chipBgColor)
-	label := widget.NewLabel(text)
-	label.Wrapping = fyne.TextTruncate
-	label.TextStyle = fyne.TextStyle{Bold: true}
-	chip := container.NewStack(bg, container.NewPadded(label))
-	return container.NewGridWrap(fyne.NewSize(width, 30), chip)
-}
+// startResultsLayoutWatcher зарезервирован для будущей подписки на resize/тему; прокрутка Fyne уже адаптивна.
+func (a *App) startResultsLayoutWatcher() {}

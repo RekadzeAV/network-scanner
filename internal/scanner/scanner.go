@@ -16,22 +16,26 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 
+	"network-scanner/internal/banner"
 	"network-scanner/internal/logger"
 	"network-scanner/internal/network"
+	"network-scanner/internal/osdetect"
 	portdb "network-scanner/internal/ports"
 )
 
 // Result содержит результаты сканирования одного хоста
 type Result struct {
-	IP           string
-	MAC          string
-	Hostname     string
-	Ports        []PortInfo
-	Protocols    []string
-	DeviceType   string
-	DeviceVendor string
-	SNMPEnabled  bool
-	IsAlive      bool
+	IP                string
+	MAC               string
+	Hostname          string
+	Ports             []PortInfo
+	Protocols         []string
+	DeviceType        string
+	DeviceVendor      string
+	SNMPEnabled       bool
+	IsAlive           bool
+	GuessOS           string // эвристическая оценка ОС (опционально)
+	GuessOSConfidence string // низкая/средняя/высокая
 }
 
 // PortInfo содержит информацию о порте
@@ -40,6 +44,7 @@ type PortInfo struct {
 	State    string // "open", "closed", "filtered"
 	Protocol string // "tcp", "udp"
 	Service  string
+	Banner   string // сырой ответ службы (опционально)
 }
 
 // ProgressCallback функция для передачи прогресса сканирования
@@ -54,6 +59,7 @@ type NetworkScanner struct {
 	showClosed       bool
 	scanTCPPorts     bool // Сканировать TCP-порты из portRange (если false — только ping/MAC/hostname)
 	scanUDP          bool // Включить UDP сканирование
+	grabBanners      bool // Читать баннеры с типовых TCP-портов (медленнее)
 	results          []Result
 	mu               sync.RWMutex
 	ctx              context.Context
@@ -73,6 +79,7 @@ func NewNetworkScanner(network string, timeout time.Duration, portRange string, 
 		showClosed:       showClosed,
 		scanTCPPorts:     true,
 		scanUDP:          false, // По умолчанию UDP сканирование выключено
+		grabBanners:      false,
 		results:          make([]Result, 0),
 		ctx:              ctx,
 		cancel:           cancel,
@@ -93,6 +100,11 @@ func (ns *NetworkScanner) SetScanUDP(enable bool) {
 // SetScanTCPPorts включает или отключает перебор TCP-портов (при false выполняется только обнаружение хостов и сбор MAC/имени).
 func (ns *NetworkScanner) SetScanTCPPorts(enable bool) {
 	ns.scanTCPPorts = enable
+}
+
+// SetGrabBanners включает чтение баннеров с открытых портов (21,22,25,80,…).
+func (ns *NetworkScanner) SetGrabBanners(enable bool) {
+	ns.grabBanners = enable
 }
 
 // Scan запускает сканирование сети
@@ -464,6 +476,18 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 					Protocol: "tcp",
 					Service:  network.GetServiceName(p),
 				}
+				if isOpen && ns.grabBanners && shouldGrabBannerPort(p) {
+					bt := ns.timeout / 2
+					if bt < 300*time.Millisecond {
+						bt = 300 * time.Millisecond
+					}
+					if bt > 2*time.Second {
+						bt = 2 * time.Second
+					}
+					if b, err := banner.GrabTCP(ipStr, p, bt); err == nil && strings.TrimSpace(b) != "" {
+						portInfo.Banner = b
+					}
+				}
 
 				// Отправляем результат в канал
 				select {
@@ -679,6 +703,17 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 
 	// Определяем тип устройства
 	result.DeviceType = ns.detectDeviceType(result)
+
+	openTCPPorts := make([]int, 0)
+	for _, p := range result.Ports {
+		if p.State == "open" && p.Protocol == "tcp" {
+			openTCPPorts = append(openTCPPorts, p.Port)
+		}
+	}
+	if osName, conf := osdetect.GuessFromHostAndPorts(result.Hostname, openTCPPorts); osName != "" {
+		result.GuessOS = osName
+		result.GuessOSConfidence = conf
+	}
 	// SNMP определяем по уже собранным данным; активный probe используем только при необходимости
 	// и с коротким таймаутом, чтобы не замедлять массовое сканирование.
 	result.SNMPEnabled = hasOpenPort(result.Ports, 161, "udp") || hasOpenPort(result.Ports, 161, "tcp")
@@ -701,6 +736,10 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 
 // getMACAddress получает MAC адрес через ARP
 func (ns *NetworkScanner) getMACAddress(ip net.IP) (string, error) {
+	if ip == nil || ip.To4() == nil {
+		return "", fmt.Errorf("MAC адрес через ARP доступен только для IPv4")
+	}
+
 	// Сначала пытаемся прочитать из ARP таблицы системы (если доступно)
 	mac, err := ns.readMACFromARPTable(ip)
 	if err == nil {
@@ -1362,4 +1401,13 @@ func hasOpenPort(ports []PortInfo, targetPort int, protocol string) bool {
 		}
 	}
 	return false
+}
+
+func shouldGrabBannerPort(port int) bool {
+	switch port {
+	case 21, 22, 25, 110, 143, 587, 993, 995, 80, 443, 8080, 8443:
+		return true
+	default:
+		return false
+	}
 }

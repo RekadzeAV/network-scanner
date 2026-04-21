@@ -9,6 +9,8 @@ import (
 	portdb "network-scanner/internal/ports"
 )
 
+const maxEnumeratedHosts = 65536
+
 // DetectLocalNetwork определяет локальную сеть автоматически
 func DetectLocalNetwork() (string, error) {
 	// Получаем интерфейсы с таймаутом (избегаем зависания в Windows)
@@ -93,11 +95,19 @@ func DetectLocalNetwork() (string, error) {
 
 // ParseNetworkRange парсит диапазон сети (например, 192.168.1.0/24)
 func ParseNetworkRange(network string) ([]net.IP, error) {
-	_, ipnet, err := net.ParseCIDR(network)
+	baseIP, ipnet, err := net.ParseCIDR(strings.TrimSpace(network))
 	if err != nil {
 		return nil, err
 	}
 
+	if baseIP.To4() != nil {
+		return parseIPv4NetworkRange(ipnet), nil
+	}
+
+	return parseIPv6NetworkRange(ipnet)
+}
+
+func parseIPv4NetworkRange(ipnet *net.IPNet) []net.IP {
 	var ips []net.IP
 	networkIP := ipnet.IP.Mask(ipnet.Mask)
 
@@ -125,6 +135,39 @@ func ParseNetworkRange(network string) ([]net.IP, error) {
 		ips = append(ips, ipCopy)
 
 		inc(ip)
+	}
+
+	return ips
+}
+
+func parseIPv6NetworkRange(ipnet *net.IPNet) ([]net.IP, error) {
+	ones, bits := ipnet.Mask.Size()
+	if bits != 128 {
+		return nil, fmt.Errorf("неверная маска IPv6 сети")
+	}
+	hostBits := bits - ones
+	if hostBits > 16 {
+		return nil, fmt.Errorf("слишком большой диапазон IPv6 (%d бит хоста): ограничение /112 или уже", hostBits)
+	}
+	hostCount := 1 << hostBits
+	if hostCount > maxEnumeratedHosts {
+		return nil, fmt.Errorf("слишком большой диапазон IPv6: %d адресов (максимум %d)", hostCount, maxEnumeratedHosts)
+	}
+
+	base := ipnet.IP.Mask(ipnet.Mask).To16()
+	if base == nil {
+		return nil, fmt.Errorf("не удалось нормализовать IPv6 адрес")
+	}
+
+	ips := make([]net.IP, 0, hostCount)
+	curr := make(net.IP, net.IPv6len)
+	copy(curr, base)
+
+	for i := 0; i < hostCount; i++ {
+		ipCopy := make(net.IP, net.IPv6len)
+		copy(ipCopy, curr)
+		ips = append(ips, ipCopy)
+		inc(curr)
 	}
 
 	return ips, nil

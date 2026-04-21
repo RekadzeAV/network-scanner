@@ -12,6 +12,7 @@ func TestParseNetworkRange(t *testing.T) {
 		network string
 		wantErr bool
 		minIPs  int
+		ipv6    bool
 	}{
 		{
 			name:    "Valid /24 network",
@@ -30,6 +31,25 @@ func TestParseNetworkRange(t *testing.T) {
 			network: "192.168.1.0/30",
 			wantErr: false,
 			minIPs:  2,
+		},
+		{
+			name:    "Valid IPv6 /126 network",
+			network: "2001:db8::/126",
+			wantErr: false,
+			minIPs:  4,
+			ipv6:    true,
+		},
+		{
+			name:    "Valid IPv6 /128 host route",
+			network: "2001:db8::1/128",
+			wantErr: false,
+			minIPs:  1,
+			ipv6:    true,
+		},
+		{
+			name:    "IPv6 range too large",
+			network: "2001:db8::/64",
+			wantErr: true,
 		},
 		{
 			name:    "Invalid network format",
@@ -64,7 +84,11 @@ func TestParseNetworkRange(t *testing.T) {
 					if ip == nil {
 						t.Error("ParseNetworkRange() returned nil IP")
 					}
-					if ip.To4() == nil {
+					if tt.ipv6 {
+						if ip.To16() == nil || ip.To4() != nil {
+							t.Errorf("ParseNetworkRange() returned non-IPv6 IP: %v", ip)
+						}
+					} else if ip.To4() == nil {
 						t.Errorf("ParseNetworkRange() returned non-IPv4 IP: %v", ip)
 					}
 				}

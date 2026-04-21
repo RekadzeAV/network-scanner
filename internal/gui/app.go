@@ -83,6 +83,9 @@ type App struct {
 	resultsSortSel     *widget.Select
 	resultsFilterEnt   *widget.Entry
 	resultsFilterQuery string
+	resultsCidrFilterEnt *widget.Entry
+	resultsPortStateSel  *widget.Select
+	resultsPortStateMode string
 	filtersInfoLabel   *widget.Label
 	clearFilterBtn     *widget.Button
 	chipLimitSel       *widget.Select
@@ -118,6 +121,16 @@ type App struct {
 	zoomSelect         *widget.Select
 	openPreviewBtn     *widget.Button
 	topologyCancel     context.CancelFunc
+	toolsHostEntry     *widget.Entry
+	toolsPingCountEnt  *widget.Entry
+	toolsOutput        *widget.RichText
+	toolsPingBtn       *widget.Button
+	toolsTraceBtn      *widget.Button
+	toolsDNSBtn        *widget.Button
+	toolsWhoisBtn      *widget.Button
+	toolsWOLMacEntry   *widget.Entry
+	toolsWOLBcastEntry *widget.Entry
+	toolsWOLBtn        *widget.Button
 	resultsState       string
 	lastCanvasSize     fyne.Size
 	pieChartCache      map[string]fyne.Resource
@@ -137,6 +150,8 @@ const (
 	prefFilterQuery   = "scan.results_filter_query"
 	prefOnlyOpenPorts = "scan.results_only_open_ports"
 	prefTypeFilters   = "scan.results_type_filters"
+	prefCidrFilter    = "scan.results_cidr_filter"
+	prefPortStateMode = "scan.results_port_state_mode"
 )
 
 const (
