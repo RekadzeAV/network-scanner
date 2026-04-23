@@ -224,8 +224,8 @@ echo Запустите `network-scanner.exe` из командной строк
 echo.
 echo ```bash
 echo network-scanner.exe
-echo network-scanner.exe -range 192.168.1.0/24
-echo network-scanner.exe -ports 80,443,8080 -threads 200
+echo network-scanner.exe --network 192.168.1.0/24
+echo network-scanner.exe --ports 80,443,8080 --threads 200
 echo ```
 echo.
 echo Подробная документация находится в файле "Инструкция по эксплуатации.md"
@@ -255,8 +255,8 @@ echo.
 echo ### CLI версия
 echo ```bash
 echo ./network-scanner
-echo ./network-scanner -range 192.168.1.0/24
-echo ./network-scanner -ports 80,443,8080 -threads 200
+echo ./network-scanner --network 192.168.1.0/24
+echo ./network-scanner --ports 80,443,8080 --threads 200
 echo ```
 echo.
 echo Подробная документация находится в файле "Инструкция по эксплуатации.md"
@@ -292,8 +292,8 @@ echo.
 echo ### CLI версия
 echo ```bash
 echo ./network-scanner
-echo ./network-scanner -range 192.168.1.0/24
-echo ./network-scanner -ports 80,443,8080 -threads 200
+echo ./network-scanner --network 192.168.1.0/24
+echo ./network-scanner --ports 80,443,8080 --threads 200
 echo ```
 echo.
 echo Подробная документация находится в файле "Инструкция по эксплуатации.md"

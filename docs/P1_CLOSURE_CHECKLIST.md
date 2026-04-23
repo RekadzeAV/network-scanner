@@ -4,16 +4,26 @@
 
 ---
 
+## Quick links
+
+- Release acceptance: `docs/RELEASE_ACCEPTANCE_CHECKLIST.md`
+- GUI smoke checklist: `docs/GUI_SMOKE_CHECKLIST.md`
+- Release readiness snapshot: `docs/RELEASE_READINESS_SNAPSHOT.md`
+- Manual sign-off template: `docs/MANUAL_SIGNOFF_TEMPLATE.md`
+- Manual sign-off draft: `docs/MANUAL_SIGNOFF_DRAFT.md`
+
+---
+
 ## 1) Базовая проверка сборки и тестов
 
-- [ ] `go test ./...` проходит без ошибок.
+- [x] `go test ./...` проходит без ошибок.
 - [ ] Smoke проверки CLI проходят:
-  - [ ] `./scripts/smoke-cli-no-topology.sh` (или `.ps1`)
-  - [ ] `./scripts/smoke-cli-topology.sh` (или `.ps1`)
-  - [ ] `./scripts/smoke-cli-tools.sh` (или `.ps1`)
+  - [x] `./scripts/smoke-cli-no-topology.sh` (или `.ps1`)
+  - [x] `./scripts/smoke-cli-topology.sh` (или `.ps1`)
+  - [x] `./scripts/smoke-cli-tools.sh` (или `.ps1`)
 - [ ] Автоматизированный прогон P1:
   - [ ] Unix: `./scripts/p1-closure-check.sh`
-  - [ ] Windows: `.\scripts\p1-closure-check.ps1`
+  - [x] Windows: `.\scripts/p1-closure-check.ps1`
 
 Статус формального closure на Unix-платформах (macOS/Linux):
 
@@ -84,10 +94,10 @@
 
 ## 6) Документация и фиксация этапа
 
-- [ ] `README.md` содержит актуальные примеры по CLI инструментам P1.
-- [ ] `docs/USER_GUIDE.md` синхронизирован по флагам и GUI вкладке `Инструменты`.
-- [ ] `docs/TECHNICAL.md` содержит ограничения инструментов.
-- [ ] `CHANGELOG.md` отражает все ключевые изменения P1.
+- [x] `README.md` содержит актуальные примеры по CLI инструментам P1.
+- [x] `docs/USER_GUIDE.md` синхронизирован по флагам и GUI вкладке `Инструменты`.
+- [x] `docs/TECHNICAL.md` содержит ограничения инструментов.
+- [x] `CHANGELOG.md` отражает все ключевые изменения P1.
 - [ ] `docs/ROADMAP_P1_P3.md` содержит обновлённый статус P1.
 
 ---
@@ -142,3 +152,16 @@ go test ./...
 - [x] Windows: smoke-скрипты (`no-topology`, `topology`, `tools`) проходят.
 - [x] Windows: `scripts/p1-closure-check.ps1` проходит.
 - [x] Windows: `scripts/p2-closure-check.ps1` проходит.
+
+---
+
+## Stage 2 / P1 (Whois, Wi-Fi, аудит портов) — smoke дополнения
+
+- [x] `scripts/smoke-cli-tools.sh|ps1` включает smoke-проверки:
+  - [x] `--audit-open-ports`
+  - [x] `--audit-open-ports --audit-min-severity high`
+- [x] Добавлен единый closure-скрипт Stage2/P1:
+  - [x] Unix: `./scripts/stage2-p1-closure-check.sh` (или `make stage2-p1-check`)
+  - [x] Windows: `.\scripts\stage2-p1-closure-check.ps1` (или `make stage2-p1-check-win`)
+- [x] `--audit-min-severity` поддерживает значения `all|low|medium|high|critical`.
+- [x] В GUI (`Инструменты`) доступен `Audit min severity` с сохранением в Preferences.

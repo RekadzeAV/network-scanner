@@ -3,6 +3,7 @@ package topology
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -22,6 +23,8 @@ const (
 	DeviceTypeHost    DeviceType = "host"
 	DeviceTypeUnknown DeviceType = "unknown"
 )
+
+var ErrGraphvizNotInstalled = errors.New("graphviz dot not installed")
 
 type Port struct {
 	Index            int
@@ -59,6 +62,10 @@ type Topology struct {
 	Links   []Link
 }
 
+type BuildOptions struct {
+	PartialSNMPKeys map[string]struct{}
+}
+
 type LinkSourceType string
 
 const (
@@ -84,6 +91,10 @@ type LldpNeighbor struct {
 }
 
 func BuildTopology(results []scanner.Result, snmpData map[string]*Device) (*Topology, error) {
+	return BuildTopologyWithOptions(results, snmpData, BuildOptions{})
+}
+
+func BuildTopologyWithOptions(results []scanner.Result, snmpData map[string]*Device, opts BuildOptions) (*Topology, error) {
 	t := &Topology{
 		Devices: make(map[string]*Device),
 		Links:   make([]Link, 0),
@@ -174,7 +185,20 @@ func BuildTopology(results []scanner.Result, snmpData map[string]*Device) (*Topo
 			if remote == nil || remote == dev {
 				continue
 			}
-			addLink(linkDedup, linkByEndpoint, t, dev, localIf, "", remote, -1, n.RemotePortID, LinkSourceLLDP, LinkConfidenceHigh, "lldp_neighbor_match")
+			confidence := maybeLowerConfidence(LinkConfidenceHigh, dev, remote, opts)
+			addLink(
+				linkDedup, linkByEndpoint, t,
+				dev, localIf, "",
+				remote, -1, n.RemotePortID,
+				LinkSourceLLDP,
+				confidence,
+				fmt.Sprintf("lldp_neighbor_match;local_if=%d;remote_port=%s;remote_chassis=%s;remote_sys=%s",
+					localIf,
+					strings.TrimSpace(n.RemotePortID),
+					strings.TrimSpace(n.RemoteChassisID),
+					strings.TrimSpace(n.RemoteSysName),
+				),
+			)
 		}
 		// FDB/MAC links
 		for mac, ifIndex := range dev.MacTable {
@@ -191,7 +215,15 @@ func BuildTopology(results []scanner.Result, snmpData map[string]*Device) (*Topo
 			if remote == dev {
 				continue
 			}
-			addLink(linkDedup, linkByEndpoint, t, dev, ifIndex, "", remote, -1, "", LinkSourceFDB, LinkConfidenceMedium, "fdb_mac_match")
+			confidence := maybeLowerConfidence(LinkConfidenceMedium, dev, remote, opts)
+			addLink(
+				linkDedup, linkByEndpoint, t,
+				dev, ifIndex, "",
+				remote, -1, "",
+				LinkSourceFDB,
+				confidence,
+				fmt.Sprintf("fdb_mac_match;local_if=%d;remote_mac=%s", ifIndex, normalized),
+			)
 		}
 	}
 
@@ -214,6 +246,49 @@ func BuildTopology(results []scanner.Result, snmpData map[string]*Device) (*Topo
 	})
 
 	return t, nil
+}
+
+func maybeLowerConfidence(base LinkConfidence, a *Device, b *Device, opts BuildOptions) LinkConfidence {
+	if !isPartialDevice(a, opts) && !isPartialDevice(b, opts) {
+		return base
+	}
+	switch base {
+	case LinkConfidenceHigh:
+		return LinkConfidenceMedium
+	case LinkConfidenceMedium:
+		return LinkConfidenceLow
+	default:
+		return LinkConfidenceLow
+	}
+}
+
+func isPartialDevice(d *Device, opts BuildOptions) bool {
+	if d == nil || len(opts.PartialSNMPKeys) == 0 {
+		return false
+	}
+	for _, k := range deviceKeys(d) {
+		if _, ok := opts.PartialSNMPKeys[k]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func deviceKeys(d *Device) []string {
+	if d == nil {
+		return nil
+	}
+	out := make([]string, 0, 3)
+	if ip := strings.TrimSpace(strings.ToLower(d.IP)); ip != "" {
+		out = append(out, "ip:"+ip)
+	}
+	if mac := normalizeMAC(d.MAC); mac != "" {
+		out = append(out, "mac:"+mac)
+	}
+	if hn := strings.TrimSpace(strings.ToLower(d.Hostname)); hn != "" {
+		out = append(out, "hostname:"+hn)
+	}
+	return out
 }
 
 func (t *Topology) ToDOT(w io.Writer) error {
@@ -241,6 +316,9 @@ func (t *Topology) ToDOT(w io.Writer) error {
 }
 
 func (t *Topology) SaveJSON(filename string) error {
+	if err := t.Validate(); err != nil {
+		return fmt.Errorf("topology validation failed: %w", err)
+	}
 	data, err := json.MarshalIndent(t, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal topology json: %w", err)
@@ -249,6 +327,15 @@ func (t *Topology) SaveJSON(filename string) error {
 }
 
 func (t *Topology) SaveGraphML(filename string) error {
+	if err := t.Validate(); err != nil {
+		return fmt.Errorf("topology validation failed: %w", err)
+	}
+	type Key struct {
+		ID       string `xml:"id,attr"`
+		For      string `xml:"for,attr"`
+		AttrName string `xml:"attr.name,attr,omitempty"`
+		AttrType string `xml:"attr.type,attr,omitempty"`
+	}
 	type Data struct {
 		Key   string `xml:"key,attr"`
 		Value string `xml:",chardata"`
@@ -273,6 +360,7 @@ func (t *Topology) SaveGraphML(filename string) error {
 	type GraphML struct {
 		XMLName xml.Name `xml:"graphml"`
 		Xmlns   string   `xml:"xmlns,attr"`
+		Keys    []Key    `xml:"key"`
 		Graph   Graph    `xml:"graph"`
 	}
 
@@ -296,11 +384,22 @@ func (t *Topology) SaveGraphML(filename string) error {
 				{Key: "dst_port", Value: portLabel(l.TargetPort)},
 				{Key: "source_type", Value: string(l.SourceType)},
 				{Key: "confidence", Value: string(l.Confidence)},
+				{Key: "evidence", Value: strings.TrimSpace(l.Evidence)},
 			},
 		})
 	}
+	keys := []Key{
+		{ID: "label", For: "node", AttrName: "label", AttrType: "string"},
+		{ID: "type", For: "node", AttrName: "type", AttrType: "string"},
+		{ID: "src_port", For: "edge", AttrName: "src_port", AttrType: "string"},
+		{ID: "dst_port", For: "edge", AttrName: "dst_port", AttrType: "string"},
+		{ID: "source_type", For: "edge", AttrName: "source_type", AttrType: "string"},
+		{ID: "confidence", For: "edge", AttrName: "confidence", AttrType: "string"},
+		{ID: "evidence", For: "edge", AttrName: "evidence", AttrType: "string"},
+	}
 	raw, err := xml.MarshalIndent(GraphML{
 		Xmlns: "http://graphml.graphdrawing.org/xmlns",
+		Keys:  keys,
 		Graph: g,
 	}, "", "  ")
 	if err != nil {
@@ -309,10 +408,50 @@ func (t *Topology) SaveGraphML(filename string) error {
 	return os.WriteFile(filename, append([]byte(xml.Header), raw...), 0644)
 }
 
+func (t *Topology) Validate() error {
+	if t == nil {
+		return fmt.Errorf("topology is nil")
+	}
+	if t.Devices == nil {
+		return fmt.Errorf("devices map is nil")
+	}
+	deviceIDs := make(map[string]struct{}, len(t.Devices))
+	for key, d := range t.Devices {
+		if d == nil {
+			return fmt.Errorf("device %q is nil", strings.TrimSpace(key))
+		}
+		id := nodeID(d)
+		if strings.TrimSpace(id) == "" || id == "unknown" {
+			return fmt.Errorf("device %q has no stable identifier", strings.TrimSpace(key))
+		}
+		deviceIDs[id] = struct{}{}
+	}
+	for i, l := range t.Links {
+		if l.Source == nil || l.Target == nil {
+			return fmt.Errorf("link[%d] has nil endpoint", i)
+		}
+		srcID := nodeID(l.Source)
+		dstID := nodeID(l.Target)
+		if _, ok := deviceIDs[srcID]; !ok {
+			return fmt.Errorf("link[%d] source %q is missing in devices", i, srcID)
+		}
+		if _, ok := deviceIDs[dstID]; !ok {
+			return fmt.Errorf("link[%d] target %q is missing in devices", i, dstID)
+		}
+		if strings.TrimSpace(string(l.SourceType)) == "" {
+			return fmt.Errorf("link[%d] source_type is empty", i)
+		}
+		if strings.TrimSpace(string(l.Confidence)) == "" {
+			return fmt.Errorf("link[%d] confidence is empty", i)
+		}
+	}
+	return nil
+}
+
 func (t *Topology) RenderWithGraphviz(outputFormat, outputFile string) error {
 	dotPath, err := exec.LookPath("dot")
 	if err != nil {
-		return fmt.Errorf("graphviz dot не найден в PATH, установите Graphviz: %w", err)
+		return fmt.Errorf("%w: graphviz dot не найден в PATH, установите Graphviz", ErrGraphvizNotInstalled)
 	}
 	tmp, err := os.CreateTemp("", "network-topology-*.dot")
 	if err != nil {

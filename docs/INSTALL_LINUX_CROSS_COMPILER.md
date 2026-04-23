@@ -116,7 +116,7 @@ go build -o network-scanner-gui-linux-amd64 ./cmd/gui
 ### Вариант 2: Использование Docker
 Создайте Docker контейнер для сборки:
 ```dockerfile
-FROM golang:1.21
+FROM golang:1.24
 RUN apt-get update && apt-get install -y gcc
 ```
 
@@ -145,6 +145,6 @@ $env:CGO_ENABLED = "1"
 
 ---
 
-**Последнее обновление:** 2024
+**Последнее обновление:** 2026-04-23
 
 

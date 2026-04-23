@@ -1,0 +1,218 @@
+# Промт для ИИ-ассистента: Реализация Плана улучшения Network Scanner v2.0
+
+## 1. Контекст и цель
+Ты — senior Go-разработчик, выполняющий рефакторинг и расширение функциональности проекта **network-scanner** (https://github.com/RekadzeAV/network-scanner). Проект написан на Go, использует Fyne для GUI, gopacket для сетевых операций, и имеет модульную структуру (`cmd`, `internal`).
+
+**Глобальная цель:** Пошагово реализовать план улучшений до версии 2.0, описанный ниже. Все изменения должны следовать лучшим практикам Go, сохранять обратную совместимость где возможно, и сопровождаться unit-тестами и обновлённой документацией.
+
+## 2. Структура проекта (для справки)
+- `cmd/network-scanner/` – CLI точка входа.
+- `cmd/gui/` – GUI точка входа.
+- `internal/scanner/` – ядро сканирования.
+- `internal/network/` – низкоуровневые сетевые функции (ping, ARP, проверка портов).
+- `internal/display/` – вывод в CLI (будет заменён на presenter).
+- `internal/gui/` – компоненты GUI.
+- `internal/snmpcollector/`, `internal/topology/` – SNMP и построение топологии.
+
+## 3. Этапы работ
+
+### Этап 1: Архитектурные улучшения и рефакторинг
+**Цель:** Внедрить интерфейсы, снизить связанность, добавить unit-тесты.
+
+#### Задача 1.1: Внедрение интерфейсов для вывода и источников данных
+1. **Создать файл `internal/scanner/interfaces.go`** со следующими интерфейсами:
+   - `NetworkProber` с методами `Ping(ip string) (bool, error)` и `ResolveMAC(ip string) (net.HardwareAddr, error)`.
+   - `PortScanner` с методом `ScanPorts(ip string, ports []int, proto string) ([]int, error)`.
+   - `ResultPresenter` с методами `DisplayHeader()`, `DisplayHost(host HostResult)`, `DisplaySummary(totalHosts int, openPortsCount int)`, `Export(results []HostResult, format string) error`.
+   - `SNMPCollector` (если ещё нет) и `TopologyBuilder`.
+
+2. **Рефакторинг структуры `Scanner`:**
+   - Изменить конструктор `NewScanner` так, чтобы он принимал `NetworkProber`, `PortScanner`, `ResultPresenter`.
+   - Перенести существующую реализацию пинга и ARP в `internal/network/prober.go` как `DefaultNetworkProber`, реализующую `NetworkProber`.
+   - Аналогично создать `TCPPortScanner` и `UDPPortScanner`, реализующие `PortScanner`.
+
+3. **Выделение презентеров:**
+   - Создать пакет `internal/presenter`.
+   - Перенести логику форматирования CLI из `internal/display` в `internal/presenter/cli.go` (структура `CLIPresenter`).
+   - Создать `internal/presenter/json.go` для экспорта JSON.
+   - Оставить заглушки для будущих `html.go`, `xml.go`.
+
+4. **Обновление точек входа:**
+   - В `cmd/network-scanner/main.go` и `cmd/gui/main.go` собрать зависимости и передать их в `scanner.NewScanner`.
+
+#### Задача 1.2: Уменьшение связности GUI (Model-View)
+1. **Создать `internal/gui/model.go`:**
+   - Определить структуру `AppModel` с полями:
+     - `scanResults []scanner.HostResult`
+     - `progress float64`
+     - `status string`
+     - `isScanning bool`
+   - Использовать Fyne `data.Binding` для каждого поля:
+     - `ResultsList *binding.UntypedList`
+     - `ProgressValue *binding.Float`
+     - `StatusText *binding.String`
+     - `ScanButtonDisabled *binding.Bool`
+   - Реализовать методы `AddHostResult`, `UpdateProgress`, `SetStatus`, `SetScanning` с безопасным обновлением через `fyne.Do`.
+
+2. **Рефакторинг GUI виджетов:**
+   - В главном окне (`internal/gui/mainwindow.go`) принять `AppModel` через конструктор.
+   - Привязать виджеты к соответствующим binding-полям модели.
+   - Убрать глобальные переменные.
+
+3. **Интеграция сканера с моделью:**
+   - При запуске сканирования запускать горутину, вызывающую `scanner.Scan` с каналом результатов.
+   - Читать из канала и вызывать методы `AppModel` для добавления хостов.
+
+#### Задача 1.3: Написание unit-тестов
+1. **Настройка:**
+   - Добавить `github.com/stretchr/testify` в `go.mod`.
+   - Создать `internal/scanner/mocks_test.go` с моками для `NetworkProber` и `PortScanner` (использовать `testify/mock`).
+
+2. **Тесты для `internal/network`:**
+   - Табличные тесты для `ParseCIDR`, `ParsePortRange`, `GetLocalIP`.
+   - Мок `net.Conn` для `CheckPort`.
+
+3. **Тесты для `internal/scanner`:**
+   - Проверить `Scanner.Scan` с моками (логика обхода IP, контроль параллелизма через семафор).
+
+4. **Настройка CI (опционально):**
+   - Добавить `.github/workflows/test.yml` с `go test ./...`.
+
+---
+
+### Этап 2: Функциональные улучшения
+**Цель:** Расширить возможности сканера.
+
+#### Задача 2.1: Поддержка сканирования списка хостов из файла
+1. **Парсер файла:**
+   - В `internal/network/parser.go` добавить `ParseTargetsFromFile(path string) ([]string, error)`.
+   - Читать файл построчно, поддерживать IP и CIDR, генерировать итоговый список IP.
+   - Написать unit-тесты.
+
+2. **Интеграция в CLI:**
+   - Добавить флаг `--hosts-file` в `cmd/network-scanner/main.go`.
+   - Объединить IP из файла и из `--cidr`.
+
+3. **Интеграция в GUI:**
+   - На вкладке настроек добавить кнопку выбора файла через `dialog.ShowFileOpen`.
+
+4. **Адаптация сканера:**
+   - Изменить `Scanner.Scan` для приёма `[]string` (список целевых IP) вместо одного CIDR.
+
+#### Задача 2.2: Экспорт результатов в HTML и XML
+1. **HTML-экспортер:**
+   - В `internal/presenter/html.go` реализовать `HTMLPresenter`.
+   - Использовать `html/template` с шаблоном, включающим таблицу, сортировку (JS), сводку.
+   - Добавить метод `ExportHTML(results []HostResult, filename string) error`.
+
+2. **XML-экспортер:**
+   - В `internal/presenter/xml.go` реализовать `XMLPresenter`.
+   - Определить структуру, подобную Nmap `nmaprun`.
+   - Использовать `encoding/xml`.
+
+3. **Интеграция:**
+   - CLI: флаги `--export-html`, `--export-xml`.
+   - GUI: пункты меню "Экспорт" с вызовом диалога сохранения.
+
+#### Задача 2.3: Режим сравнения двух сканирований (Diff)
+1. **Пакет `internal/diff`:**
+   - Функция `CompareScanResults(prev, current []scanner.HostResult) *DiffReport`.
+   - `DiffReport` содержит `NewHosts`, `GoneHosts`, `ChangedHosts`.
+
+2. **CLI подкоманда `diff`:**
+   - Добавить в `main.go` подкоманду, принимающую два JSON-файла.
+   - Вывод таблицы изменений через `go-pretty`.
+
+3. **GUI интеграция:**
+   - Кнопка "Сравнить с...", диалог выбора файла, отображение результатов в новом окне с вкладками.
+
+#### Задача 2.4: Базовая поддержка IPv6
+1. **Сетевые утилиты:**
+   - В `internal/network/ping.go` добавить `PingIPv6` с использованием `golang.org/x/net/icmp` и `ipv6`.
+   - Модифицировать `Ping` для автоматического определения версии IP.
+   - В `internal/network/arp.go` добавить `ResolveMACIPv6` через NDP (Neighbor Solicitation/Advertisement) с `gopacket`.
+
+2. **Парсер диапазонов:**
+   - Поддержка IPv6 CIDR в `ParseCIDR`.
+   - Функция `GenerateIPv6List` с ограничением на количество адресов (чтобы избежать огромных списков).
+
+3. **Структуры данных:**
+   - Добавить поле `IPVersion int` в `HostResult`.
+
+---
+
+### Этап 3: Оптимизация производительности и UX
+#### Задача 3.1: Асинхронный ARP и кэширование
+1. **Кэш ARP:**
+   - В `internal/network/arp.go` создать `ARPCache` с `sync.Map`.
+   - `GetMACByIP` сначала проверяет кэш, затем делает запрос, сохраняет результат.
+
+2. **Асинхронность:**
+   - В `DefaultNetworkProber.ResolveMAC` запускать ARP-запросы в горутинах с семафором.
+
+3. **Кэш OUI:**
+   - В `internal/network/oui.go` создать `OUICache` с локальным кэшем в памяти и файлом `oui_cache.json`.
+
+#### Задача 3.2: Инкрементальный вывод в CLI
+1. **Потоковая передача результатов:**
+   - Изменить `Scanner.Scan`, чтобы он принимал `resultChan chan<- HostResult` (или возвращал `<-chan HostResult`).
+
+2. **CLI вывод в реальном времени:**
+   - В `main.go` читать из канала и выводить строки (можно использовать `progressbar` или периодически обновляемую таблицу `uitable`).
+
+#### Задача 3.3: Улучшение обработки ошибок и сообщений
+1. **CLI сообщения:**
+   - Заменить `log.Fatal` на `fmt.Fprintf(os.Stderr, ...)` с понятными пояснениями.
+   - Добавить проверку прав для ARP и совет.
+
+2. **Проверка Graphviz:**
+   - При экспорте топологии вызывать `exec.LookPath("dot")` и выдавать понятную ошибку.
+
+3. **GUI статусная строка:**
+   - Использовать `AppModel.StatusText` для отображения текущей операции.
+
+---
+
+### Этап 4: Безопасность и сборка
+#### Задача 4.1: Безопасный SNMP community
+1. **Чтение из окружения:**
+   - В CLI: если флаг `--snmp-community` пуст, читать `SNMP_COMMUNITY` из `os.Getenv`.
+
+2. **Маскирование в GUI:**
+   - Заменить поле ввода на `widget.NewPasswordEntry()`.
+
+#### Задача 4.2: Упрощение сборки GUI
+1. **Документация:**
+   - Создать `BUILD_GUI.md` с инструкциями для всех ОС.
+
+2. **Makefile:**
+   - Добавить цели `build-gui-windows`, `build-gui-linux`, `build-gui-macos`.
+
+3. **Build tags (опционально):**
+   - Использовать `//go:build !nogui` для GUI-кода, чтобы CLI собирался без CGO.
+
+---
+
+### Этап 5: Финальное тестирование и документация
+1. **Интеграционные тесты:**
+   - Написать `docker-compose.yml` с тестовой сетью.
+   - Тесты запускают сканер и проверяют обнаружение.
+
+2. **Обновление документации:**
+   - `README.md`, `USER_GUIDE.md`, `TECHNICAL.md` актуализировать под версию 2.0.
+   - Создать `CHANGELOG.md`.
+
+## 4. Требования к реализации
+- Код должен быть идиоматичным для Go, с комментариями к экспортируемым элементам.
+- Каждая новая функция или изменение должны сопровождаться unit-тестами.
+- Обеспечить обратную совместимость CLI-флагов (старые флаги должны работать).
+- Использовать стандартные пакеты Go где возможно; внешние зависимости согласовывать с существующими.
+- Все изменения вносить в отдельной ветке `feature/v2-improvements`.
+
+## 5. Ожидаемый результат
+По завершении всех этапов предоставить:
+- Pull Request с полным набором изменений.
+- Список реализованных задач с пометкой "готово".
+- Краткую инструкцию по тестированию новых функций.
+
+Приступай к выполнению задач последовательно, начиная с Этапа 1. После завершения каждой логической части предоставляй отчёт о проделанной работе.

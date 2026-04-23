@@ -21,12 +21,29 @@ func RunPing(ctx context.Context, host string, count int, timeout time.Duration)
 	if count > 50 {
 		count = 50
 	}
-	var args []string
-	switch runtime.GOOS {
-	case "windows":
-		args = []string{"ping", "-n", strconv.Itoa(count), host}
-	default:
-		args = []string{"ping", "-c", strconv.Itoa(count), host}
-	}
+	args := buildPingArgs(host, count, runtimeGOOS())
 	return runCmd(ctx, args, timeout)
+}
+
+// RunPingStructured выполняет ping и возвращает сырой вывод + распарсенные метрики.
+func RunPingStructured(ctx context.Context, host string, count int, timeout time.Duration) (*PingResult, error) {
+	raw, err := RunPing(ctx, host, count, timeout)
+	if err != nil {
+		return nil, err
+	}
+	return &PingResult{
+		RawOutput: raw,
+		Stats:     parsePingStats(raw, count),
+	}, nil
+}
+
+func buildPingArgs(host string, count int, goos string) []string {
+	if strings.EqualFold(strings.TrimSpace(goos), "windows") {
+		return []string{"ping", "-n", strconv.Itoa(count), host}
+	}
+	return []string{"ping", "-c", strconv.Itoa(count), host}
+}
+
+func runtimeGOOS() string {
+	return runtime.GOOS
 }

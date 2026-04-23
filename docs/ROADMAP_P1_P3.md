@@ -3,6 +3,18 @@
 **Дата:** 2026-03-27  
 **Контекст:** детализация после закрытия **P0** (экспорт скана в GUI/CLI + каркас «Инструменты» / единый анализатор без Wi‑Fi).
 
+## Operational links
+
+- Release acceptance: `docs/RELEASE_ACCEPTANCE_CHECKLIST.md`
+- P1 closure checklist: `docs/P1_CLOSURE_CHECKLIST.md`
+- GUI smoke checklist: `docs/GUI_SMOKE_CHECKLIST.md`
+- Release readiness snapshot: `docs/RELEASE_READINESS_SNAPSHOT.md`
+- Manual sign-off template: `docs/MANUAL_SIGNOFF_TEMPLATE.md`
+- Manual sign-off draft: `docs/MANUAL_SIGNOFF_DRAFT.md`
+- PR ready blocks: `docs/RELEASE_READINESS_PR_READY.md`
+
+---
+
 Текущее состояние кода: обнаружение и порты в `internal/scanner/scanner.go`, проверка «живости» через **TCP probe** (не ICMP), обратный DNS в процессе скана, фильтры и вкладки в `internal/gui/app.go`, сериализация CSV/JSON в `internal/display/display.go` (подключение к сохранению — в рамках P0).
 
 ```mermaid
@@ -119,6 +131,19 @@ flowchart LR
 | **Wi‑Fi анализ** | **Windows:** где есть API (профили, сигнал) — тонкая обёртка. **macOS/Linux:** только то, что доступно без root или через документированные команды; честный список «не поддерживается». Не блокировать релиз этапа 2 из-за Wi‑Fi. | Один экран «Wi‑Fi» с реальными данными хотя бы на одной ОС + fallback на остальных. |
 | **Аудит открытых портов** | Правила: нешифрованные telnet/FTP, SMB наружу, известные опасные порты; отчёт «риски» без CVE (это P3). Связка с результатами скана. | Отчёт: список находок + рекомендация «закрыть / обновить». |
 
+**Статус выполнения (обновлено):** ~85%
+
+- Закрыто:
+  - CLI: `--whois` (с RDAP fallback при отсутствии утилиты), `--wifi`, `--audit-open-ports`
+  - CLI: фильтр аудита `--audit-min-severity` (`all|low|medium|high|critical`)
+  - GUI (`Инструменты`): кнопки `Whois`, `Wi-Fi`, `Аудит портов` + селектор `Audit min severity`
+  - Для `Wi-Fi` добавлен нормализованный summary + raw output (OS-specific команды)
+  - Добавлены unit-тесты для `whois`/RDAP, `wifi` parser-ов и audit severity filter
+  - Smoke-скрипты `smoke-cli-tools.sh|ps1` расширены проверками audit-флагов
+- Остаток до формального закрытия P1 Stage 2:
+  - Ручной кросс-ОС прогон `Whois/Wi-Fi/Audit` на целевых средах релиза
+  - Финальная валидация UX отображения больших audit-отчетов в GUI
+
 ---
 
 ### P2 — Управление оборудованием, сигнатуры «домашних» рисков
@@ -127,6 +152,21 @@ flowchart LR
 |--------|-------------------|---------------------|
 | **Управление сетевым оборудованием** | Только явно заданные цели и учётные данные: HTTP API перезагрузки роутера (модуль по vendor), принтеры (IPP/WSD где уместно); подтверждение в UI «опасное действие»; аудит-лог. | Одна-две поддерживаемые схемы + расширяемый интерфейс плагинов. |
 | **Сигнатуры уязвимостей домашних устройств** | Локальная база: известные дефолтные порты/баннеры слабых прошивок; сопоставление с результатами скана и баннеров P1 этапа 1. | Отчёт «возможная слабая конфигурация» с ссылкой на рекомендации производителя. |
+
+**Статус выполнения (обновлено):** ~80%
+
+- Закрыто:
+  - CLI: `--risk-signatures` с локальной versioned базой сигнатур и explain-выводом причин срабатывания
+  - CLI: `--device-action status|reboot` + `--device-target`, `--device-vendor`, `--device-user`, `--device-pass`, `--device-confirm`, `--audit-log`
+  - Для `reboot` добавлено явное подтверждение (`I_UNDERSTAND`) и аудит действий в JSONL
+  - GUI (`Инструменты`): добавлены блоки `Risk Signatures` и `Device Control`, включая подтверждение reboot
+  - Добавлены vendor-профили device-control: `generic-http`, `tp-link-http`
+  - Security HTML report расширен секцией `Risk Signature Findings` вместе с `CVE Findings`
+  - Добавлены unit-тесты для `internal/risksignature`, `internal/devicecontrol`, `internal/report`
+- Остаток до формального закрытия P2 Stage 2:
+  - Ручной кросс-ОС UX-прогон `Risk Signatures` и `Device Control` (Windows/macOS/Linux)
+  - Финальная проверка поддерживаемых vendor-схем на тестовых устройствах
+  - Фиксация evidence и финальный sign-off в release checklist
 
 **Ограничение:** не смешивать с полноценным сканером CVE на этом уровне — это следующий приоритет.
 

@@ -18,7 +18,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.22'
+        go-version-file: go.mod
 
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v6
@@ -32,7 +32,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: ['1.22']
+        go-version: ['1.24.x']
 
     steps:
     - name: Checkout code
@@ -73,16 +73,68 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.22'
+        go-version-file: go.mod
 
     - name: Run formal P1 closure check
       shell: bash
       run: ./scripts/p1-closure-check.sh
 
+  stage2-p1-closure:
+    name: Stage2 P1 Closure
+    runs-on: ${{ matrix.os }}
+    needs: test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+
+    - name: Run Stage2 P1 closure (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: ./scripts/stage2-p1-closure-check.sh
+
+    - name: Run Stage2 P1 closure (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: ./scripts/stage2-p1-closure-check.ps1
+
+  stage2-p3-closure:
+    name: Stage2 P3 Closure
+    runs-on: ${{ matrix.os }}
+    needs: test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+
+    - name: Run Stage2 P3 closure (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: ./scripts/stage2-p3-closure-check.sh
+
+    - name: Run Stage2 P3 closure (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: ./scripts/stage2-p3-closure-check.ps1
+
   build:
     name: Build and Smoke
     runs-on: ${{ matrix.os }}
-    needs: [test, p1-closure-unix]
+    needs: [test, p1-closure-unix, stage2-p1-closure, stage2-p3-closure]
     strategy:
       matrix:
         include:
@@ -103,7 +155,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.22'
+        go-version-file: go.mod
 
     - name: Build GUI binary
       run: go build -o "${{ matrix.gui_bin }}" ./cmd/gui
@@ -127,3 +179,29 @@ jobs:
         path: |
           ${{ matrix.cli_bin }}
           ${{ matrix.gui_bin }}
+
+  d-track-smoke:
+    name: D-Track Smoke (Topology Export)
+    runs-on: ${{ matrix.os }}
+    needs: build
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+
+    - name: Run D-track smoke (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: ./scripts/smoke-d-track-topology-export.sh
+
+    - name: Run D-track smoke (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: ./scripts/smoke-d-track-topology-export.ps1

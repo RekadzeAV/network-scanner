@@ -26,7 +26,7 @@ brew install go
 go version
 ```
 
-Должно вывести что-то вроде: `go version go1.21.x darwin/arm64` или `go version go1.21.x darwin/amd64`
+Должно вывести что-то вроде: `go version go1.24.x darwin/arm64` или `go version go1.24.x darwin/amd64`
 
 ## Сборка приложения
 

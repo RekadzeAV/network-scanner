@@ -3,6 +3,7 @@ package network
 import (
 	"fmt"
 	"net"
+	"math"
 	"strings"
 	"time"
 
@@ -10,6 +11,32 @@ import (
 )
 
 const maxEnumeratedHosts = 65536
+
+// EstimateHostCount оценивает количество адресов-хостов в CIDR диапазоне без полной генерации списка IP.
+func EstimateHostCount(cidr string) (int, error) {
+	_, ipnet, err := net.ParseCIDR(strings.TrimSpace(cidr))
+	if err != nil {
+		return 0, err
+	}
+	ones, bits := ipnet.Mask.Size()
+	hostBits := bits - ones
+	if hostBits <= 0 {
+		return 1, nil
+	}
+	if bits == 32 {
+		// Для IPv4 исключаем network/broadcast только когда это применимо.
+		if hostBits == 1 {
+			return 2, nil // /31: оба адреса используются
+		}
+		if hostBits >= 2 {
+			return int(math.Pow(2, float64(hostBits))) - 2, nil
+		}
+	}
+	if hostBits > 30 {
+		return 0, fmt.Errorf("слишком большой диапазон для оценки: %s", cidr)
+	}
+	return 1 << hostBits, nil
+}
 
 // DetectLocalNetwork определяет локальную сеть автоматически
 func DetectLocalNetwork() (string, error) {

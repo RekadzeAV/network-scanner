@@ -1,0 +1,46 @@
+{
+  "version": "home-risk-db/v1",
+  "signatures": [
+    {
+      "id": "home.telnet.open",
+      "title": "Telnet открыт в локальной сети",
+      "severity": "high",
+      "recommendation": "Отключите Telnet и используйте SSH с уникальным паролем.",
+      "reference_url": "https://www.cisa.gov/news-events/news/telnet-insecure-protocol",
+      "match_any_port": [23],
+      "match_any_service": ["telnet"]
+    },
+    {
+      "id": "home.ftp.open",
+      "title": "Нешифрованный FTP сервис доступен",
+      "severity": "medium",
+      "recommendation": "Переключитесь на SFTP/FTPS, ограничьте доступ к сервису по IP.",
+      "reference_url": "https://www.cloudflare.com/learning/ssl/why-is-http-not-secure/",
+      "match_any_port": [21],
+      "match_any_service": ["ftp"]
+    },
+    {
+      "id": "home.router.admin.http",
+      "title": "Веб-админка роутера доступна по HTTP",
+      "severity": "medium",
+      "recommendation": "Отключите HTTP-админку, оставьте только HTTPS и смените дефолтные учетные данные.",
+      "match_any_port": [80, 8080],
+      "match_device_type": ["Router/Network Device"]
+    },
+    {
+      "id": "home.iot.mqtt.open",
+      "title": "MQTT брокер доступен без шифрования",
+      "severity": "medium",
+      "recommendation": "Включите TLS и аутентификацию клиентов для MQTT.",
+      "match_any_port": [1883],
+      "match_any_service": ["mqtt"]
+    },
+    {
+      "id": "home.upnp.open",
+      "title": "UPnP/SSDP сервис обнаружен",
+      "severity": "low",
+      "recommendation": "Отключите UPnP на роутере, если автопроброс портов не нужен.",
+      "match_any_port": [1900]
+    }
+  ]
+}

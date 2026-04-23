@@ -76,6 +76,56 @@ func TestGetResults(t *testing.T) {
 	}
 }
 
+func TestPortThreadsForHost(t *testing.T) {
+	tests := []struct {
+		name      string
+		threads   int
+		portCount int
+		want      int
+	}{
+		{
+			name:      "caps by max per host",
+			threads:   1,
+			portCount: 1000,
+			want:      maxPerHostPortThreads,
+		},
+		{
+			name:      "bounded by budget",
+			threads:   16,
+			portCount: 1000,
+			want:      globalPortProbeBudget / 16,
+		},
+		{
+			name:      "floors to min per host",
+			threads:   128,
+			portCount: 1000,
+			want:      minPerHostPortThreads,
+		},
+		{
+			name:      "does not exceed available ports",
+			threads:   16,
+			portCount: 5,
+			want:      5,
+		},
+		{
+			name:      "zero ports",
+			threads:   16,
+			portCount: 0,
+			want:      0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ns := NewNetworkScanner("192.168.1.0/24", 1*time.Second, "80", tt.threads, false)
+			got := ns.portThreadsForHost(tt.portCount)
+			if got != tt.want {
+				t.Fatalf("portThreadsForHost() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestStop(t *testing.T) {
 	ns := NewNetworkScanner("192.168.1.0/24", 1*time.Second, "80", 10, false)
 

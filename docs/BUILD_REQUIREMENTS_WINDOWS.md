@@ -4,7 +4,7 @@
 
 ### ✅ Обязательные компоненты
 
-#### 1. Go (версия 1.21 или выше)
+#### 1. Go (версия 1.24 или выше)
 - **Статус**: Обязательно
 - **Проверка установки**: 
   ```powershell
@@ -87,7 +87,7 @@ go build -o network-scanner.exe ./cmd/network-scanner
 ```powershell
 .\network-scanner.exe
 # Или с параметрами:
-.\network-scanner.exe -range 192.168.1.0/24 -ports 80,443,8080
+.\network-scanner.exe --network 192.168.1.0/24 --ports 80,443,8080
 ```
 
 #### GUI версия (графический интерфейс)
@@ -122,7 +122,7 @@ go build -o network-scanner-gui.exe ./cmd/gui
 ```powershell
 # 1. Проверить Go
 go version
-# Должно показать: go version go1.21.x или выше
+# Должно показать: go version go1.24.x или выше
 
 # 2. Проверить GCC
 gcc --version
@@ -180,7 +180,7 @@ go build -o network-scanner.exe ./cmd/network-scanner
 
 | Компонент | Статус | Версия/Требования | Проверка |
 |-----------|--------|-------------------|----------|
-| Go | ✅ Обязательно | 1.21+ | `go version` |
+| Go | ✅ Обязательно | 1.24+ | `go version` |
 | GCC | ✅ Обязательно | Любая современная | `gcc --version` |
 | CGO | ✅ Обязательно | Включен (1) | `go env CGO_ENABLED` |
 | Зависимости | ✅ Автоматически | Управляются через go.mod | `go mod download` |

@@ -254,3 +254,30 @@ func TestDetectLocalNetwork(t *testing.T) {
 		t.Errorf("DetectLocalNetwork() returned invalid CIDR: %v", err)
 	}
 }
+
+func TestEstimateHostCount(t *testing.T) {
+	tests := []struct {
+		name    string
+		cidr    string
+		want    int
+		wantErr bool
+	}{
+		{name: "ipv4 /24", cidr: "192.168.1.0/24", want: 254},
+		{name: "ipv4 /30", cidr: "192.168.1.0/30", want: 2},
+		{name: "ipv4 /31", cidr: "192.168.1.0/31", want: 2},
+		{name: "ipv4 /32", cidr: "192.168.1.1/32", want: 1},
+		{name: "ipv6 /126", cidr: "2001:db8::/126", want: 4},
+		{name: "invalid", cidr: "bad", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := EstimateHostCount(tt.cidr)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("EstimateHostCount() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Fatalf("EstimateHostCount() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}

@@ -11,10 +11,14 @@
 - 📊 Аналитика по протоколам и портам
 - 🏷️ Определение производителя по MAC адресу
 - 📋 Красивый табличный вывод результатов
+- 🧭 GUI-подрежимы результатов `Devices/Security` на вкладке сканирования
+- 🧰 `Operations Center` с историей операций и действиями `Retry/Cancel`
+- 🧾 `Host Details Drawer` с быстрыми действиями по выбранному хосту
+- 🛡️ `Security Dashboard` с агрегированными findings и HTML-экспортом отчета
 
 ## Требования
 
-- Go 1.21 или выше
+- Go 1.24 или выше
 - Для получения MAC адресов может потребоваться запуск с правами администратора (на некоторых системах)
 
 > **Для macOS:** См. подробную инструкцию в [INSTALL.md](INSTALL.md)
@@ -46,6 +50,20 @@ go build -o network-scanner-gui ./cmd/gui
 # Запустите GUI приложение
 ./network-scanner-gui
 ```
+
+### Smoke-проверка адаптивности GUI (разрешение/DPI)
+
+```bash
+# Linux/macOS
+./scripts/smoke-gui-resolution.sh ./network-scanner-gui
+```
+
+```powershell
+# Windows PowerShell
+.\scripts\smoke-gui-resolution.ps1 -GuiExe .\network-scanner-gui.exe
+```
+
+Скрипты запускают GUI и печатают матрицу ручной проверки (`1366x768` ... `4K`) и критерии приемки для оконного и полноэкранного режимов.
 
 ## Установка
 
@@ -96,31 +114,32 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 ./network-scanner
 
 # Указание сети вручную
-./network-scanner -range 192.168.1.0/24
+./network-scanner --network 192.168.1.0/24
 
 # Сканирование определенных портов
-./network-scanner -ports 80,443,8080
+./network-scanner --ports 80,443,8080
 
 # Сканирование диапазона портов
-./network-scanner -ports 1-1000
+./network-scanner --ports 1-1000
 
 # Настройка таймаута
-./network-scanner -timeout 5s
+./network-scanner --timeout 5
 
 # Настройка количества потоков
-./network-scanner -threads 200
+./network-scanner --threads 200
 ```
 
 ### Параметры командной строки
 
-- `-range` - Диапазон сети для сканирования (например: `192.168.1.0/24`)
-- `-timeout` - Таймаут для сканирования (по умолчанию: `3s`)
-- `-ports` - Диапазон портов для сканирования (по умолчанию: `1-1000`)
+- `--network` - Диапазон сети для сканирования (например: `192.168.1.0/24`)
+- `--timeout` - Таймаут сканирования в секундах
+- `--ports` - Диапазон портов для сканирования
   - Можно указать список: `80,443,8080`
   - Или диапазон: `1-1000`
   - Или комбинацию: `80,443,8080-8090`
-- `-threads` - Количество потоков для сканирования (по умолчанию: `100`)
-- `-show-closed` - Показывать закрытые порты (по умолчанию: `false`)
+- `--threads` - Количество потоков для сканирования
+- `--show-closed` - Показывать закрытые порты
+- `--udp` - Включить проверку популярных UDP-портов
 
 ## Примеры вывода
 
@@ -158,11 +177,11 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 
 ### Производительность
 
-Утилита использует многопоточное сканирование для ускорения процесса. Количество потоков можно настроить через параметр `-threads`.
+Утилита использует многопоточное сканирование для ускорения процесса. Количество потоков можно настроить через параметр `--threads`.
 
 ## Ограничения
 
-- Сканирование только TCP портов (UDP не поддерживается)
+- По умолчанию сканируются TCP-порты; UDP-проверка включается отдельно через `--udp`
 - MAC адреса могут не определяться без прав администратора
 - Некоторые устройства могут не отвечать на ping/ARP запросы
 
@@ -173,6 +192,37 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 ## Документация
 
 Проект включает подробную документацию:
+
+### Smoke и closure проверки (оперативно)
+
+```bash
+# Linux/macOS
+./scripts/smoke-cli-tools.sh
+./scripts/stage2-p1-closure-check.sh
+```
+
+```powershell
+# Windows PowerShell
+.\scripts\smoke-cli-tools.ps1
+.\scripts\stage2-p1-closure-check.ps1
+```
+
+- `smoke-cli-tools` проверяет tool-режимы `--ping`/`--dns` и включает детерминированную проверку CLI whois-пути через RDAP fallback (`go test ./cmd/network-scanner -run WhoisUsesRDAPFallback`).
+- `stage2-p1-closure-check` дополнительно включает `go test ./cmd/network-scanner -run Whois`, чтобы регрессии в `runToolsMode` для `--whois` ловились на этапе формального closure.
+
+### Операционный индекс (release/closure)
+
+- **[RELEASE_ACCEPTANCE_CHECKLIST.md](RELEASE_ACCEPTANCE_CHECKLIST.md)** - Финальный чеклист приемки перед релизом
+- **[P1_CLOSURE_CHECKLIST.md](P1_CLOSURE_CHECKLIST.md)** - Формальное закрытие Stage 1 / P1
+- **[GUI_SMOKE_CHECKLIST.md](GUI_SMOKE_CHECKLIST.md)** - Ручной smoke-чеклист GUI
+- **[RELEASE_READINESS_SNAPSHOT.md](RELEASE_READINESS_SNAPSHOT.md)** - Текущий снимок готовности релиза
+- **[RELEASE_READINESS_PR_READY.md](RELEASE_READINESS_PR_READY.md)** - Готовые short/long блоки статуса для PR
+- **[DOCS_SYNC_SUMMARY_2026-04-23.md](DOCS_SYNC_SUMMARY_2026-04-23.md)** - Сводка синхронизации документации
+- **[DOCS_SYNC_PR_SNIPPET_2026-04-23.md](DOCS_SYNC_PR_SNIPPET_2026-04-23.md)** - Короткий RU блок для PR-комментария
+- **[DOCS_SYNC_PR_SNIPPET_2026-04-23_EN.md](DOCS_SYNC_PR_SNIPPET_2026-04-23_EN.md)** - Короткий EN блок для PR-комментария
+- **[FINAL_PR_COMMENT_READY.md](FINAL_PR_COMMENT_READY.md)** - Финальный ready-to-paste комментарий в PR
+- **[MANUAL_SIGNOFF_TEMPLATE.md](MANUAL_SIGNOFF_TEMPLATE.md)** - Шаблон ручного sign-off
+- **[MANUAL_SIGNOFF_DRAFT.md](MANUAL_SIGNOFF_DRAFT.md)** - Черновик sign-off с предзаполненными auto-evidence
 
 - **[Инструкция по эксплуатации](../Инструкция%20по%20эксплуатации.md)** - Полная инструкция по эксплуатации программы (русский язык)
 - **[README.md](../README.md)** - Основная документация проекта
@@ -188,6 +238,8 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 - **[CHANGELOG.md](../CHANGELOG.md)** - История изменений проекта
 - **[QUICKSTART_WINDOWS_BUILD.md](../QUICKSTART_WINDOWS_BUILD.md)** - Быстрый старт: сборка для Windows на macOS
 - **[RELEASE_NOTES_1.0.3.md](../RELEASE_NOTES_1.0.3.md)** - Примечания к релизу 1.0.3
+- **[UI_IMPLEMENTATION_BACKLOG.md](UI_IMPLEMENTATION_BACKLOG.md)** - Детализированный и актуализированный backlog UI-рефакторинга (`P0..P5`)
+- **[PR_DESCRIPTION_UI_RESULTS.md](PR_DESCRIPTION_UI_RESULTS.md)** - Актуальный шаблон описания PR по изменениям GUI/результатов
 
 ## Поддержка
 

@@ -76,6 +76,7 @@ func Close() {
 		writeLog("==========================================")
 		writeLog(fmt.Sprintf("Сессия завершена: %s", time.Now().Format("2006-01-02 15:04:05")))
 		writeLog("==========================================")
+		_ = logFile.Sync()
 		logFile.Close()
 		logFile = nil
 		initialized = false
@@ -93,7 +94,6 @@ func writeLog(message string) {
 	
 	// Записываем в UTF-8
 	logFile.WriteString(logLine)
-	logFile.Sync() // Синхронизируем для немедленной записи
 }
 
 // Log записывает сообщение в лог

@@ -7,13 +7,20 @@ cd "$ROOT_DIR"
 
 echo "== Smoke: CLI with topology =="
 
-go build -o ./release/network-scanner-smoke ./cmd/network-scanner
+OUTPUT_FILE=""
+SMOKE_BIN=""
+cleanup() {
+  rm -f "${OUTPUT_FILE:-}" "${SMOKE_BIN:-}"
+}
+trap cleanup EXIT
+
+SMOKE_BIN="$(mktemp "${TMPDIR:-/tmp}/network-scanner-smoke.XXXXXX")"
+go build -o "$SMOKE_BIN" ./cmd/network-scanner
 
 OUTPUT_FILE="$(mktemp)"
-trap 'rm -f "$OUTPUT_FILE"' EXIT
 
 # Keep smoke run fast: single host and small port range.
-./release/network-scanner-smoke --network 127.0.0.1/32 --timeout 1 --ports 1-16 --topology >"$OUTPUT_FILE" 2>&1
+"$SMOKE_BIN" --network 127.0.0.1/32 --timeout 1 --ports 1-16 --topology >"$OUTPUT_FILE" 2>&1
 
 if ! grep -q "SNMP" "$OUTPUT_FILE"; then
   echo "Smoke failed: expected SNMP summary output in topology mode"

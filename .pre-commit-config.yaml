@@ -1,0 +1,13 @@
+repos:
+  - repo: local
+    hooks:
+      - id: gofmt
+        name: gofmt
+        entry: bash -c "gofmt -w $(rg --files -g '*.go')"
+        language: system
+        pass_filenames: false
+      - id: go-test-fast
+        name: go test (quick)
+        entry: go test ./...
+        language: system
+        pass_filenames: false

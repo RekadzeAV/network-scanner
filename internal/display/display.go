@@ -16,6 +16,13 @@ import (
 	"network-scanner/internal/scanner"
 )
 
+var showRawBanners bool
+
+// SetShowRawBanners управляет выводом сырого banner поля в текстовом/CLI выводе.
+func SetShowRawBanners(enabled bool) {
+	showRawBanners = enabled
+}
+
 // DisplayResults выводит результаты сканирования в виде таблицы
 func DisplayResults(results []scanner.Result) {
 	if len(results) == 0 {
@@ -29,7 +36,7 @@ func DisplayResults(results []scanner.Result) {
 
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
-	t.AppendHeader(table.Row{"IP", "MAC", "Hostname", "Порты", "Протоколы", "Тип устройства", "Производитель"})
+	t.AppendHeader(table.Row{"IP", "MAC", "Hostname", "Порты", "Протоколы", "Тип устройства", "Производитель", "ОС (оценка)"})
 
 	for _, result := range results {
 		// Форматируем порты
@@ -62,6 +69,7 @@ func DisplayResults(results []scanner.Result) {
 		if vendor == "" {
 			vendor = "-"
 		}
+		osGuess := formatOSGuess(result)
 
 		t.AppendRow(table.Row{
 			result.IP,
@@ -71,6 +79,7 @@ func DisplayResults(results []scanner.Result) {
 			protocolsStr,
 			deviceType,
 			vendor,
+			osGuess,
 		})
 	}
 
@@ -111,6 +120,12 @@ func formatPorts(ports []scanner.PortInfo) string {
 			if p.Service != "Unknown" {
 				portStr += fmt.Sprintf(" (%s)", p.Service)
 			}
+			if strings.TrimSpace(p.Version) != "" {
+				portStr += fmt.Sprintf(" [version: %s]", truncateString(strings.TrimSpace(p.Version), 80))
+			}
+			if showRawBanners && strings.TrimSpace(p.Banner) != "" {
+				portStr += fmt.Sprintf(" [banner: %s]", truncateString(strings.TrimSpace(p.Banner), 80))
+			}
 			portStrs = append(portStrs, portStr)
 			openPortsCount++
 		} else if p.State == "closed" {
@@ -128,6 +143,22 @@ func formatPorts(ports []scanner.PortInfo) string {
 	}
 
 	return strings.Join(portStrs, ", ")
+}
+
+func formatOSGuess(r scanner.Result) string {
+	guess := strings.TrimSpace(r.GuessOS)
+	if guess == "" {
+		return "-"
+	}
+	conf := strings.TrimSpace(r.GuessOSConfidence)
+	reason := strings.TrimSpace(r.GuessOSReason)
+	if conf != "" {
+		guess += " (" + conf + ")"
+	}
+	if reason != "" {
+		guess += " — " + truncateString(reason, 60)
+	}
+	return guess
 }
 
 // truncateString обрезает строку до указанной длины и добавляет "..."
@@ -589,6 +620,8 @@ func SaveResultsToJSON(results []scanner.Result, filename string) error {
 		State    string `json:"state"`
 		Protocol string `json:"protocol"`
 		Service  string `json:"service"`
+		Version  string `json:"version,omitempty"`
+		Banner   string `json:"banner,omitempty"`
 	}
 
 	type JSONResult struct {
@@ -600,6 +633,9 @@ func SaveResultsToJSON(results []scanner.Result, filename string) error {
 		DeviceType   string     `json:"device_type"`
 		DeviceVendor string     `json:"device_vendor"`
 		IsAlive      bool       `json:"is_alive"`
+		GuessOS      string     `json:"guess_os,omitempty"`
+		GuessOSConfidence string `json:"guess_os_confidence,omitempty"`
+		GuessOSReason string    `json:"guess_os_reason,omitempty"`
 	}
 
 	type JSONAnalytics struct {
@@ -635,6 +671,8 @@ func SaveResultsToJSON(results []scanner.Result, filename string) error {
 				State:    port.State,
 				Protocol: port.Protocol,
 				Service:  port.Service,
+				Version:  strings.TrimSpace(port.Version),
+				Banner:   strings.TrimSpace(port.Banner),
 			})
 			if port.State == "open" {
 				portStats[port.Port]++
@@ -664,6 +702,9 @@ func SaveResultsToJSON(results []scanner.Result, filename string) error {
 			DeviceType:   result.DeviceType,
 			DeviceVendor: result.DeviceVendor,
 			IsAlive:      result.IsAlive,
+			GuessOS:      strings.TrimSpace(result.GuessOS),
+			GuessOSConfidence: strings.TrimSpace(result.GuessOSConfidence),
+			GuessOSReason: strings.TrimSpace(result.GuessOSReason),
 		})
 	}
 

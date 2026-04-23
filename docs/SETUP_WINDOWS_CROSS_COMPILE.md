@@ -8,7 +8,7 @@
 
 ### Обязательные компоненты
 
-1. **Go 1.21+** - основной компилятор
+1. **Go 1.24+** - основной компилятор
 2. **mingw-w64** - кросс-компилятор для Windows (требуется для CGO)
 
 ### Почему нужен mingw-w64?
@@ -72,7 +72,7 @@ export CGO_ENABLED=1
 ```bash
 # Проверка Go
 go version
-# Должно показать: go version go1.21.x или выше
+# Должно показать: go version go1.24.x или выше
 
 # Проверка CGO
 go env CGO_ENABLED
@@ -193,7 +193,7 @@ ln -s /opt/homebrew/opt/mingw-w64/bin/x86_64-w64-mingw32-gcc /usr/local/bin/
 Можно использовать Docker контейнер с предустановленными инструментами:
 
 ```dockerfile
-FROM golang:1.21
+FROM golang:1.24
 
 RUN apt-get update && apt-get install -y \
     gcc-mingw-w64-x86-64 \

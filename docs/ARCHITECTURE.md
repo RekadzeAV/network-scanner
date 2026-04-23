@@ -101,30 +101,27 @@ Network Scanner использует **модульную архитектуру
 ┌─────────────────────────────────────────────────────────────┐
 │              internal/gui/app.go                             │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │                  App (GUI Application)                │   │
-│  │  - Управление окном приложения                        │   │
-│  │  - Инициализация UI компонентов                       │   │
-│  │  - Обработка событий пользователя                     │   │
-│  │  - Запуск сканирования                                │   │
-│  │  - Сохранение результатов                             │   │
+│  │                  App (Composition Root)               │   │
+│  │  - Wiring вкладок и UI-событий                        │   │
+│  │  - Координация подрежимов Devices/Security            │   │
+│  │  - Инициализация операций, drawer, analytics          │   │
 │  └──────────────────────────────────────────────────────┘   │
 └──────────────┬───────────────────────────┬──────────────────┬─────────────────────┘
                │                           │                  │
                ▼                           ▼                  ▼
-┌──────────────────────────┐  ┌──────────────────────────────┐  ┌──────────────────────────────┐
-│  internal/gui/           │  │  internal/scanner/           │  │  internal/snmpcollector/     │
-│      formatter.go        │  │      scanner.go              │  │      collector.go            │
-│  - Форматирование        │  │  - Логика сканирования       │  │  - SNMP сбор для GUI         │
-│    результатов для GUI   │  │  - NetworkScanner            │  │  - CollectWithReport         │
-│  - Markdown форматирование│  │                              │  └──────────────┬──────────────┘
-└──────────────────────────┘  └──────────────────────────────┘                 │
-                                                                                ▼
-                                                                    ┌──────────────────────────────┐
-                                                                    │  internal/topology/          │
-                                                                    │      topology.go             │
-                                                                    │  - BuildTopology             │
-                                                                    │  - Экспорт + preview (PNG)   │
-                                                                    └──────────────────────────────┘
+┌──────────────────────────────┐  ┌──────────────────────────────┐  ┌──────────────────────────────┐
+│ internal/gui/controllers     │  │ internal/gui/results         │  │ internal/gui/tools           │
+│ - scan_controller.go         │  │ - results_view.go            │  │ - operations.go              │
+│ - topology_controller.go     │  │ - results_model.go           │  │ - Operations Center          │
+│ - UI state transitions       │  │ - results_analytics_view.go  │  │ - Retry/Cancel              │
+└──────────────┬───────────────┘  │ - security_view.go           │  └──────────────┬──────────────┘
+               │                  └──────────────┬───────────────┘                 │
+               ▼                                 ▼                                 ▼
+┌──────────────────────────────┐     ┌──────────────────────────────┐   ┌──────────────────────────────┐
+│ internal/scanner/scanner.go  │     │ internal/snmpcollector/      │   │ internal/topology/topology.go│
+│ - NetworkScanner             │     │ collector.go                 │   │ - BuildTopology/Export       │
+│ - diagnostics summary        │     │ - CollectWithReport          │   │ - Preview/Graph export       │
+└──────────────────────────────┘     └──────────────────────────────┘   └──────────────────────────────┘
 ```
 
 ---
@@ -497,6 +494,10 @@ type ResultExporter interface {
 
 - Кнопки построения/сохранения топологии блокируются на время SNMP+Build фазы
 - Это предотвращает повторный запуск и race-condition в UI
+- Tool-операции выполняются через `Operations Runtime`:
+  - единые статусы (`queued/running/success/failed/canceled`),
+  - централизованный `Retry/Cancel` в `Operations Center`
+  - снижает риск несогласованных состояний при параллельных действиях пользователя
 
 ---
 
@@ -511,6 +512,6 @@ type ResultExporter interface {
 
 ---
 
-**Версия документа:** 1.0.4  
-**Последнее обновление:** 2026-03-27
+**Версия документа:** 1.0.5  
+**Последнее обновление:** 2026-04-23
 

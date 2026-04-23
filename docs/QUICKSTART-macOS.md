@@ -36,10 +36,10 @@ cd "Сканер локальной сети"
 ./dist/network-scanner-darwin-arm64
 
 # Указать сеть вручную
-./dist/network-scanner-darwin-arm64 -range 192.168.1.0/24
+./dist/network-scanner-darwin-arm64 --network 192.168.1.0/24
 
 # Сканировать определенные порты
-./dist/network-scanner-darwin-arm64 -ports 80,443,8080
+./dist/network-scanner-darwin-arm64 --ports 80,443,8080
 ```
 
 Готово! 🎉

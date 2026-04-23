@@ -53,8 +53,16 @@ Network Scanner построен на языке Go и использует ко
 │   ├── display/
 │   │   └── display.go       # Отображение результатов и аналитика (CLI)
 │   └── gui/
-│       ├── app.go           # Основная логика GUI приложения
-│       └── formatter.go     # Форматирование результатов для GUI
+│       ├── app.go                     # Composition root GUI и wiring вкладок
+│       ├── scan_controller.go         # UI-state сканирования
+│       ├── topology_controller.go     # UI-state топологии
+│       ├── operations.go              # Runtime операций (Run/Cancel/Retry)
+│       ├── results_view.go            # Devices/Security подрежимы, filters, drawer
+│       ├── results_model.go           # Базовый пайплайн фильтрации/сортировки
+│       ├── results_analytics_view.go  # Явная аналитика в пайплайне рендера
+│       ├── results_charts.go          # Pie charts + cache
+│       ├── security_view.go           # Security Dashboard + HTML export
+│       └── formatter.go               # Доп. форматирование GUI представлений
 ├── docs/                    # Документация
 ├── scripts/                 # Скрипты сборки
 ├── go.mod                   # Зависимости проекта
@@ -89,6 +97,39 @@ Network Scanner построен на языке Go и использует ко
 - output-file: string      // Путь к файлу экспорта
 - snmp-community: string   // Список community через запятую
 - snmp-timeout: int        // Таймаут SNMP в секундах
+- ping: string             // Ping выбранного хоста/IP и выход
+- traceroute: string       // Traceroute/tracert выбранного хоста/IP и выход
+- dns: string              // DNS lookup выбранного имени/IP и выход
+- whois: string            // Whois lookup выбранного имени/IP и выход
+- wifi: bool               // Показать Wi-Fi информацию текущей ОС и выход
+- dns-server: string       // Кастомный resolver для --dns
+- ping-count: int          // Количество ping-пакетов
+- tool-timeout: int        // Таймаут tool-режимов в секундах
+- traceroute-max-hops: int // Максимальное число hops для traceroute
+- raw: bool                // Печатать raw output инструментов
+- grab-banners: bool       // Собирать баннеры/версии сервисов
+- show-raw-banners: bool   // Печатать сырой banner в CLI выводе
+- wol-mac: string          // Отправить Wake-on-LAN magic packet и выход
+- wol-broadcast: string    // Broadcast для --wol-mac
+- wol-iface: string        // Интерфейс для автоподбора broadcast в WOL
+- os-detect-active: bool   // Включить расширенные (active) эвристики определения ОС
+- audit-open-ports: bool   // Базовый аудит открытых портов после сканирования
+- audit-min-severity: string // Минимальная критичность для аудита: all|low|medium|high|critical
+- risk-signatures: bool    // Локальные сигнатуры домашних рисков
+- device-action: string    // Управление устройством: status|reboot
+- device-target: string    // URL API устройства для device-control
+- device-vendor: string    // Профиль API: generic-http|tp-link-http
+- device-user: string      // Username для device-control
+- device-pass: string      // Password для device-control
+- device-confirm: string   // Подтверждение reboot: I_UNDERSTAND
+- device-timeout: int      // Таймаут device-control в секундах
+- audit-log: string        // Путь JSONL audit log для device-control
+- cve: bool                // Базовое CVE сопоставление
+- cve-min-cvss: float64    // Минимальный CVSS фильтр
+- cve-max-age-days: int    // Максимальный возраст CVE в днях
+- security-report-file: string   // HTML security report
+- security-report-redact: bool   // Маскирование чувствительных данных в report
+- remote-exec-*: ...       // Набор флагов remote execution (SSH/WMI/WinRM)
 ```
 
 ### 2. cmd/gui/main.go - Точка входа GUI
@@ -100,40 +141,66 @@ Network Scanner построен на языке Go и использует ко
 **Ключевые функции:**
 - `main()` - главная функция GUI приложения
 
-### 3. internal/gui/app.go - GUI приложение
+### 3. internal/gui/* - GUI архитектура
 
-**Ответственность:**
-- Управление окном приложения
-- Инициализация UI компонентов (виджеты, кнопки, поля ввода)
-- Обработка событий пользователя
-- Запуск процесса сканирования
-- Сохранение результатов в файл
+**Ответственность (по модулям):**
+- `app.go`:
+  - инициализация окна и вкладок (`Сканирование`, `Топология`, `Инструменты`);
+  - wiring UI-компонентов и маршрутизация событий.
+- `scan_controller.go`:
+  - переходы scan UI-state (`start/completion/timeout`) и синхронизация статусов.
+- `topology_controller.go`:
+  - переходы topology UI-state (`progress/canceled/failure/success`).
+- `operations.go`:
+  - runtime операций для tools/долгих задач (`queued/running/success/failed/canceled`);
+  - действия `Run`, `Cancel`, `Retry`, подписка на обновления.
+- `results_view.go` + `results_model.go`:
+  - базовый пайплайн фильтрации/сортировки;
+  - рендер `Devices` (`Таблица`/`Карточки`) и `Host Details Drawer`.
+- `security_view.go`:
+  - `Security` подрежим с агрегированными findings (`audit + risk signatures`) и HTML export.
+- `results_analytics_view.go` + `results_charts.go`:
+  - встроенная аналитика в пайплайне рендера (`markdown summary` / `pie charts`).
 
-**Основные типы:**
+**Ключевые типы (сокращенно):**
 
 ```go
 type App struct {
-    myApp           fyne.App
-    myWindow        fyne.Window
-    scanResults     []scanner.Result
-    networkScanner  *scanner.NetworkScanner
-    networkEntry    *widget.Entry
-    statusLabel     *widget.Label
-    progressBar     *widget.ProgressBar
-    resultsText     *widget.RichText
-    resultsScroll   *container.Scroll
-    scanButton      *widget.Button
-    saveButton      *widget.Button
+    myApp              fyne.App
+    myWindow           fyne.Window
+    scanResults        []scanner.Result
+    networkScanner     *scanner.NetworkScanner
+    operations         *OperationsManager
+    resultsSubMode     string // Devices|Security
+    selectedHostIP     string // Host Details Drawer
 }
 ```
 
-**Ключевые методы:**
-- `NewApp()` - создание нового GUI приложения
-- `initUI()` - инициализация элементов интерфейса
-- `setupEventHandlers()` - настройка обработчиков событий
-- `startScan()` - запуск процесса сканирования
-- `saveResults()` - сохранение результатов в файл
-- `Run()` - запуск GUI приложения
+**Ключевые методы/потоки:**
+- `NewApp()` / `initUI()` / `setupEventHandlers()`
+- `startScan()` + scan-state методы в `scan_controller.go`
+- `buildTopology()` + topology-state методы в `topology_controller.go`
+- tool-операции через `runToolOperation(...)` и `OperationsManager`
+- `renderScanResultsView()` с подрежимами `Devices/Security`
+- `saveResults()` / `saveTopology()` / `savePerformanceReport()`
+
+**Responsive layout policy (оконный/fullscreen):**
+- Профиль интерфейса вычисляется по ширине canvas:
+  - `compact` (`<= 1366px`)
+  - `normal` (`1367..2199px`)
+  - `wide` (`>= 2200px`)
+- Профиль применяется через единый runtime-хук `applyResponsiveLayout(...)`.
+- Вкладки `Сканирование`, `Топология`, `Инструменты` используют вертикальные scroll-контейнеры для панелей управления, чтобы контролы не "терялись" на малой высоте окна.
+- В `compact` режиме:
+  - `Host Details` рендерится в вертикальном split;
+  - таблица результатов использует укороченные заголовки и узкие колонки;
+  - grid-блоки фильтров/сортировки/operations перестраиваются в 1-2 колонки.
+- В `wide` режиме расширяются размеры рабочих областей и ширины таблиц.
+
+**Инварианты UI-архитектуры:**
+- Функционал должен оставаться одинаково доступным в оконном и полноэкранном режимах.
+- Новые UI-блоки должны иметь fallback для `compact` (stack/scroll/уменьшение числа колонок).
+- Не добавлять "жесткие" размеры без проверки на матрице разрешений (`1366x768` и выше, включая high-DPI).
 
 ### 4. internal/gui/formatter.go - Форматирование для GUI
 
@@ -166,6 +233,9 @@ type ScanResult struct {
     DeviceType  string
     DeviceVendor string
     IsAlive     bool
+    GuessOS     string
+    GuessOSConfidence string
+    GuessOSReason string
 }
 
 // Информация о порте
@@ -174,6 +244,8 @@ type PortInfo struct {
     State    string  // "open", "closed", "filtered"
     Protocol string  // "tcp", "udp"
     Service  string
+    Version  string  // нормализованная версия/сигнатура
+    Banner   string  // сырой banner (опционально)
 }
 
 // Сканер сети
@@ -221,6 +293,7 @@ type NetworkScanner struct {
 - `Topology.SaveGraphML(...)`
 - `Topology.ToDOT(...)`
 - `Topology.RenderWithGraphviz(...)`
+- `Topology.Validate(...)` — schema-check перед экспортом
 - `Link.SourceType`: `lldp|fdb|inferred`
 - `Link.Confidence`: `high|medium|low`
 
@@ -336,6 +409,7 @@ func isPortOpen(host string, port int, timeout time.Duration) bool {
 1. Сначала добавляются LLDP-связи.
 2. FDB-связи добавляются только если не проигрывают по confidence уже найденной связи.
 3. Для одной пары endpoint сохраняется наиболее достоверная связь.
+4. При `partial SNMP` для endpoint confidence автоматически понижается (`high→medium`, `medium→low`).
 
 **Фильтрация MAC в FDB:**
 - Игнорируются:
@@ -429,6 +503,9 @@ require (
 
 ## Производительность
 
+Актуальный baseline и perf budget для `Этап 1 / P3` зафиксирован в:
+- `docs/P3_PERF_BASELINE.md`
+
 ### Оптимизации
 
 1. **Параллельное сканирование:**
@@ -438,6 +515,17 @@ require (
 2. **Двухэтапное сканирование:**
    - Сначала проверка доступности хостов
    - Затем сканирование портов только на активных хостах
+
+3. **Ограничение общей параллельности порт-сканирования:**
+   - На уровне `scanner` используется адаптивный лимит проверок портов на хост,
+     рассчитываемый из общего budget и числа host-worker.
+   - Это предотвращает всплески нагрузки вида `hosts × 100` и снижает риск деградации UI/сети на больших диапазонах.
+
+4. **GUI автопрофиль для крупных подсетей:**
+   - В `startScan()` применяется мягкая автокоррекция `threads` и диапазона портов для больших CIDR.
+   - Поведение управляется чекбоксом `Автопрофиль сканирования (рекомендуется)` и может быть отключено пользователем.
+   - Для рекомендованных настроек GUI сохраняет отдельный класс профиля (`small/medium/large/very-large`) в `Preferences` и восстанавливает бейдж профиля при следующем запуске.
+   - Для обратной совместимости сохранен fallback на legacy-текст бейджа, если класс профиля отсутствует.
 
 3. **Эффективное использование памяти:**
    - Результаты сохраняются только для активных хостов
@@ -461,17 +549,17 @@ require (
 
 1. **Для быстрого сканирования:**
    ```bash
-   -ports 80,443,22 -timeout 1s -threads 200
+   --ports 80,443,22 --timeout 1 --threads 200
    ```
 
 2. **Для точного сканирования:**
    ```bash
-   -ports 1-1000 -timeout 5s -threads 100
+   --ports 1-1000 --timeout 5 --threads 100
    ```
 
 3. **Для полного сканирования:**
    ```bash
-   -ports 1-65535 -timeout 3s -threads 50
+   --ports 1-65535 --timeout 3 --threads 50
    ```
 
 ---
@@ -494,9 +582,88 @@ require (
    - Может пропустить устройства без открытых портов
    - Зависит от firewall настроек
 
-4. **Определение устройств:**
+4. **Инструменты Ping/Traceroute:**
+   - Используют внешние системные команды (`ping`, `tracert`/`traceroute`)
+   - Требуют наличие этих утилит в `PATH`
+   - Формат парсинга зависит от локали и версии системной утилиты
+
+5. **DNS lookup:**
+   - По умолчанию использует resolver Go/ОС
+   - Для кастомного DNS-сервера применяется explicit resolver (`--dns-server`)
+   - При сетевых ограничениях/фильтрации возможны timeout и частичные ответы
+
+6. **WOL (Wake-on-LAN):**
+   - Обычно работает только в пределах L2-сегмента
+   - Для межсегментного сценария требуется directed broadcast/relay
+   - Устройства должны поддерживать и иметь включенный WOL
+
+7. **Баннеры/версии сервисов:**
+   - Сбор баннеров может замедлять сканирование
+   - Для части служб корректно определяется только `version` или `нет ответа`
+   - HTTPS-баннеры читаются в режиме best-effort (без строгой проверки сертификата)
+
+8. **Определение устройств и ОС:**
    - Эвристический подход, может быть неточным
    - Ограниченная база производителей по MAC
+   - Active-режим определения ОС использует дополнительные портовые сигнатуры и может давать ложноположительные срабатывания
+
+9. **Remote Exec (P3 MVP):**
+   - Требуется явное подтверждение `--remote-exec-consent I_UNDERSTAND`
+   - Требуется allowlist хостов и команд (`--remote-exec-policy-file` или `--remote-exec-allow-*`)
+   - Рекомендуется `--remote-exec-policy-strict` для production-сценариев
+   - В policy запрещен wildcard `*` для хостов/команд
+   - В CLI/audit применяется маскирование типовых secret-паттернов (`password/token/secret/api-key`)
+   - По умолчанию включен режим `dry-run` (`--remote-exec-dry-run=true`)
+   - Для `wmi` и `winrm` поддержка только на Windows
+   - Каждая операция журналируется в JSONL (`--remote-exec-audit-log`)
+   - Для security report доступен переключатель `--security-report-redact` (default `true`), позволяющий отключить маскирование только для отладки
+   - Для `--security-report-redact=false` требуется explicit consent: `--security-report-unsafe-consent I_UNDERSTAND_UNREDACTED_REPORT`
+   - В HTML security report явно фиксируется статус: `REDACTION: ON|OFF`
+   - Поддержан `--security-report-file auto` с автоименованием: `security-report-redacted-<report-id>.html` / `security-report-unredacted-<report-id>.html`
+   - В HTML security report фиксируется metadata: режим генерации (`auto/manual`), версия policy (`v1`) и факт использования unsafe-consent (`yes/no`)
+
+10. **Risk Signatures (Stage2 P2):**
+   - Сигнатуры локальные и эвристические; не заменяют полноценный CVE scanner.
+   - Качество findings зависит от полноты скана (`ports/service/banner/device-type`).
+   - Для части сигнатур рекомендуется включать `--grab-banners`.
+
+11. **Device Control (Stage2 P2):**
+   - Поддерживаются только явные действия `status`/`reboot` по заданному URL.
+   - Для `reboot` требуется явное подтверждение `--device-confirm I_UNDERSTAND`.
+   - Реализованы ограниченные API-профили: `generic-http`, `tp-link-http`.
+   - Все действия журналируются в JSONL (`--audit-log`).
+   - Функция предназначена только для собственных/разрешенных устройств и сетей.
+
+### Ограничения и права по ОС (P3)
+
+| Функция | Windows | macOS | Linux | Примечание |
+|---|---|---|---|---|
+| `ping` (инструменты) | Требуется `ping` в `PATH` | Требуется `ping` в `PATH` | Требуется `ping` в `PATH` | При отсутствии утилиты возвращается `not_installed` |
+| `traceroute/tracert` | Используется `tracert` | Используется `traceroute` | Используется `traceroute` | Формат raw-вывода зависит от локали/версии утилиты |
+| DNS lookup | Через Go resolver | Через Go resolver | Через Go resolver | `--dns-server` использует explicit resolver |
+| Whois | Требуется `whois` в `PATH` (часто отсутствует по умолчанию) | Требуется `whois` в `PATH` | Требуется `whois` в `PATH` | При отсутствии возвращается `not_installed` |
+| Wi-Fi info | `netsh wlan show interfaces` | `airport -I` | `nmcli ... dev wifi list` | Инструмент OS-specific; при отсутствии утилиты возвращается `not_installed` |
+| MAC через ARP | Может требовать повышенные права | Может требовать повышенные права | Может требовать повышенные права | Без прав часть MAC может быть недоступна |
+| WOL (`--wol-mac`) | Работает при доступном UDP broadcast | Работает при доступном UDP broadcast | Работает при доступном UDP broadcast | Обычно в пределах L2-сегмента |
+| Device Control (`--device-action`) | HTTP endpoint + опц. Basic Auth | HTTP endpoint + опц. Basic Auth | HTTP endpoint + опц. Basic Auth | Для `reboot` требуется `--device-confirm I_UNDERSTAND` |
+
+### Диагностика ошибок execution-слоя (P3)
+
+Инструменты (`ping`, `traceroute`, `dns`, `whois`, `wifi`) нормализуют ошибки в единые коды:
+
+- `not_installed` — внешняя утилита не найдена в `PATH`.
+- `permission_denied` — недостаточно прав для запуска или сетевой операции.
+- `timeout` — превышен таймаут выполнения (помогает увеличение `--tool-timeout`).
+- `network_error` — ошибка сети/маршрутизации/DNS на этапе выполнения.
+- `parse_error` — ошибка разбора/нормализации вывода (зарезервировано).
+- `unknown` — прочие ошибки выполнения.
+
+Примечание по `wifi`: после выполнения OS-утилиты вывод нормализуется в краткую сводку (ключевые поля подключения), и дополнительно возвращается `Raw output` для диагностики и кросс-проверки.
+
+Дополнительно по устойчивости парсинга:
+- Linux (`nmcli -t`): поддерживается разбор escaped-разделителей в SSID (например, `Office\:Guest` -> `Office:Guest`).
+- Windows (`netsh wlan show interfaces`): поддерживаются локализованные RU-ключи (`Имя`, `Состояние`, `Сигнал`, `Канал`, `Скорость приема/передачи`, `Проверка подлинности`, `Тип радиомодуля`).
+- Состояние Wi-Fi нормализуется в `connected` / `disconnected`, при отсутствии поля устанавливается `unknown`.
 
 ### Функциональные ограничения
 
@@ -504,13 +671,13 @@ require (
    - При недоступном SNMP топология может быть неполной
    - LLDP/FDB зависят от вендора и конфигурации устройства
 
-2. **Нет фильтрации:**
-   - Нет фильтров по типу устройства
-   - Нет фильтров по протоколам
+2. **Фильтрация реализована, но остается пространство для расширения:**
+   - В GUI уже есть фильтры: query/type/open-only/CIDR/port-state, presets, sort.
+   - На текущем этапе отсутствуют более сложные составные фильтры (например, расширенные правила по сервисам/протоколам/сегментам).
 
 3. **Нет планировщика:**
    - Нет автоматического периодического сканирования
-   - Нет сравнения результатов
+   - Нет сравнения результатов между временными срезами
 
 ---
 
@@ -611,18 +778,94 @@ require (
 ```bash
 ./scripts/smoke-cli-no-topology.sh
 ./scripts/smoke-cli-topology.sh
+./scripts/smoke-cli-tools.sh
 ```
 
 ```powershell
 .\scripts\smoke-cli-no-topology.ps1
 .\scripts\smoke-cli-topology.ps1
+.\scripts\smoke-cli-tools.ps1
 ```
 
 - `no-topology` проверяет, что без `--topology` не появляется SNMP summary.
 - `topology` проверяет наличие SNMP summary в режиме топологии.
+- `tools` проверяет ключевые tool-режимы (`--ping`, `--dns`, `--whois`, `--wifi`) и секции raw-вывода.
+- `smoke-d-track-topology-export` проверяет экспорт `json/graphml/png` и эквивалентность множеств узлов/связей между `json` и `graphml` (с fallback для `png`, если `dot` недоступен).
+
+```bash
+./scripts/smoke-d-track-topology-export.sh
+```
+
+```powershell
+.\scripts\smoke-d-track-topology-export.ps1
+```
+
+Для ручной проверки совместимости `GraphML` во внешних инструментах используйте:
+
+- `docs/GRAPHML_COMPATIBILITY_CHECK.md`
+
+### Closure-проверки этапов
+
+Для формального закрытия этапов используйте агрегирующие скрипты:
+
+```bash
+# Linux/macOS (6-command runbook, copy/paste)
+./scripts/p1-closure-check.sh && ./scripts/p2-closure-check.sh && ./scripts/p3-closure-check.sh && ./scripts/stage2-p1-closure-check.sh && ./scripts/stage2-p2-closure-check.sh && ./scripts/stage2-p3-closure-check.sh
+```
+
+```powershell
+# Windows PowerShell (6-command runbook, copy/paste)
+.\scripts\p1-closure-check.ps1; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; .\scripts\p2-closure-check.ps1; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; .\scripts\p3-closure-check.ps1; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; .\scripts\stage2-p1-closure-check.ps1; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; .\scripts\stage2-p2-closure-check.ps1; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; .\scripts\stage2-p3-closure-check.ps1
+```
+
+```bash
+# Этап P1
+./scripts/p1-closure-check.sh
+
+# Этап P2
+./scripts/p2-closure-check.sh
+
+# Этап P3
+./scripts/p3-closure-check.sh
+
+# Этап Stage2/P1
+./scripts/stage2-p1-closure-check.sh
+
+# Этап Stage2/P2
+./scripts/stage2-p2-closure-check.sh
+
+# Этап Stage2/P3
+./scripts/stage2-p3-closure-check.sh
+```
+
+```powershell
+# Этап P1
+.\scripts\p1-closure-check.ps1
+
+# Этап P2
+.\scripts\p2-closure-check.ps1
+
+# Этап P3
+.\scripts\p3-closure-check.ps1
+
+# Этап Stage2/P1
+.\scripts\stage2-p1-closure-check.ps1
+
+# Этап Stage2/P2
+.\scripts\stage2-p2-closure-check.ps1
+
+# Этап Stage2/P3
+.\scripts\stage2-p3-closure-check.ps1
+```
+
+`p2-closure-check` дополнительно валидирует P2-флаги CLI (`--grab-banners`, `--show-raw-banners`, `--os-detect-active`, `--risk-signatures`, `--device-action`) и ожидаемое неуспешное завершение WOL/device-control в negative-case сценариях.
+`stage2-p1-closure-check` дополнительно включает `go test ./cmd/network-scanner -run Whois`, что фиксирует e2e-путь `--whois` в CLI (`runToolsMode`) с RDAP fallback при отсутствии системного `whois`.
+`stage2-p2-closure-check` дополнительно проверяет генерацию `security report` и наличие секций `CVE Findings` + `Risk Signature Findings`.
+`stage2-p3-closure-check` дополнительно проверяет guardrails Stage2/P3: redaction/consent/report-id/auto filename для `security report` и policy/allowlist ограничения для `remote-exec`.
+CI helper-скрипты `check-ci-status.*` и `trigger-ci-workflow.*` работают в strict-режиме: required jobs включают `Lint`, `Test*`, `Build and Smoke*`, `Stage2 P1 Closure`, `Stage2 P3 Closure`.
 
 ---
 
-**Версия документа:** 1.0.4  
-**Последнее обновление:** 2026-03-27
+**Версия документа:** 1.0.5  
+**Последнее обновление:** 2026-04-23
 

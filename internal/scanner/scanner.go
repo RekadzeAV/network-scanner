@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/gopacket"
@@ -36,6 +37,7 @@ type Result struct {
 	IsAlive           bool
 	GuessOS           string // эвристическая оценка ОС (опционально)
 	GuessOSConfidence string // низкая/средняя/высокая
+	GuessOSReason     string // краткое обоснование эвристики
 }
 
 // PortInfo содержит информацию о порте
@@ -45,6 +47,7 @@ type PortInfo struct {
 	Protocol string // "tcp", "udp"
 	Service  string
 	Banner   string // сырой ответ службы (опционально)
+	Version  string // краткая версия/сигнатура службы (опционально)
 }
 
 // ProgressCallback функция для передачи прогресса сканирования
@@ -60,19 +63,68 @@ type NetworkScanner struct {
 	scanTCPPorts     bool // Сканировать TCP-порты из portRange (если false — только ping/MAC/hostname)
 	scanUDP          bool // Включить UDP сканирование
 	grabBanners      bool // Читать баннеры с типовых TCP-портов (медленнее)
+	osDetectActive   bool // Активный режим эвристик ОС (дополнительные сигнатуры)
+	verbosePortLogs  bool // Подробные логи по каждому порту/пробе (шумно, медленнее)
 	results          []Result
 	mu               sync.RWMutex
 	ctx              context.Context
 	cancel           context.CancelFunc
 	wg               sync.WaitGroup
 	progressCallback ProgressCallback
+	networkProber    NetworkProber
+	portScanner      PortScanner
+	udpPortScanner   PortScanner
+	resultPresenter  ResultPresenter
+	tcpCancelBefore  int64
+	tcpCancelWait    int64
+	udpCancelHosts   int64
+	tcpProbeTotal    int64
+	tcpProbeOpen     int64
+	tcpProbeClosed   int64
+	udpProbeTotal    int64
+	udpProbeOpen     int64
+	udpProbeNoOpen   int64
+	lastPingNs       int64
+	lastPortscanNs   int64
+	lastTotalNs      int64
 }
 
+const (
+	// globalPortProbeBudget ограничивает общее число одновременных TCP probe во время этапа порт-сканирования.
+	// Это предотвращает перегрузку сокетов/сети, когда одновременно сканируется много хостов.
+	globalPortProbeBudget = 512
+	minPerHostPortThreads = 8
+	maxPerHostPortThreads = 64
+)
+
 // NewNetworkScanner создает новый сканер
-func NewNetworkScanner(network string, timeout time.Duration, portRange string, threads int, showClosed bool) *NetworkScanner {
+func NewNetworkScanner(networkCIDR string, timeout time.Duration, portRange string, threads int, showClosed bool) *NetworkScanner {
+	return NewScanner(
+		networkCIDR,
+		timeout,
+		portRange,
+		threads,
+		showClosed,
+		network.DefaultNetworkProber{Timeout: timeout},
+		network.TCPPortScanner{Timeout: timeout},
+		nil,
+	)
+}
+
+// NewScanner создает сканер с явным внедрением зависимостей.
+func NewScanner(
+	networkCIDR string,
+	timeout time.Duration,
+	portRange string,
+	threads int,
+	showClosed bool,
+	networkProber NetworkProber,
+	portScanner PortScanner,
+	resultPresenter ResultPresenter,
+) *NetworkScanner {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &NetworkScanner{
-		network:          network,
+		network:          networkCIDR,
 		timeout:          timeout,
 		portRange:        portRange,
 		threads:          threads,
@@ -80,10 +132,16 @@ func NewNetworkScanner(network string, timeout time.Duration, portRange string, 
 		scanTCPPorts:     true,
 		scanUDP:          false, // По умолчанию UDP сканирование выключено
 		grabBanners:      false,
+		osDetectActive:   false,
+		verbosePortLogs:  false,
 		results:          make([]Result, 0),
 		ctx:              ctx,
 		cancel:           cancel,
 		progressCallback: nil,
+		networkProber:    networkProber,
+		portScanner:      portScanner,
+		udpPortScanner:   network.UDPPortScanner{Timeout: timeout},
+		resultPresenter:  resultPresenter,
 	}
 }
 
@@ -107,9 +165,31 @@ func (ns *NetworkScanner) SetGrabBanners(enable bool) {
 	ns.grabBanners = enable
 }
 
+// SetOSDetectActive включает расширенные (более смелые) эвристики определения ОС.
+func (ns *NetworkScanner) SetOSDetectActive(enable bool) {
+	ns.osDetectActive = enable
+}
+
+// SetVerbosePortLogs включает детальные логи по отдельным портам.
+func (ns *NetworkScanner) SetVerbosePortLogs(enable bool) {
+	ns.verbosePortLogs = enable
+}
+
 // Scan запускает сканирование сети
 func (ns *NetworkScanner) Scan() {
 	scanStartTime := time.Now()
+	atomic.StoreInt64(&ns.tcpCancelBefore, 0)
+	atomic.StoreInt64(&ns.tcpCancelWait, 0)
+	atomic.StoreInt64(&ns.udpCancelHosts, 0)
+	atomic.StoreInt64(&ns.tcpProbeTotal, 0)
+	atomic.StoreInt64(&ns.tcpProbeOpen, 0)
+	atomic.StoreInt64(&ns.tcpProbeClosed, 0)
+	atomic.StoreInt64(&ns.udpProbeTotal, 0)
+	atomic.StoreInt64(&ns.udpProbeOpen, 0)
+	atomic.StoreInt64(&ns.udpProbeNoOpen, 0)
+	atomic.StoreInt64(&ns.lastPingNs, 0)
+	atomic.StoreInt64(&ns.lastPortscanNs, 0)
+	atomic.StoreInt64(&ns.lastTotalNs, 0)
 	fmt.Println("Начинаю сканирование сети...")
 	logger.Log("Начинаю сканирование сети: %s", ns.network)
 	logger.LogDebug("Параметры сканирования: сеть=%s, порты=%s, таймаут=%v, потоков=%d, showClosed=%v",
@@ -159,12 +239,16 @@ func (ns *NetworkScanner) Scan() {
 	checkedCount := 0
 	checkedMutex := sync.Mutex{}
 
+	cancelledDuringPing := false
 	for _, ip := range ips {
 		select {
 		case <-ns.ctx.Done():
-			logger.LogDebug("Сканирование отменено во время проверки доступности")
-			return
+			cancelledDuringPing = true
+			logger.LogDebug("Сканирование отменено во время проверки доступности (остановка запуска новых проверок)")
 		default:
+		}
+		if cancelledDuringPing {
+			break
 		}
 
 		sem <- struct{}{}
@@ -190,8 +274,10 @@ func (ns *NetworkScanner) Scan() {
 			checkedMutex.Lock()
 			checkedCount++
 			progress := checkedCount
-			aliveCount := len(aliveIPs)
 			checkedMutex.Unlock()
+			aliveMutex.Lock()
+			aliveCount := len(aliveIPs)
+			aliveMutex.Unlock()
 
 			// Обновляем прогресс через callback и консоль
 			if progress%10 == 0 || progress == len(ips) {
@@ -203,7 +289,12 @@ func (ns *NetworkScanner) Scan() {
 		}(ip)
 	}
 	ns.wg.Wait()
+	if cancelledDuringPing {
+		logger.LogDebug("Сканирование остановлено после завершения активных проверок доступности")
+		return
+	}
 	pingDuration := time.Since(pingStartTime)
+	atomic.StoreInt64(&ns.lastPingNs, pingDuration.Nanoseconds())
 	fmt.Println() // Новая строка после прогресса
 
 	fmt.Printf("Найдено %d активных хостов\n", len(aliveIPs))
@@ -219,6 +310,7 @@ func (ns *NetworkScanner) Scan() {
 	}
 
 	// Сканируем порты на активных хостах
+	portsScanDuration := time.Duration(0)
 	if len(aliveIPs) > 0 {
 		portsScanStartTime := time.Now()
 		if len(ports) > 0 {
@@ -276,29 +368,93 @@ func (ns *NetworkScanner) Scan() {
 			}(ip)
 		}
 		ns.wg.Wait()
-		portsScanDuration := time.Since(portsScanStartTime)
+		portsScanDuration = time.Since(portsScanStartTime)
+		atomic.StoreInt64(&ns.lastPortscanNs, portsScanDuration.Nanoseconds())
 		fmt.Println() // Новая строка после прогресса
+		tcpCancelBefore := atomic.LoadInt64(&ns.tcpCancelBefore)
+		tcpCancelWait := atomic.LoadInt64(&ns.tcpCancelWait)
+		udpCancelHosts := atomic.LoadInt64(&ns.udpCancelHosts)
+		if tcpCancelBefore > 0 || tcpCancelWait > 0 || udpCancelHosts > 0 {
+			logger.LogDebug(
+				"Агрегированная статистика отмен: TCP до запуска=%d, TCP при ожидании=%d, UDP хостов=%d",
+				tcpCancelBefore,
+				tcpCancelWait,
+				udpCancelHosts,
+			)
+		}
 		logger.Log("Сканирование портов завершено за %v", portsScanDuration)
 	} else {
 		logger.Log("Активные хосты не найдены, пропускаем сканирование портов")
 	}
 
 	totalDuration := time.Since(scanStartTime)
+	atomic.StoreInt64(&ns.lastTotalNs, totalDuration.Nanoseconds())
 	fmt.Println("Сканирование завершено")
 	logger.Log("Сканирование завершено. Найдено устройств: %d (общее время: %v)", len(ns.results), totalDuration)
 	logger.LogDebug("Статистика сканирования: хостов проверено=%d, активных хостов=%d, устройств найдено=%d",
 		len(ips), len(aliveIPs), len(ns.results))
+	logger.Log(
+		"Диагностическая сводка: ping=%v, portscan=%v, total=%v; TCP probes total/open/closed=%d/%d/%d; UDP probes total/open/no-open=%d/%d/%d",
+		pingDuration,
+		portsScanDuration,
+		totalDuration,
+		atomic.LoadInt64(&ns.tcpProbeTotal),
+		atomic.LoadInt64(&ns.tcpProbeOpen),
+		atomic.LoadInt64(&ns.tcpProbeClosed),
+		atomic.LoadInt64(&ns.udpProbeTotal),
+		atomic.LoadInt64(&ns.udpProbeOpen),
+		atomic.LoadInt64(&ns.udpProbeNoOpen),
+	)
 	if ns.progressCallback != nil {
 		ns.progressCallback("complete", len(ns.results), len(ns.results), fmt.Sprintf("Сканирование завершено. Найдено устройств: %d", len(ns.results)))
 	}
 }
 
+// GetDiagnosticsSummary returns condensed diagnostics for the last scan run.
+func (ns *NetworkScanner) GetDiagnosticsSummary() string {
+	pingDuration := time.Duration(atomic.LoadInt64(&ns.lastPingNs))
+	portscanDuration := time.Duration(atomic.LoadInt64(&ns.lastPortscanNs))
+	totalDuration := time.Duration(atomic.LoadInt64(&ns.lastTotalNs))
+	return fmt.Sprintf(
+		"Диагностика: ping=%v, portscan=%v, total=%v | TCP probes=%d/%d/%d (total/open/closed) | UDP probes=%d/%d/%d (total/open/no-open) | cancel TCP=%d/%d (pre/wait), UDP hosts=%d",
+		pingDuration,
+		portscanDuration,
+		totalDuration,
+		atomic.LoadInt64(&ns.tcpProbeTotal),
+		atomic.LoadInt64(&ns.tcpProbeOpen),
+		atomic.LoadInt64(&ns.tcpProbeClosed),
+		atomic.LoadInt64(&ns.udpProbeTotal),
+		atomic.LoadInt64(&ns.udpProbeOpen),
+		atomic.LoadInt64(&ns.udpProbeNoOpen),
+		atomic.LoadInt64(&ns.tcpCancelBefore),
+		atomic.LoadInt64(&ns.tcpCancelWait),
+		atomic.LoadInt64(&ns.udpCancelHosts),
+	)
+}
+
 // isHostAlive проверяет, доступен ли хост
 func (ns *NetworkScanner) isHostAlive(ip string) bool {
+	if ns.networkProber != nil {
+		if contextAwareProber, ok := ns.networkProber.(ContextNetworkProber); ok {
+			isAlive, err := contextAwareProber.PingContext(ip, ns.ctx.Done())
+			if err == nil {
+				return isAlive
+			}
+			logger.LogDebug("Падение до встроенного пинга для %s из-за ошибки context prober: %v", ip, err)
+		}
+		isAlive, err := ns.networkProber.Ping(ip)
+		if err == nil {
+			return isAlive
+		}
+		logger.LogDebug("Падение до встроенного пинга для %s из-за ошибки prober: %v", ip, err)
+	}
+
 	// Быстрая проверка живости: запускаем probe по нескольким портам параллельно
 	// и завершаем проверку сразу после первого успешного подключения.
 	commonPorts := []string{"80", "443", "22", "135", "139", "445"}
-	logger.LogDebug("Проверка доступности хоста %s через порты: %v", ip, commonPorts)
+	if ns.verbosePortLogs {
+		logger.LogDebug("Проверка доступности хоста %s через порты: %v", ip, commonPorts)
+	}
 
 	probeTimeout := ns.timeout / 3
 	if probeTimeout < 150*time.Millisecond {
@@ -330,12 +486,16 @@ func (ns *NetworkScanner) isHostAlive(ip string) bool {
 				if conn != nil {
 					conn.Close()
 				}
-				logger.LogDebug("Хост %s доступен через порт %s (проверка заняла %v)", ip, port, portCheckDuration)
+				if ns.verbosePortLogs {
+					logger.LogDebug("Хост %s доступен через порт %s (проверка заняла %v)", ip, port, portCheckDuration)
+				}
 				results <- true
 				cancel()
 				return
 			}
-			logger.LogDebug("Хост %s не отвечает на порт %s: %v (проверка заняла %v)", ip, port, err, portCheckDuration)
+			if ns.verbosePortLogs {
+				logger.LogDebug("Хост %s не отвечает на порт %s: %v (проверка заняла %v)", ip, port, err, portCheckDuration)
+			}
 			results <- false
 		}(port)
 	}
@@ -354,6 +514,37 @@ func (ns *NetworkScanner) isHostAlive(ip string) bool {
 
 	logger.LogDebug("Хост %s недоступен (ни один из проверенных портов не ответил)", ip)
 	return false
+}
+
+// scanTCPPort checks a single TCP port using injected scanner when available.
+func (ns *NetworkScanner) scanTCPPort(ip string, port int) bool {
+	if ns.portScanner != nil {
+		isOpen, err := ns.portScanner.ScanPort(ip, port, "tcp")
+		if err == nil {
+			return isOpen
+		}
+		logger.LogDebug("PortScanner вернул ошибку для %s:%d, fallback на IsPortOpen: %v", ip, port, err)
+	}
+	return network.IsPortOpen(ip, port, ns.timeout)
+}
+
+// scanUDPPort checks a single UDP port using injected UDP scanner when available.
+func (ns *NetworkScanner) scanUDPPort(ip string, port int) bool {
+	return ns.scanUDPPortWithTimeout(ip, port, ns.timeout)
+}
+
+func (ns *NetworkScanner) scanUDPPortWithTimeout(ip string, port int, timeout time.Duration) bool {
+	if ns.udpPortScanner != nil && timeout == ns.timeout {
+		isOpen, err := ns.udpPortScanner.ScanPort(ip, port, "udp")
+		if err == nil {
+			return isOpen
+		}
+		logger.LogDebug("UDP PortScanner вернул ошибку для %s:%d, fallback на IsUDPPortOpen: %v", ip, port, err)
+	}
+	if timeout <= 0 {
+		timeout = ns.timeout
+	}
+	return network.IsUDPPortOpen(ip, port, timeout)
 }
 
 // checkARP проверяет наличие хоста через ARP (не используется в быстром сканировании)
@@ -415,29 +606,23 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 		hostnameChan <- hostname
 	}()
 
-	// Сканируем порты параллельно
-	// Используем пул горутин для ограничения одновременных проверок портов на хост
-	// Это предотвращает перегрузку сети и системы
-	portThreads := 100 // Количество одновременных проверок портов на один хост
-	if portThreads > len(ports) {
-		portThreads = len(ports)
-	}
+	// Сканируем порты параллельно, но с динамическим ограничением.
+	// Ранее здесь был фиксированный лимит 100 на хост, что при большом количестве
+	// параллельных хостов раздувало общее число соединений и вызывало просадки.
+	portThreads := ns.portThreadsForHost(len(ports))
 	portSem := make(chan struct{}, portThreads)
 	portResults := make(chan PortInfo, len(ports))
 	portWg := sync.WaitGroup{}
 
+	cancelledBeforeLaunch := false
 	// Запускаем параллельное сканирование портов
 	for _, port := range ports {
-		// Проверяем контекст перед запуском новой горутины
-		select {
-		case <-ns.ctx.Done():
-			logger.LogDebug("Сканирование портов хоста %s отменено перед запуском проверок", ipStr)
-			// Прерываем запуск новых горутин, но продолжаем собирать результаты уже запущенных
-		default:
-		}
-
 		// Если контекст отменен, не запускаем новые горутины
 		if ns.ctx.Err() != nil {
+			if !cancelledBeforeLaunch {
+				atomic.AddInt64(&ns.tcpCancelBefore, 1)
+				cancelledBeforeLaunch = true
+			}
 			break
 		}
 
@@ -455,13 +640,21 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 			}
 
 			portCheckStart := time.Now()
-			isOpen := network.IsPortOpen(ipStr, p, ns.timeout)
+			atomic.AddInt64(&ns.tcpProbeTotal, 1)
+			isOpen := ns.scanTCPPort(ipStr, p)
 			portCheckDuration := time.Since(portCheckStart)
-
 			if isOpen {
-				logger.LogDebug("Хост %s: порт %d/%s открыт (проверка заняла %v)", ipStr, p, "tcp", portCheckDuration)
-			} else if ns.showClosed {
-				logger.LogDebug("Хост %s: порт %d/%s закрыт (проверка заняла %v)", ipStr, p, "tcp", portCheckDuration)
+				atomic.AddInt64(&ns.tcpProbeOpen, 1)
+			} else {
+				atomic.AddInt64(&ns.tcpProbeClosed, 1)
+			}
+
+			if ns.verbosePortLogs {
+				if isOpen {
+					logger.LogDebug("Хост %s: порт %d/%s открыт (проверка заняла %v)", ipStr, p, "tcp", portCheckDuration)
+				} else if ns.showClosed {
+					logger.LogDebug("Хост %s: порт %d/%s закрыт (проверка заняла %v)", ipStr, p, "tcp", portCheckDuration)
+				}
 			}
 
 			if isOpen || ns.showClosed {
@@ -486,6 +679,10 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 					}
 					if b, err := banner.GrabTCP(ipStr, p, bt); err == nil && strings.TrimSpace(b) != "" {
 						portInfo.Banner = b
+						portInfo.Version = banner.ExtractVersionHint(p, b)
+					} else {
+						portInfo.Banner = "нет ответа"
+						portInfo.Version = ""
 					}
 				}
 
@@ -496,7 +693,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 					return
 				}
 
-				if isOpen {
+				if isOpen && ns.verbosePortLogs {
 					logger.LogDebug("Хост %s: найден открытый порт %d (%s)", ipStr, p, portInfo.Service)
 				}
 			}
@@ -514,6 +711,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 	// Собираем результаты портов
 	openPorts := 0
 	portsCollected := false
+	cancelledWhileCollecting := false
 	for !portsCollected {
 		select {
 		case portInfo, ok := <-portResults:
@@ -535,7 +733,10 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 			}
 		case <-ns.ctx.Done():
 			// Отмена сканирования - ждем завершения горутин и собираем уже полученные результаты
-			logger.LogDebug("Сканирование портов хоста %s отменено, ожидание завершения...", ipStr)
+			if !cancelledWhileCollecting {
+				atomic.AddInt64(&ns.tcpCancelWait, 1)
+				cancelledWhileCollecting = true
+			}
 			<-portDone
 			// Собираем оставшиеся результаты
 			for portInfo := range portResults {
@@ -567,7 +768,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 			// Проверяем, не отменено ли сканирование
 			select {
 			case <-ns.ctx.Done():
-				logger.LogDebug("UDP сканирование хоста %s отменено", ipStr)
+				atomic.AddInt64(&ns.udpCancelHosts, 1)
 				udpScanCancelled = true
 				break udpPortLoop
 			default:
@@ -589,11 +790,15 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 				}
 
 				udpCheckStart := time.Now()
-				isOpen := network.IsUDPPortOpen(ipStr, p, ns.timeout)
+				atomic.AddInt64(&ns.udpProbeTotal, 1)
+				isOpen := ns.scanUDPPort(ipStr, p)
 				udpCheckDuration := time.Since(udpCheckStart)
 
 				if isOpen {
-					logger.LogDebug("Хост %s: UDP порт %d открыт (проверка заняла %v)", ipStr, p, udpCheckDuration)
+					atomic.AddInt64(&ns.udpProbeOpen, 1)
+					if ns.verbosePortLogs {
+						logger.LogDebug("Хост %s: UDP порт %d открыт (проверка заняла %v)", ipStr, p, udpCheckDuration)
+					}
 					portInfo := PortInfo{
 						Port:     p,
 						State:    "open",
@@ -606,7 +811,10 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 						return
 					}
 				} else if ns.showClosed {
-					logger.LogDebug("Хост %s: UDP порт %d закрыт/фильтруется (проверка заняла %v)", ipStr, p, udpCheckDuration)
+					atomic.AddInt64(&ns.udpProbeNoOpen, 1)
+					if ns.verbosePortLogs {
+						logger.LogDebug("Хост %s: UDP порт %d закрыт/фильтруется (проверка заняла %v)", ipStr, p, udpCheckDuration)
+					}
 					portInfo := PortInfo{
 						Port:     p,
 						State:    "filtered",
@@ -618,6 +826,8 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 					case <-ns.ctx.Done():
 						return
 					}
+				} else {
+					atomic.AddInt64(&ns.udpProbeNoOpen, 1)
 				}
 			}(udpPort)
 		}
@@ -710,9 +920,10 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 			openTCPPorts = append(openTCPPorts, p.Port)
 		}
 	}
-	if osName, conf := osdetect.GuessFromHostAndPorts(result.Hostname, openTCPPorts); osName != "" {
+	if osName, conf, reason := osdetect.GuessFromHostAndPorts(result.Hostname, openTCPPorts, ns.osDetectActive); osName != "" {
 		result.GuessOS = osName
 		result.GuessOSConfidence = conf
+		result.GuessOSReason = reason
 	}
 	// SNMP определяем по уже собранным данным; активный probe используем только при необходимости
 	// и с коротким таймаутом, чтобы не замедлять массовое сканирование.
@@ -722,7 +933,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 		if snmpProbeTimeout > 500*time.Millisecond {
 			snmpProbeTimeout = 500 * time.Millisecond
 		}
-		result.SNMPEnabled = network.IsUDPPortOpen(ipStr, 161, snmpProbeTimeout)
+		result.SNMPEnabled = ns.scanUDPPortWithTimeout(ipStr, 161, snmpProbeTimeout)
 	}
 	logger.LogDebug("Хост %s: определен тип устройства: %s", ipStr, result.DeviceType)
 
@@ -734,10 +945,42 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 	logger.LogDebug("Хост %s: найдено открытых портов: %d", ipStr, openPorts)
 }
 
+func (ns *NetworkScanner) portThreadsForHost(portCount int) int {
+	if portCount <= 0 {
+		return 0
+	}
+
+	hostWorkers := ns.threads
+	if hostWorkers <= 0 {
+		hostWorkers = 1
+	}
+
+	perHost := globalPortProbeBudget / hostWorkers
+	if perHost < minPerHostPortThreads {
+		perHost = minPerHostPortThreads
+	}
+	if perHost > maxPerHostPortThreads {
+		perHost = maxPerHostPortThreads
+	}
+	if perHost > portCount {
+		perHost = portCount
+	}
+	if perHost < 1 {
+		perHost = 1
+	}
+	return perHost
+}
+
 // getMACAddress получает MAC адрес через ARP
 func (ns *NetworkScanner) getMACAddress(ip net.IP) (string, error) {
 	if ip == nil || ip.To4() == nil {
 		return "", fmt.Errorf("MAC адрес через ARP доступен только для IPv4")
+	}
+
+	if ns.networkProber != nil {
+		if hwAddr, err := ns.networkProber.ResolveMAC(ip.String()); err == nil && hwAddr != nil {
+			return hwAddr.String(), nil
+		}
 	}
 
 	// Сначала пытаемся прочитать из ARP таблицы системы (если доступно)
