@@ -7,7 +7,33 @@
 
 ## [Unreleased]
 
+### Добавлено (UI результаты)
+- Базовые инженерные точки входа в `Makefile`: `make build`, `make test`, `make run`, `make deploy`.
+- Скрипты первичной настройки окружения: `scripts/bootstrap.sh` и `scripts/bootstrap.ps1`.
+- Локальная интеграционная проверка: `scripts/integration-check.sh` и `scripts/integration-check.ps1`.
+- Канонический роадмап `docs/ROADMAP.md`.
+- Документация развёртывания и отката: `docs/deployment.md#rollback`.
+- ADR-решение по инженерному baseline: `docs/adr/0001-project-governance.md`.
+- Руководство по вкладу: `CONTRIBUTING.md`.
+- Пример переменных окружения: `config/config.example.env`.
+- Базовая pre-commit конфигурация: `.pre-commit-config.yaml`.
+
 ### Добавлено
+- Формализован closure P1 для macOS/Linux через обязательный CI job `P1 Closure (Unix)` (матрица `ubuntu-latest` + `macos-latest`) с запуском `./scripts/p1-closure-check.sh`.
+- **P3: кроссплатформенность, тесты и UX/perf hardening:**
+  - Единый execution-слой для внешних утилит с нормализованными кодами ошибок (`not_installed`, `permission_denied`, `timeout`, `network_error`, `unknown`)
+  - Унификация пользовательских сообщений ошибок tool-режимов в CLI/GUI
+  - CI workflow: lint -> test (Win/Linux/macOS) -> build+smoke + загрузка артефактов
+  - Конфигурация линтера в репозитории: `.golangci.yml`
+  - Integration-тесты под build tag `integration` + Makefile цель `test-integration`
+  - Golden-тесты форматированного вывода (`internal/display/testdata/*.golden.txt`) с обновлением через `UPDATE_GOLDEN=1`
+  - Скрипты формального закрытия P3: `scripts/p3-closure-check.sh` и `scripts/p3-closure-check.ps1`
+  - Makefile цели для P3: `p3-check`, `p3-check-win`
+  - Предупреждение/подтверждение запуска для крупных подсетей в GUI
+  - Валидация и ограничение `threads` в диапазоне `1..512` для CLI/GUI
+  - Троттлинг UI-обновлений прогресса сканирования в GUI
+  - Бенчмарк `BenchmarkFormatResultsAsTextLarge` и baseline документ `docs/P3_PERF_BASELINE.md`
+
 - **Расширенное управление отображением результатов в GUI (`Сканирование`):**
   - Сортировка по `IP` / `HostName`
   - Лимит отображаемых чипов портов (`12/24/48`)
@@ -17,16 +43,61 @@
   - Сохраняются и восстанавливаются режим, сортировка, лимит чипов, строка фильтра и быстрые фильтры
 - **Экспорт текущего представления из GUI:**
   - `Сохранить результаты` теперь экспортирует отфильтрованный и отсортированный набор устройств (то, что пользователь видит в UI)
+- **P2 инструменты и сетевая диагностика:**
+  - Wake-on-LAN в CLI: `--wol-mac`, `--wol-broadcast`
+  - Выбор интерфейса для WOL в CLI: `--wol-iface` (автоопределение broadcast)
+  - Wake-on-LAN в GUI вкладке `Инструменты`
+  - Сбор баннеров/версий сервисов: `--grab-banners`
+  - Отдельный `Version` в модели порта + вывод в GUI/CLI/JSON
+  - Управление показом сырого баннера в CLI: `--show-raw-banners`
+  - Переключатель показа raw banner в GUI (с сохранением настройки)
+  - Active-режим определения ОС: `--os-detect-active` + переключатель в GUI
+  - Добавлено поле `GuessOSReason` (обоснование эвристики) в вывод и экспорт
+  - Расширены active-сигнатуры ОС (Windows Server/WinRM, Linux Docker/K8s, Apple mDNS, Android debug)
+  - Добавлены unit-тесты для `internal/wol` и `internal/banner` (резолв WOL/broadcast, парсинг версии из баннеров)
+  - Успешно пройден локальный closure-прогон на Windows: `.\scripts\p2-closure-check.ps1` (включает `go test ./...`, smoke и sanity P2-флагов)
+  - Усилены PowerShell smoke-скрипты: строгая проверка exit code нативных команд и сборка smoke-бинарника во временный `.exe` (устранение flaky-блокировок файла)
+  - Усилены Unix smoke-скрипты: временный smoke-бинарник + безопасный cleanup через `trap` (снижение риска конфликтов файла)
+  - Обновлены release/closure чеклисты: добавлены явные команды кросс-ОС прогона для Linux/macOS
+  - В checklist зафиксирован операционный статус кросс-ОС прогона: Windows подтвержден, Linux/macOS ожидают запуск в целевых средах
+  - Добавлены `p2-closure-check` скрипты (Unix/Windows) и Makefile-цели (`p2-check`, `p2-check-win`) для воспроизводимой проверки P2-флагов (баннеры/OS-active/WOL validation)
+- **Инструменты P1 в CLI (`cmd/network-scanner`):**
+  - Режимы `--ping`, `--traceroute`, `--dns` (без запуска полного сканирования)
+  - Параметры `--dns-server`, `--raw`, `--ping-count`, `--tool-timeout`, `--traceroute-max-hops`
+  - Структурная сводка по ping/traceroute + опциональный raw-вывод
+- **Инструменты P1 в GUI (`internal/gui/app.go`):**
+  - Вкладка `Инструменты` с кнопками `Ping`, `Traceroute`, `DNS`
+  - Поля управления: host, ping count, timeout, traceroute max hops, DNS resolver
+  - Сохранение/восстановление настроек инструментов через `fyne.Preferences`
+- **Расширенные фильтры P1 в GUI:**
+  - Фильтр по CIDR и фильтр по состоянию портов (`all/open/closed/filtered`)
+- **Планирование дополнительного развития (D-трек):**
+  - В `docs/ROADMAP_P1_P3.md` добавлен структурированный блок `D1..D4` (Topology/Export/GUI hardening)
+  - В `docs/DETAILED_BACKLOG_P3_STAGE2.md` добавлен детальный backlog задач дополнительной реализации
+  - Пресеты фильтров (слоты `1/2/3`) с сохранением и применением
+- **Регрессионные проверки и тесты P1:**
+  - CLI smoke для инструментов: `scripts/smoke-cli-tools.sh` / `.ps1`
+  - Unit-тесты парсеров ping/traceroute (`internal/nettools`)
+  - Unit-тесты фильтров/пресетов/сценариев сохранения (`internal/gui`)
 
 ### Изменено
 - **Рефакторинг GUI-слоя результатов:**
   - Логика вынесена из `app.go` в `internal/gui/results_view.go` и `internal/gui/results_charts.go`
   - Добавлен кэш ресурсов круговых диаграмм для ускорения повторной отрисовки
+- **Стабилизация и UX для heavy-сканов в GUI:**
+  - Вывод `Ping/Traceroute` в `Инструментах` переведен на совместимый markdown-формат (без HTML `<details>`), что исправляет некорректное отображение raw-текста в `RichText`
+  - Добавлен RU-парсинг статистики Windows `ping` (локализованные строки `потеряно`, `минимальное/максимальное/среднее`)
+  - Проверка доступности хостов в `DefaultNetworkProber` переведена на параллельный probe с ранним выходом и короткими probe-timeout
+  - В `scanner` добавлен адаптивный лимит параллельных порт-проверок на хост (ограничение суммарной нагрузки)
+  - В GUI добавлен управляемый автопрофиль сканирования (чекбокс + подсказка + сохранение в preferences)
+  - Добавлен цветовой индикатор состояния автопрофиля в UI (`Автопрофиль: ВКЛ/ВЫКЛ`) и кнопка с пояснением логики автокоррекции
 
 ### Документация
 - Обновлены `README.md`, `docs/USER_GUIDE.md` и `docs/GUI_SMOKE_CHECKLIST.md` с описанием новых фильтров и поведения сохранения.
+- Обновлены `README.md`, `docs/USER_GUIDE.md` и `docs/TECHNICAL.md` под новые CLI/GUI инструменты P1 и ограничения.
 - Добавлен краткий релиз-итог `docs/RELEASE_SUMMARY_UI_RESULTS.md`.
 - Добавлена дорожная карта приоритетов P1–P3: `docs/ROADMAP_P1_P3.md` (ссылка в корневом `README.md`).
+- Добавлен детализированный backlog по этапам: `docs/DETAILED_BACKLOG_P3_STAGE2.md`.
 
 ## [1.0.4] - 2026-03-27
 

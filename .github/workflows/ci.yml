@@ -5,103 +5,125 @@ on:
     branches: [ main, master, develop ]
   pull_request:
     branches: [ main, master, develop ]
+  workflow_dispatch:
 
 jobs:
-  test:
-    name: Test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: ['1.21', '1.22']
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ matrix.go-version }}
-    
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
-    
-    - name: Download dependencies
-      run: go mod download
-    
-    - name: Run tests
-      run: go test -v ./...
-    
-    - name: Run tests with coverage
-      run: go test -v -coverprofile=coverage.out -covermode=atomic ./...
-    
-    - name: Upload coverage
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.out
-        flags: unittests
-        name: codecov-umbrella
-
-  build:
-    name: Build
-    runs-on: ${{ matrix.os }}
-    needs: test
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.22'
-    
-    - name: Build GUI version
-      run: |
-        if [ "${{ runner.os }}" == "Windows" ]; then
-          go build -o network-scanner-gui.exe ./cmd/gui
-        else
-          go build -o network-scanner-gui ./cmd/gui
-        fi
-    
-    - name: Build CLI version
-      run: |
-        if [ "${{ runner.os }}" == "Windows" ]; then
-          go build -o network-scanner.exe ./cmd/network-scanner
-        else
-          go build -o network-scanner ./cmd/network-scanner
-        fi
-    
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: binaries-${{ runner.os }}
-        path: |
-          network-scanner*
-          *.exe
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.22'
-    
+
     - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v4
+      uses: golangci/golangci-lint-action@v6
       with:
         version: latest
+
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    needs: lint
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        go-version: ['1.22']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test ./...
+
+  p1-closure-unix:
+    name: P1 Closure (Unix)
+    runs-on: ${{ matrix.os }}
+    needs: test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+
+    - name: Run formal P1 closure check
+      shell: bash
+      run: ./scripts/p1-closure-check.sh
+
+  build:
+    name: Build and Smoke
+    runs-on: ${{ matrix.os }}
+    needs: [test, p1-closure-unix]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            cli_bin: network-scanner
+            gui_bin: network-scanner-gui
+          - os: macos-latest
+            cli_bin: network-scanner
+            gui_bin: network-scanner-gui
+          - os: windows-latest
+            cli_bin: network-scanner.exe
+            gui_bin: network-scanner-gui.exe
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+
+    - name: Build GUI binary
+      run: go build -o "${{ matrix.gui_bin }}" ./cmd/gui
+
+    - name: Build CLI binary
+      run: go build -o "${{ matrix.cli_bin }}" ./cmd/network-scanner
+
+    - name: Smoke check CLI
+      run: ./"${{ matrix.cli_bin }}" --help
+
+    - name: Smoke check artifacts
+      shell: bash
+      run: |
+        test -f "${{ matrix.cli_bin }}"
+        test -f "${{ matrix.gui_bin }}"
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: binaries-${{ runner.os }}
+        path: |
+          ${{ matrix.cli_bin }}
+          ${{ matrix.gui_bin }}
