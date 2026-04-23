@@ -40,7 +40,7 @@
   - yEd:
   - Gephi:
 - [ ] Проверка выполнялась по:
-  - `docs/GRAPHML_COMPATIBILITY_CHECK.md`
+  - [GRAPHML_COMPATIBILITY_CHECK.md](GRAPHML_COMPATIBILITY_CHECK.md)
 
 ### 5) Notes / Residual Risk
 

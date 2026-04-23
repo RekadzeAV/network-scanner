@@ -151,7 +151,7 @@ scripts\build.bat debug
 
 ```bash
 # CLI версия
-.\release\2026-02-27-1-debug\network-scanner.exe --network 192.168.1.0/24
+.\build\release\2026-02-27-1-debug\windows\network-scanner.exe --network 192.168.1.0/24
 
 # Проверка лога
 type LOG-network-scanner-1.0.2.txt

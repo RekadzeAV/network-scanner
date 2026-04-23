@@ -290,7 +290,7 @@
 - ✅ Сборка для текущей платформы (CLI и GUI)
 - ✅ Кросскомпиляция для Linux, Windows, macOS (Intel и Apple Silicon)
 - ✅ Корректные пути к `cmd/network-scanner` и `cmd/gui`
-- ✅ Создание директории release с датой сборки
+- ✅ Создание каталога `build/release/` с датой сборки
 
 ##### 5.3. macOS (`scripts/build-macos.sh`)
 - ✅ Сборка для текущей архитектуры (CLI и GUI)

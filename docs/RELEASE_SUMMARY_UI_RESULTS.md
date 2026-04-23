@@ -98,7 +98,7 @@
 
 ## Рекомендуемые сценарии приёмки
 
-См. `docs/GUI_SMOKE_CHECKLIST.md` (включая проверку сохранения текущего представления).
+См. [GUI_SMOKE_CHECKLIST.md](GUI_SMOKE_CHECKLIST.md) (включая проверку сохранения текущего представления).
 
 ## D-Track evidence block (если релиз включает topology/export hardening)
 
@@ -115,9 +115,9 @@
 - CI run: <link>
 ```
 
-Расширенный шаблон: `docs/D_TRACK_EVIDENCE_TEMPLATE.md`.
+Расширенный шаблон: [D_TRACK_EVIDENCE_TEMPLATE.md](D_TRACK_EVIDENCE_TEMPLATE.md).
 
-Короткий ready-to-paste вариант: `docs/D_TRACK_EVIDENCE_PR_SNIPPET.md`.
+Короткий ready-to-paste вариант: [D_TRACK_EVIDENCE_PR_SNIPPET.md](D_TRACK_EVIDENCE_PR_SNIPPET.md).
 
 ## D-Track Evidence (current snapshot)
 

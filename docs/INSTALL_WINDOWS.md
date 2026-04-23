@@ -78,6 +78,8 @@ go build -o network-scanner-gui.exe ./cmd/gui
 .\scripts\build.bat
 ```
 
+Скрипт сохраняет релизные бинарники в **`build\release\<YYYY-MM-DD-N>\windows\`** (см. [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)).
+
 ## Запуск
 
 После сборки запустите приложение:

@@ -36,7 +36,8 @@ try {
     }
 
     Write-Host "[4/5] security-report unredacted consent sanity" -ForegroundColor Yellow
-    & $smokeExe --network 127.0.0.1/32 --ports 22,80 --timeout 1 --threads 1 --risk-signatures --security-report-file auto --security-report-redact=false --security-report-unsafe-consent I_UNDERSTAND_UNREDACTED_REPORT *> $outFile
+    $cmdLine = "`"$smokeExe`" --network 127.0.0.1/32 --ports 22,80 --timeout 1 --threads 1 --risk-signatures --security-report-file auto --security-report-redact=false --security-report-unsafe-consent I_UNDERSTAND_UNREDACTED_REPORT > `"$outFile`" 2>nul"
+    cmd /c $cmdLine
     Assert-LastExitCode "security report auto unredacted"
     $outText = Get-Content $outFile -Raw
     if ($outText -notmatch 'security-report-unredacted-.*\.html') {
@@ -47,7 +48,8 @@ try {
     }
 
     Write-Host "[5/5] remote-exec dry-run strict policy sanity" -ForegroundColor Yellow
-    & $smokeExe --remote-exec-transport ssh --remote-exec-target 127.0.0.1 --remote-exec-command hostname --remote-exec-policy-file config/remote-exec-policy.example.json --remote-exec-policy-strict --remote-exec-consent I_UNDERSTAND --remote-exec-dry-run=true --remote-exec-audit-log $auditFile *> $outFile
+    $cmdLine = "`"$smokeExe`" --remote-exec-transport ssh --remote-exec-target 127.0.0.1 --remote-exec-command hostname --remote-exec-policy-file config/remote-exec-policy.example.json --remote-exec-policy-strict --remote-exec-consent I_UNDERSTAND --remote-exec-dry-run=true --remote-exec-audit-log `"$auditFile`" > `"$outFile`" 2>&1"
+    cmd /c $cmdLine
     $outText = Get-Content $outFile -Raw
     if ($outText -notmatch 'Remote exec policy ошибка|target is not in allowlist') {
         throw "Expected policy/allowlist guardrail output"

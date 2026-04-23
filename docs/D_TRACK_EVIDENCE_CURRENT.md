@@ -40,7 +40,7 @@
   - yEd: pending
   - Gephi: pending
 - [x] Проверка должна выполняться по:
-  - `docs/GRAPHML_COMPATIBILITY_CHECK.md`
+  - [GRAPHML_COMPATIBILITY_CHECK.md](GRAPHML_COMPATIBILITY_CHECK.md)
 
 ### 5) Notes / Residual Risk
 

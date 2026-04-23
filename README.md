@@ -75,8 +75,14 @@ go build -o network-scanner-gui ./cmd/gui
 - **[PR_DESCRIPTION_UI_RESULTS.md](docs/PR_DESCRIPTION_UI_RESULTS.md)** - Готовое описание PR по доработкам UI результатов
 - **[UI_IMPLEMENTATION_BACKLOG.md](docs/UI_IMPLEMENTATION_BACKLOG.md)** - Актуализированный backlog UI-рефакторинга (`P0..P5`)
 - **[RELEASE_ACCEPTANCE_CHECKLIST.md](docs/RELEASE_ACCEPTANCE_CHECKLIST.md)** - Финальный чеклист приемки перед релизом
+- **[P3_CLOSURE_CHECKLIST.md](docs/P3_CLOSURE_CHECKLIST.md)** - Формальное закрытие Stage 1 / P3 и CI sign-off
 - **[RELEASE_OPERATIONS_CHEATSHEET.md](docs/RELEASE_OPERATIONS_CHEATSHEET.md)** - Краткий набор команд для closure-прогонов и релизного дежурства
+- **[BUILD_STRUCTURE.md](docs/BUILD_STRUCTURE.md)** - Структура каталогов релизных скриптов (`build/release/`)
 - **[RELEASE_READINESS_SNAPSHOT.md](docs/RELEASE_READINESS_SNAPSHOT.md)** - Текущий срез готовности релиза (авто/ручные шаги)
+- **[CHECKLIST_STATUS_INDEX.md](docs/CHECKLIST_STATUS_INDEX.md)** - Единый индекс статусов по всем checklist-документам
+- **[RELEASE_READY_GAP_LIST.md](docs/RELEASE_READY_GAP_LIST.md)** - Приоритизированный backlog оставшихся шагов до финального sign-off
+- **[P0_SIGNOFF_RUNBOOK.md](docs/P0_SIGNOFF_RUNBOOK.md)** - Пошаговый runbook закрытия блокирующего P0 (Cross-OS + CI evidence)
+- **[STAGE2_100_COMMIT_READY.md](docs/STAGE2_100_COMMIT_READY.md)** - Краткий commit-ready итог по Stage2 и remaining шагам sign-off
 - **[RELEASE_READINESS_PR_SNIPPET.md](docs/RELEASE_READINESS_PR_SNIPPET.md)** - Готовый блок статуса для PR/релиз-комментария
 - **[RELEASE_READINESS_STAGE2_P3_PR_SNIPPET.md](docs/RELEASE_READINESS_STAGE2_P3_PR_SNIPPET.md)** - Готовый PR-блок для Stage2/P3 (EN/RU, short/long)
 - **[RELEASE_READINESS_PR_READY.md](docs/RELEASE_READINESS_PR_READY.md)** - Короткий и расширенный ready-to-paste блок для PR
@@ -171,6 +177,8 @@ scripts\build.bat
 ./scripts/build-windows.sh  # Требует mingw-w64
 ```
 
+Релизные артефакты этих скриптов (включая `build-release-windows-only.ps1`) создаются в каталоге `build/release/` в корне репозитория, в подпапках вида `YYYY-MM-DD-N/` (например `windows/` для Windows).
+
 ### Smoke-проверки (регрессии CLI)
 
 ```bash
@@ -235,6 +243,14 @@ $env:UPDATE_GOLDEN='1'; go test ./internal/display -run Golden
 
 Подробный операционный вариант и эквиваленты через `make`: `docs/RELEASE_OPERATIONS_CHEATSHEET.md`.
 Термины и подписи runbook синхронизированы с `docs/USER_GUIDE.md` и `docs/TECHNICAL.md`.
+
+Проверка локальных markdown-ссылок перед коммитом (Windows):
+
+```powershell
+.\scripts\docs-link-check.ps1
+# или
+make docs-link-check-win
+```
 
 ```bash
 # Linux/macOS
@@ -374,6 +390,22 @@ make ci-status-win
 
 Скрипт выводит последние прогоны workflow `CI`, показывает URL последнего успешного run (если найден) и проверяет, что required jobs для P3 (`Lint`, `Test*`, `Build and Smoke*`, `Stage2 P1 Closure`, `Stage2 P3 Closure`) полностью зелёные. Для Unix-варианта требуется `python3`.
 Скрипт работает в strict-режиме и завершает выполнение с ошибкой, если любой required job не зелёный.
+
+Для быстрой диагностики блокеров перед sign-off (Windows):
+
+```powershell
+.\scripts\p0-signoff-preflight.ps1
+# или
+make p0-preflight-win
+```
+
+Единый агрегированный статус Stage2 sign-off (Windows):
+
+```powershell
+.\scripts\stage2-signoff-status.ps1
+# или
+make stage2-signoff-status-win
+```
 
 ### Запуск CI из консоли (без `gh`)
 

@@ -13,33 +13,37 @@ brew install go
 
 ```bash
 cd "Сканер локальной сети"
-./build-macos.sh
+./scripts/build-macos.sh
 ```
+
+Скрипт сохраняет бинарники в **`build/release/<YYYY-MM-DD-N>/`** в корне репозитория (подкаталог печатается при сборке; см. [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)).
 
 ## 3. Запустите
 
+В примерах ниже замените `build/release/2026-04-24-1/` на фактический путь из вывода скрипта.
+
 ```bash
 # Для Apple Silicon (M1/M2/M3)
-./dist/network-scanner-darwin-arm64
+./build/release/2026-04-24-1/network-scanner-darwin-arm64
 
 # Для Intel Mac
-./dist/network-scanner-darwin-amd64
+./build/release/2026-04-24-1/network-scanner-darwin-amd64
 
 # Или универсальный (если создан)
-./dist/network-scanner-darwin-universal
+./build/release/2026-04-24-1/network-scanner-darwin-universal
 ```
 
 ## Пример использования
 
 ```bash
 # Автоматическое определение сети
-./dist/network-scanner-darwin-arm64
+./build/release/2026-04-24-1/network-scanner-darwin-arm64
 
 # Указать сеть вручную
-./dist/network-scanner-darwin-arm64 --network 192.168.1.0/24
+./build/release/2026-04-24-1/network-scanner-darwin-arm64 --network 192.168.1.0/24
 
 # Сканировать определенные порты
-./dist/network-scanner-darwin-arm64 --ports 80,443,8080
+./build/release/2026-04-24-1/network-scanner-darwin-arm64 --ports 80,443,8080
 ```
 
 Готово! 🎉

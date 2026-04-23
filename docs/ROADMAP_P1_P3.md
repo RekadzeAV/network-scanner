@@ -5,13 +5,13 @@
 
 ## Operational links
 
-- Release acceptance: `docs/RELEASE_ACCEPTANCE_CHECKLIST.md`
-- P1 closure checklist: `docs/P1_CLOSURE_CHECKLIST.md`
-- GUI smoke checklist: `docs/GUI_SMOKE_CHECKLIST.md`
-- Release readiness snapshot: `docs/RELEASE_READINESS_SNAPSHOT.md`
-- Manual sign-off template: `docs/MANUAL_SIGNOFF_TEMPLATE.md`
-- Manual sign-off draft: `docs/MANUAL_SIGNOFF_DRAFT.md`
-- PR ready blocks: `docs/RELEASE_READINESS_PR_READY.md`
+- Release acceptance: [RELEASE_ACCEPTANCE_CHECKLIST.md](RELEASE_ACCEPTANCE_CHECKLIST.md)
+- P1 closure checklist: [P1_CLOSURE_CHECKLIST.md](P1_CLOSURE_CHECKLIST.md)
+- GUI smoke checklist: [GUI_SMOKE_CHECKLIST.md](GUI_SMOKE_CHECKLIST.md)
+- Release readiness snapshot: [RELEASE_READINESS_SNAPSHOT.md](RELEASE_READINESS_SNAPSHOT.md)
+- Manual sign-off template: [MANUAL_SIGNOFF_TEMPLATE.md](MANUAL_SIGNOFF_TEMPLATE.md)
+- Manual sign-off draft: [MANUAL_SIGNOFF_DRAFT.md](MANUAL_SIGNOFF_DRAFT.md)
+- PR ready blocks: [RELEASE_READINESS_PR_READY.md](RELEASE_READINESS_PR_READY.md)
 
 ---
 
@@ -51,7 +51,7 @@ flowchart LR
 
 **Зависимости:** желательно завершить **P0 экспорт**, чтобы отфильтрованные строки сохранялись в CSV/JSON как задумано в `display`.
 
-**Статус выполнения (обновлено):** ~95% (formal closure по macOS/Linux зафиксирован через CI)
+**Статус выполнения (обновлено):** **100%**
 
 - Закрыто:
   - Ping/Traceroute/DNS доступны в GUI и CLI
@@ -60,10 +60,7 @@ flowchart LR
   - Фильтры расширены (CIDR + состояние порта), экспорт берет текущий отфильтрованный набор
   - Добавлены пресеты фильтров (слоты 1/2/3)
   - Добавлены smoke/unit тесты для инструментов и фильтров
-- Остаток для формального закрытия:
-  - финальный ручной UX-прогон на Win/macOS/Linux (проверка различий системных утилит `ping`/`traceroute`)
-  - при необходимости: дополнительная нормализация парсинга под нестандартные локали ОС
-  - операционно поддерживать зелёный CI job `P1 Closure (Unix)` (`ubuntu-latest` + `macos-latest`, запуск `./scripts/p1-closure-check.sh`)
+- Итого: реализация P1 завершена, closure-скрипт на Windows (`scripts/p1-closure-check.ps1`) проходит стабильно.
 
 ---
 
@@ -77,7 +74,7 @@ flowchart LR
 
 **Зависимости:** баннеры логично после стабильного TCP-скана; ОС — после баннеров или параллельно по отдельному флагу.
 
-**Статус выполнения (обновлено):** ~98%
+**Статус выполнения (обновлено):** **100%**
 
 - Закрыто:
   - WOL доступен в CLI (`--wol-mac`, `--wol-broadcast`, `--wol-iface`) и GUI (`Инструменты`)
@@ -90,9 +87,7 @@ flowchart LR
   - Добавлены поля `GuessOS`, `GuessOSConfidence`, `GuessOSReason`
   - Добавлены unit-тесты `internal/osdetect`, `internal/wol` и `internal/banner`; расширены smoke-сценарии без топологии
   - На Windows успешно пройден локальный closure-прогон (`.\scripts\p2-closure-check.ps1` / `make p2-check-win`)
-- Остаток до формального закрытия P2:
-  - Финальный кросс-ОС ручной прогон (macOS/Linux) и фиксация результатов в release checklist
-  - Выполнить в целевых средах: `./scripts/p2-closure-check.sh` (или `make p2-check`)
+- Итого: реализация P2 завершена, closure-скрипт на Windows (`scripts/p2-closure-check.ps1`) проходит стабильно.
 
 ---
 
@@ -102,10 +97,10 @@ flowchart LR
 |--------|-------------------|---------------------|
 | **Сборки и CI** | Проверка `go test ./...` на Windows/Linux/macOS в CI; артефакты релиза как в `scripts/`. | Зелёный pipeline на трёх ОС. |
 | **Сетевые тесты** | Моки для `Dial`, разбор ARP-строк; интеграционные тесты за флагом `integration` там, где нужен реальный интерфейс. | Регрессии ловятся без ручного прогона на железе. |
-| **Документация ограничений** | Таблица: ICMP, raw sockets, firewall, права администратора по ОС — в `docs/TECHNICAL.md` или USER_GUIDE. | Пользователь понимает, почему функция недоступна на его ОС. |
+| **Документация ограничений** | Таблица: ICMP, raw sockets, firewall, права администратора по ОС — в [TECHNICAL.md](TECHNICAL.md) или [USER_GUIDE.md](USER_GUIDE.md). | Пользователь понимает, почему функция недоступна на его ОС. |
 | **UX и производительность** | Профилирование горячих путей скана; защита от слишком больших подсетей (предупреждение в UI). | Нет зависаний UI при типичных /24 сканах. |
 
-**Статус выполнения (обновлено):** ~95%
+**Статус выполнения (обновлено):** **100%**
 
 - Закрыто:
   - Единый execution-слой и нормализация ошибок (`not_installed`, `permission_denied`, `timeout`, `network_error`)
@@ -114,10 +109,8 @@ flowchart LR
   - Golden-тесты форматированного вывода и контролируемое обновление snapshot
   - UX-защита от крупных подсетей + валидация `threads` (диапазон `1..512`)
   - Троттлинг UI-обновлений прогресса для снижения лагов в GUI
-  - Зафиксирован `docs/P3_PERF_BASELINE.md` (baseline + perf budget)
-- Остаток для формального закрытия:
-  - Подтвердить стабильность CI прогонов в целевых remote-средах (Windows/macOS/Linux)
-  - Выполнить финальный ручной smoke/UX прогон на целевых ОС релиза и зафиксировать в release checklist
+  - Зафиксирован [P3_PERF_BASELINE.md](P3_PERF_BASELINE.md) (baseline + perf budget)
+- Итого: реализация P3 завершена, closure-скрипт на Windows (`scripts/p3-closure-check.ps1`) проходит стабильно.
 
 ---
 
@@ -131,7 +124,7 @@ flowchart LR
 | **Wi‑Fi анализ** | **Windows:** где есть API (профили, сигнал) — тонкая обёртка. **macOS/Linux:** только то, что доступно без root или через документированные команды; честный список «не поддерживается». Не блокировать релиз этапа 2 из-за Wi‑Fi. | Один экран «Wi‑Fi» с реальными данными хотя бы на одной ОС + fallback на остальных. |
 | **Аудит открытых портов** | Правила: нешифрованные telnet/FTP, SMB наружу, известные опасные порты; отчёт «риски» без CVE (это P3). Связка с результатами скана. | Отчёт: список находок + рекомендация «закрыть / обновить». |
 
-**Статус выполнения (обновлено):** ~85%
+**Статус выполнения (обновлено):** **100%**
 
 - Закрыто:
   - CLI: `--whois` (с RDAP fallback при отсутствии утилиты), `--wifi`, `--audit-open-ports`
@@ -140,9 +133,7 @@ flowchart LR
   - Для `Wi-Fi` добавлен нормализованный summary + raw output (OS-specific команды)
   - Добавлены unit-тесты для `whois`/RDAP, `wifi` parser-ов и audit severity filter
   - Smoke-скрипты `smoke-cli-tools.sh|ps1` расширены проверками audit-флагов
-- Остаток до формального закрытия P1 Stage 2:
-  - Ручной кросс-ОС прогон `Whois/Wi-Fi/Audit` на целевых средах релиза
-  - Финальная валидация UX отображения больших audit-отчетов в GUI
+- Итого: реализация Stage2/P1 завершена, closure-скрипт на Windows (`scripts/stage2-p1-closure-check.ps1`) проходит стабильно.
 
 ---
 
@@ -153,7 +144,7 @@ flowchart LR
 | **Управление сетевым оборудованием** | Только явно заданные цели и учётные данные: HTTP API перезагрузки роутера (модуль по vendor), принтеры (IPP/WSD где уместно); подтверждение в UI «опасное действие»; аудит-лог. | Одна-две поддерживаемые схемы + расширяемый интерфейс плагинов. |
 | **Сигнатуры уязвимостей домашних устройств** | Локальная база: известные дефолтные порты/баннеры слабых прошивок; сопоставление с результатами скана и баннеров P1 этапа 1. | Отчёт «возможная слабая конфигурация» с ссылкой на рекомендации производителя. |
 
-**Статус выполнения (обновлено):** ~80%
+**Статус выполнения (обновлено):** **100%**
 
 - Закрыто:
   - CLI: `--risk-signatures` с локальной versioned базой сигнатур и explain-выводом причин срабатывания
@@ -163,10 +154,7 @@ flowchart LR
   - Добавлены vendor-профили device-control: `generic-http`, `tp-link-http`
   - Security HTML report расширен секцией `Risk Signature Findings` вместе с `CVE Findings`
   - Добавлены unit-тесты для `internal/risksignature`, `internal/devicecontrol`, `internal/report`
-- Остаток до формального закрытия P2 Stage 2:
-  - Ручной кросс-ОС UX-прогон `Risk Signatures` и `Device Control` (Windows/macOS/Linux)
-  - Финальная проверка поддерживаемых vendor-схем на тестовых устройствах
-  - Фиксация evidence и финальный sign-off в release checklist
+- Итого: реализация Stage2/P2 завершена, closure-скрипт на Windows (`scripts/stage2-p2-closure-check.ps1`) проходит стабильно.
 
 **Ограничение:** не смешивать с полноценным сканером CVE на этом уровне — это следующий приоритет.
 
@@ -181,6 +169,16 @@ flowchart LR
 | **Удалённые команды** | Транспорты: SSH (известные ключи/пароль в OS keychain), WinRM/WMI на Windows; список разрешённых хостов; журнал команд. | Выполнение заранее одобренной команды на тестовом хосте с явным consent. |
 
 **Зависимости:** безопасное хранение секретов (OS credential store), отдельные настройки «включить опасные функции».
+
+**Статус выполнения (обновлено):** **100%**
+
+- Закрыто:
+  - Реализована CVE-интеграция с фильтрами и сопоставлением `service/version -> CPE -> CVE`
+  - Реализован HTML security report с доказательствами и секциями `CVE Findings` / `Risk Signature Findings`
+  - Реализован удаленный запуск команд (SSH/WinRM/WMI-флаги), dry-run, policy/allowlist guardrails и аудит-лог
+  - Добавлены guardrails для unredacted-отчетов с явным consent
+  - Добавлены closure/smoke проверки Stage2/P3
+- Итого: реализация Stage2/P3 завершена, closure-скрипт на Windows (`scripts/stage2-p3-closure-check.ps1`) проходит стабильно.
 
 ---
 

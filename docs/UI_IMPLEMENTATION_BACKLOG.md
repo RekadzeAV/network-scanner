@@ -69,6 +69,13 @@
   - [x] `Таблица`: markdown analytics summary
   - [x] `Карточки`: pie charts (`Протоколы`, `Типы устройств`)
 
+## Post-P5 (доставлено вне исходной PR-цепочки)
+
+- [x] Перетаскиваемые `VSplit` на вкладках `Сканирование`, `Топология`, `Инструменты` + сохранение в `Preferences`
+- [x] Адаптивные минимальные высоты панелей (`layoutAdaptiveMultiplier`, наблюдатель по размеру/scale)
+- [x] Сохранение split «результаты / Host Details» (`Devices`) + сброс через меню **«Вид»** и **Ctrl+Shift+L**
+- [x] Общий хелпер `maybePersistFloatPref` (`split_persist.go`) для записи offset в prefs
+
 ## Delivery Order (PR sequence)
 
 1. `PR-1`: `P0` + `P1.1`

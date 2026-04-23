@@ -117,9 +117,9 @@
 - [ ] Gephi import PASS
 ```
 
-Полная версия шаблона: `docs/D_TRACK_EVIDENCE_TEMPLATE.md`.
+Полная версия шаблона: [D_TRACK_EVIDENCE_TEMPLATE.md](D_TRACK_EVIDENCE_TEMPLATE.md).
 
-Готовый короткий вариант для вставки: `docs/D_TRACK_EVIDENCE_PR_SNIPPET.md`.
+Готовый короткий вариант для вставки: [D_TRACK_EVIDENCE_PR_SNIPPET.md](D_TRACK_EVIDENCE_PR_SNIPPET.md).
 
 ## D-Track Evidence (current snapshot)
 

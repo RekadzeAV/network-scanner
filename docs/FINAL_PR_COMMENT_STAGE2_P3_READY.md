@@ -16,11 +16,11 @@ Stage2/P3 по текущей ветке функционально закрыт
 
 Осталось до formal sign-off:
 - подтвердить Stage2/P3 closure в целевых Linux/macOS средах;
-- зафиксировать успешный CI evidence и URL run в `docs/P3_CLOSURE_CHECKLIST.md`.
+- зафиксировать успешный CI evidence и URL run в [P3_CLOSURE_CHECKLIST.md](P3_CLOSURE_CHECKLIST.md).
 
 Операционный runbook для sign-off:
-- `docs/RELEASE_OPERATIONS_CHEATSHEET.md` (раздел `Stage2/P3 Sign-off Commands`)
-- `docs/RELEASE_SUMMARY_STAGE2_P3.md`
-- `docs/RELEASE_READINESS_STAGE2_P3_PR_SNIPPET.md`
+- [RELEASE_OPERATIONS_CHEATSHEET.md](RELEASE_OPERATIONS_CHEATSHEET.md) (раздел `Stage2/P3 Sign-off Commands`)
+- [RELEASE_SUMMARY_STAGE2_P3.md](RELEASE_SUMMARY_STAGE2_P3.md)
+- [RELEASE_READINESS_STAGE2_P3_PR_SNIPPET.md](RELEASE_READINESS_STAGE2_P3_PR_SNIPPET.md)
 
 ---

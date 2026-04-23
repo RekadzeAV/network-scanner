@@ -9,7 +9,7 @@
 - Environment (OS/arch):
 - Build under test (commit/tag):
 
-## GUI Smoke (`docs/GUI_SMOKE_CHECKLIST.md`)
+## GUI Smoke ([GUI_SMOKE_CHECKLIST.md](GUI_SMOKE_CHECKLIST.md))
 
 - [ ] Пройден полностью
 - Notes:
@@ -30,7 +30,7 @@
   - Build duration / responsiveness:
   - Preview/save behavior:
 
-## GraphML Compatibility (`docs/GRAPHML_COMPATIBILITY_CHECK.md`)
+## GraphML Compatibility ([GRAPHML_COMPATIBILITY_CHECK.md](GRAPHML_COMPATIBILITY_CHECK.md))
 
 - [ ] yEd import verified
 - [ ] Gephi import verified
@@ -43,7 +43,7 @@
 
 - [ ] `CI` workflow green (`Lint`, `Test`, `Build and Smoke`)
 - [ ] Windows/Linux/macOS confirmed
-- [ ] CI URL recorded in `docs/P3_CLOSURE_CHECKLIST.md`
+- [ ] CI URL recorded in [P3_CLOSURE_CHECKLIST.md](P3_CLOSURE_CHECKLIST.md)
 - CI run URL:
 
 ## Final Decision

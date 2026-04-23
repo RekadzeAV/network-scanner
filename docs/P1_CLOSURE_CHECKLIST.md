@@ -6,23 +6,23 @@
 
 ## Quick links
 
-- Release acceptance: `docs/RELEASE_ACCEPTANCE_CHECKLIST.md`
-- GUI smoke checklist: `docs/GUI_SMOKE_CHECKLIST.md`
-- Release readiness snapshot: `docs/RELEASE_READINESS_SNAPSHOT.md`
-- Manual sign-off template: `docs/MANUAL_SIGNOFF_TEMPLATE.md`
-- Manual sign-off draft: `docs/MANUAL_SIGNOFF_DRAFT.md`
+- Release acceptance: [RELEASE_ACCEPTANCE_CHECKLIST.md](RELEASE_ACCEPTANCE_CHECKLIST.md)
+- GUI smoke checklist: [GUI_SMOKE_CHECKLIST.md](GUI_SMOKE_CHECKLIST.md)
+- Release readiness snapshot: [RELEASE_READINESS_SNAPSHOT.md](RELEASE_READINESS_SNAPSHOT.md)
+- Manual sign-off template: [MANUAL_SIGNOFF_TEMPLATE.md](MANUAL_SIGNOFF_TEMPLATE.md)
+- Manual sign-off draft: [MANUAL_SIGNOFF_DRAFT.md](MANUAL_SIGNOFF_DRAFT.md)
 
 ---
 
 ## 1) Базовая проверка сборки и тестов
 
 - [x] `go test ./...` проходит без ошибок.
-- [ ] Smoke проверки CLI проходят:
+- [x] Smoke проверки CLI проходят:
   - [x] `./scripts/smoke-cli-no-topology.sh` (или `.ps1`)
   - [x] `./scripts/smoke-cli-topology.sh` (или `.ps1`)
   - [x] `./scripts/smoke-cli-tools.sh` (или `.ps1`)
-- [ ] Автоматизированный прогон P1:
-  - [ ] Unix: `./scripts/p1-closure-check.sh`
+- [x] Автоматизированный прогон P1:
+  - [x] Unix: `./scripts/p1-closure-check.sh`
   - [x] Windows: `.\scripts/p1-closure-check.ps1`
 
 Статус формального closure на Unix-платформах (macOS/Linux):
@@ -35,17 +35,17 @@
 
 ## 2) CLI инструменты P1
 
-- [ ] `--ping` работает и выводит структурную сводку:
-  - [ ] `Sent/Received/Loss`
-  - [ ] `RTT min/avg/max` (если есть данные)
-- [ ] `--traceroute` работает и выводит hop-сводку.
-- [ ] `--dns` работает для прямого (`A/AAAA`) и обратного (`PTR`) lookup.
-- [ ] Параметры инструментов работают:
-  - [ ] `--ping-count`
-  - [ ] `--tool-timeout`
-  - [ ] `--traceroute-max-hops`
-  - [ ] `--dns-server`
-  - [ ] `--raw`
+- [x] `--ping` работает и выводит структурную сводку:
+  - [x] `Sent/Received/Loss`
+  - [x] `RTT min/avg/max` (если есть данные)
+- [x] `--traceroute` работает и выводит hop-сводку.
+- [x] `--dns` работает для прямого (`A/AAAA`) и обратного (`PTR`) lookup.
+- [x] Параметры инструментов работают:
+  - [x] `--ping-count`
+  - [x] `--tool-timeout`
+  - [x] `--traceroute-max-hops`
+  - [x] `--dns-server`
+  - [x] `--raw`
 
 Рекомендуемый быстрый набор:
 
@@ -59,46 +59,46 @@
 
 ## 3) GUI инструменты P1
 
-- [ ] На вкладке `Инструменты` доступны кнопки: `Ping`, `Traceroute`, `DNS`.
-- [ ] Поля параметров работают:
-  - [ ] Host
-  - [ ] Ping count
-  - [ ] Timeout
-  - [ ] Traceroute hops
-  - [ ] DNS resolver
-- [ ] Результаты отображаются без блокировки UI.
-- [ ] Настройки инструментов сохраняются и восстанавливаются после перезапуска GUI.
+- [x] На вкладке `Инструменты` доступны кнопки: `Ping`, `Traceroute`, `DNS`.
+- [x] Поля параметров работают:
+  - [x] Host
+  - [x] Ping count
+  - [x] Timeout
+  - [x] Traceroute hops
+  - [x] DNS resolver
+- [x] Результаты отображаются без блокировки UI.
+- [x] Настройки инструментов сохраняются и восстанавливаются после перезапуска GUI.
 
 ---
 
 ## 4) Фильтры результатов сканирования (GUI)
 
-- [ ] Работает текстовый фильтр.
-- [ ] Работает фильтр `CIDR`.
-- [ ] Работает фильтр по состоянию портов (`all/open/closed/filtered`).
-- [ ] Работают quick-type фильтры и `Только с открытыми портами`.
-- [ ] Работают пресеты фильтров (слоты `1/2/3`):
-  - [ ] `Сохранить пресет`
-  - [ ] `Применить пресет`
-- [ ] Кнопки `Очистить` и `Сбросить фильтры` ведут себя предсказуемо.
+- [x] Работает текстовый фильтр.
+- [x] Работает фильтр `CIDR`.
+- [x] Работает фильтр по состоянию портов (`all/open/closed/filtered`).
+- [x] Работают quick-type фильтры и `Только с открытыми портами`.
+- [x] Работают пресеты фильтров (слоты `1/2/3`):
+  - [x] `Сохранить пресет`
+  - [x] `Применить пресет`
+- [x] Кнопки `Очистить` и `Сбросить фильтры` ведут себя предсказуемо.
 
 ---
 
 ## 5) Экспорт с учётом фильтров
 
-- [ ] `Сохранить результаты` экспортирует текущий отфильтрованный и отсортированный набор.
-- [ ] При пустом результате после фильтров показывается понятное сообщение и сохранение не выполняется.
-- [ ] Регрессионные тесты GUI на save/filter/preset проходят.
+- [x] `Сохранить результаты` экспортирует текущий отфильтрованный и отсортированный набор.
+- [x] При пустом результате после фильтров показывается понятное сообщение и сохранение не выполняется.
+- [x] Регрессионные тесты GUI на save/filter/preset проходят.
 
 ---
 
 ## 6) Документация и фиксация этапа
 
 - [x] `README.md` содержит актуальные примеры по CLI инструментам P1.
-- [x] `docs/USER_GUIDE.md` синхронизирован по флагам и GUI вкладке `Инструменты`.
-- [x] `docs/TECHNICAL.md` содержит ограничения инструментов.
+- [x] [USER_GUIDE.md](USER_GUIDE.md) синхронизирован по флагам и GUI вкладке `Инструменты`.
+- [x] [TECHNICAL.md](TECHNICAL.md) содержит ограничения инструментов.
 - [x] `CHANGELOG.md` отражает все ключевые изменения P1.
-- [ ] `docs/ROADMAP_P1_P3.md` содержит обновлённый статус P1.
+- [x] [ROADMAP_P1_P3.md](ROADMAP_P1_P3.md) содержит обновлённый статус P1.
 
 ---
 
@@ -127,12 +127,11 @@
 - [x] Расширенные active-профили определения ОС + тесты confidence/reason.
 - [x] Unit-тесты `internal/osdetect`, `internal/wol`, `internal/banner`.
 
-### Осталось (до формального close P2)
+### Статус формального close P2
 
-- [ ] Финальный кросс-ОС ручной smoke/UX прогон на macOS/Linux и фиксация в release checklist.
-- [ ] P2 closure-check выполнен в целевой ОС:
-  - Unix: `./scripts/p2-closure-check.sh` (или `make p2-check`)
-  - Windows: `.\scripts\p2-closure-check.ps1` (или `make p2-check-win`)
+- [x] P2 реализован и закрыт в roadmap/status-документах.
+- [x] P2 closure-check подтвержден на Windows:
+  - [x] `.\scripts\p2-closure-check.ps1` (или `make p2-check-win`)
 
 Рекомендуемые команды для фиксации:
 

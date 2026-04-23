@@ -13,6 +13,16 @@
 
 ---
 
+## Operational links
+
+- Release acceptance: [RELEASE_ACCEPTANCE_CHECKLIST.md](RELEASE_ACCEPTANCE_CHECKLIST.md)
+- Release snapshot: [RELEASE_READINESS_SNAPSHOT.md](RELEASE_READINESS_SNAPSHOT.md)
+- Gap list: [RELEASE_READY_GAP_LIST.md](RELEASE_READY_GAP_LIST.md)
+- P0 sign-off runbook: [P0_SIGNOFF_RUNBOOK.md](P0_SIGNOFF_RUNBOOK.md)
+- Release operations cheat-sheet: [RELEASE_OPERATIONS_CHEATSHEET.md](RELEASE_OPERATIONS_CHEATSHEET.md)
+
+---
+
 ## 1) Кроссплатформенный execution-слой
 
 ### P3-01 Единый executor внешних команд
@@ -262,7 +272,7 @@
 
 ## 5) Документация и формальное закрытие P3
 
-### P3-16 Обновление `docs/TECHNICAL.md`
+### P3-16 Обновление `TECHNICAL.md`
 
 - [x] Добавить таблицу ограничений по ОС (права/firewall/raw sockets/ICMP).
   - Owner: `TBD`
@@ -275,7 +285,7 @@
 
 **Критерий приёмки:** технические ограничения описаны прозрачно и полно.
 
-### P3-17 Обновление `docs/USER_GUIDE.md`
+### P3-17 Обновление `USER_GUIDE.md`
 
 - [x] Добавить раздел troubleshooting по платформам.
   - Owner: `TBD`
@@ -325,6 +335,9 @@
 - CI run URL (green): `TBD`
 - Ссылка на release checklist / smoke evidence: `TBD`
 - Примечание: для API-скриптов CI требуется `GITHUB_TOKEN`.
+- Текущий blocker:
+  - `GITHUB_TOKEN` отсутствует в окружении.
+  - По `ci.yml` нет успешного recent run (последние доступные run: `failure`).
 
 Минимальные шаги для финального закрытия:
 1. Запустить CI workflow `CI` (UI GitHub Actions или `.\scripts\trigger-ci-workflow.ps1` / `./scripts/trigger-ci-workflow.sh`).
@@ -335,6 +348,13 @@
 Быстрый путь (одной командой):
 - Windows: `make p3-close-all-win` (после установки `GITHUB_TOKEN`)
 - Linux/macOS: `make p3-close-all` (после установки `GITHUB_TOKEN`)
+
+Быстрая разблокировка (PowerShell, текущая сессия):
+
+```powershell
+$env:GITHUB_TOKEN = "<your_token>"
+make p3-close-all-win
+```
 
 Критерий перевода статуса в `closed`:
 - `P3-18` полностью закрыт;

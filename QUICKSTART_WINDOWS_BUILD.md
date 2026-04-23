@@ -24,7 +24,7 @@ brew install mingw-w64
 ./scripts/build-windows.sh
 ```
 
-Собранный файл будет в `release/YYYY-MM-DD/network-scanner-gui-windows-amd64.exe`
+Собранный файл будет в `build/release/YYYY-MM-DD/network-scanner-gui-windows-amd64.exe`
 
 ## Подробная документация
 

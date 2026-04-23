@@ -10,7 +10,7 @@
 - Environment (OS/arch): `Windows amd64`
 - Build under test (commit/tag): `<to fill>`
 
-## GUI Smoke (`docs/GUI_SMOKE_CHECKLIST.md`)
+## GUI Smoke ([GUI_SMOKE_CHECKLIST.md](GUI_SMOKE_CHECKLIST.md))
 
 - [ ] Пройден полностью
 - Notes:
@@ -31,7 +31,7 @@
   - Build duration / responsiveness: `<to fill>`
   - Preview/save behavior: `<to fill>`
 
-## GraphML Compatibility (`docs/GRAPHML_COMPATIBILITY_CHECK.md`)
+## GraphML Compatibility ([GRAPHML_COMPATIBILITY_CHECK.md](GRAPHML_COMPATIBILITY_CHECK.md))
 
 - [ ] yEd import verified
 - [ ] Gephi import verified
@@ -44,7 +44,7 @@
 
 - [ ] `CI` workflow green (`Lint`, `Test`, `Build and Smoke`)
 - [ ] Windows/Linux/macOS confirmed
-- [ ] CI URL recorded in `docs/P3_CLOSURE_CHECKLIST.md`
+- [ ] CI URL recorded in [P3_CLOSURE_CHECKLIST.md](P3_CLOSURE_CHECKLIST.md)
 - CI run URL: `<to fill>`
 
 ## Already Confirmed (Auto Evidence)
@@ -63,7 +63,7 @@
   - [x] `scripts/p2-closure-check.ps1`
   - [x] `scripts/p3-closure-check.ps1`
 - [x] Security report sanity:
-  - [x] `release/security-report-sanity.html` generated
+  - [x] `build/release/security-report-sanity.html` generated
   - [x] sections present: `CVE Findings`, `Risk Signature Findings`
 
 ## Final Decision

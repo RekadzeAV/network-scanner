@@ -9,12 +9,12 @@ Write-Host ""
 # Создаем директорию для бинарников с датой сборки и номером
 $buildDate = Get-Date -Format "yyyy-MM-dd"
 $buildNum = 1
-$releaseDir = "release\$buildDate-$buildNum"
+$releaseDir = "build\release\$buildDate-$buildNum"
 
 # Находим следующий доступный номер сборки
 while (Test-Path $releaseDir) {
     $buildNum++
-    $releaseDir = "release\$buildDate-$buildNum"
+    $releaseDir = "build\release\$buildDate-$buildNum"
 }
 
 # Создаем директории

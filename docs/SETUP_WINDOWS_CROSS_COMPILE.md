@@ -100,7 +100,7 @@ go mod download
 - Установит зависимости
 - Настроит переменные окружения
 - Соберет Windows версию
-- Сохранит бинарник в `release/YYYY-MM-DD/`
+- Сохранит бинарник в `build/release/YYYY-MM-DD/`
 
 ### Ручная сборка
 
@@ -131,7 +131,7 @@ go build -ldflags="-s -w" -o network-scanner-gui-windows-amd64.exe ./cmd/gui
 Можно проверить тип файла:
 
 ```bash
-file release/YYYY-MM-DD/network-scanner-gui-windows-amd64.exe
+file build/release/YYYY-MM-DD/network-scanner-gui-windows-amd64.exe
 ```
 
 Должно показать: `PE32+ executable (console) x86-64`

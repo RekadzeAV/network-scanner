@@ -32,7 +32,7 @@ for /f "usebackq tokens=*" %%i in (`powershell -Command "Get-Date -Format 'yyyy-
 REM Находим следующий доступный номер сборки
 set BUILD_NUM=1
 :find_build_num
-set RELEASE_DIR=release\%BUILD_DATE%-%BUILD_NUM%%BUILD_SUFFIX%
+set RELEASE_DIR=build\release\%BUILD_DATE%-%BUILD_NUM%%BUILD_SUFFIX%
 if exist "%RELEASE_DIR%" (
     set /a BUILD_NUM+=1
     goto find_build_num

@@ -38,7 +38,7 @@
   - `Build and Smoke*`
   - `Stage2 P1 Closure`
   - `Stage2 P3 Closure`
-- Обновить sign-off поля в `docs/P3_CLOSURE_CHECKLIST.md` (run URL, owner, дата).
+- Обновить sign-off поля в [P3_CLOSURE_CHECKLIST.md](P3_CLOSURE_CHECKLIST.md) (run URL, owner, дата).
 
 ## Минимальный operational runbook
 
@@ -58,6 +58,6 @@
 
 ## Связанные документы для PR/sign-off
 
-- `docs/RELEASE_READINESS_STAGE2_P3_PR_SNIPPET.md` - short/long PR description blocks (EN/RU).
-- `docs/FINAL_PR_COMMENT_STAGE2_P3_READY.md` - готовый финальный PR-комментарий (RU).
-- `docs/P3_CLOSURE_CHECKLIST.md` - официальный чеклист закрытия и sign-off поля.
+- [RELEASE_READINESS_STAGE2_P3_PR_SNIPPET.md](RELEASE_READINESS_STAGE2_P3_PR_SNIPPET.md) - short/long PR description blocks (EN/RU).
+- [FINAL_PR_COMMENT_STAGE2_P3_READY.md](FINAL_PR_COMMENT_STAGE2_P3_READY.md) - готовый финальный PR-комментарий (RU).
+- [P3_CLOSURE_CHECKLIST.md](P3_CLOSURE_CHECKLIST.md) - официальный чеклист закрытия и sign-off поля.

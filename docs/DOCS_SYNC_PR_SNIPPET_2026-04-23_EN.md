@@ -6,4 +6,4 @@
 - Aligned root/docs/build-generated README command examples to remove syntax drift.
 - Added historical clarifications in `CHANGELOG.md` so `1.0.0` requirements/limitations are clearly marked as release-time context.
 
-Ref: `docs/DOCS_SYNC_SUMMARY_2026-04-23.md`
+Ref: [DOCS_SYNC_SUMMARY_2026-04-23.md](DOCS_SYNC_SUMMARY_2026-04-23.md)

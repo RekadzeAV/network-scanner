@@ -8,22 +8,31 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Ищем скомпилированное GUI приложение
 GUI_APP=""
 
-# Проверяем последнюю дату сборки в dist
-LATEST_DATE=$(ls -t "${SCRIPT_DIR}/dist" 2>/dev/null | head -1)
+# Релизные скрипты кладут GUI в build/release/<YYYY-MM-DD-N>/ (раньше использовался dist/)
+RELEASE_BASE=""
+if [ -d "${SCRIPT_DIR}/build/release" ]; then
+    RELEASE_BASE="${SCRIPT_DIR}/build/release"
+elif [ -d "${SCRIPT_DIR}/dist" ]; then
+    RELEASE_BASE="${SCRIPT_DIR}/dist"
+fi
+
+LATEST_DATE=""
+if [ -n "$RELEASE_BASE" ]; then
+    LATEST_DATE=$(ls -t "$RELEASE_BASE" 2>/dev/null | head -1)
+fi
 
 if [ -n "$LATEST_DATE" ]; then
-    # Проверяем универсальный бинарник
-    if [ -f "${SCRIPT_DIR}/dist/${LATEST_DATE}/gui-darwin-universal" ]; then
-        GUI_APP="${SCRIPT_DIR}/dist/${LATEST_DATE}/gui-darwin-universal"
-    # Проверяем по архитектуре
-    elif [ "$(uname -m)" = "arm64" ] && [ -f "${SCRIPT_DIR}/dist/${LATEST_DATE}/gui-darwin-arm64" ]; then
-        GUI_APP="${SCRIPT_DIR}/dist/${LATEST_DATE}/gui-darwin-arm64"
-    elif [ "$(uname -m)" = "x86_64" ] && [ -f "${SCRIPT_DIR}/dist/${LATEST_DATE}/gui-darwin-amd64" ]; then
-        GUI_APP="${SCRIPT_DIR}/dist/${LATEST_DATE}/gui-darwin-amd64"
+    R="${RELEASE_BASE}/${LATEST_DATE}"
+    if [ -f "${R}/gui-darwin-universal" ]; then
+        GUI_APP="${R}/gui-darwin-universal"
+    elif [ "$(uname -m)" = "arm64" ] && [ -f "${R}/gui-darwin-arm64" ]; then
+        GUI_APP="${R}/gui-darwin-arm64"
+    elif [ "$(uname -m)" = "x86_64" ] && [ -f "${R}/gui-darwin-amd64" ]; then
+        GUI_APP="${R}/gui-darwin-amd64"
     fi
 fi
 
-# Если не нашли в dist, проверяем корневую директорию
+# Если не нашли в build/release (или dist), проверяем корневую директорию
 if [ -z "$GUI_APP" ]; then
     if [ -f "${SCRIPT_DIR}/gui" ]; then
         GUI_APP="${SCRIPT_DIR}/gui"

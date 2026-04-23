@@ -47,6 +47,8 @@
 │   ├── build.sh                 # Скрипт сборки для Unix
 │   ├── build-macos.sh           # Скрипт сборки для macOS
 │   └── build.bat                # Скрипт сборки для Windows
+├── build/                       # Локальные артефакты (в .gitignore)
+│   └── release/                 # Выход релизных скриптов (YYYY-MM-DD-N/…)
 ├── go.mod                       # Зависимости проекта
 ├── go.sum                       # Checksums зависимостей
 ├── .gitignore                   # Игнорируемые файлы

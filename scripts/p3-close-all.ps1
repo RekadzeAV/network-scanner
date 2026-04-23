@@ -15,8 +15,15 @@ Set-Location $root
 
 Write-Host "== P3 close all (Windows) ==" -ForegroundColor Cyan
 
+. (Join-Path $PSScriptRoot "resolve-github-token.ps1")
 if (-not $env:GITHUB_TOKEN) {
-    throw "GITHUB_TOKEN is not set. Export a token with workflow/repo access before running p3-close-all."
+    throw @"
+GITHUB_TOKEN is not set. Use one of:
+  - `$env:GITHUB_TOKEN = '<token>'` in this session, or
+  - persist for your user: [Environment]::SetEnvironmentVariable('GITHUB_TOKEN','<token>','User'), or
+  - install GitHub CLI and run: gh auth login
+Then re-run p3-close-all.
+"@
 }
 if (-not (Get-Command powershell -ErrorAction SilentlyContinue)) {
     throw "PowerShell runtime is required."

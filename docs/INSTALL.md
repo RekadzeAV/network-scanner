@@ -37,8 +37,10 @@ go version
 cd "Сканер локальной сети"
 
 # Запустите скрипт сборки для macOS
-./build-macos.sh
+./scripts/build-macos.sh
 ```
+
+Результат скрипта — в каталоге **`build/release/<YYYY-MM-DD-N>/`** в корне репозитория (см. [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)).
 
 ### Ручная сборка
 
@@ -47,33 +49,42 @@ cd "Сканер локальной сети"
 go mod download
 
 # Сборка для Apple Silicon (M1/M2/M3)
-GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
+GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64 ./cmd/network-scanner
 
 # Или для Intel Mac
-GOOS=darwin GOARCH=amd64 go build -o network-scanner-darwin-amd64
+GOOS=darwin GOARCH=amd64 go build -o network-scanner-darwin-amd64 ./cmd/network-scanner
 ```
 
 ## Запуск
 
-После сборки запустите приложение:
+### После ручной сборки (`go build -o ...`)
+
+Исполняемый файл находится в текущем каталоге:
 
 ```bash
-# Для Apple Silicon
-./dist/network-scanner-darwin-arm64
+# Apple Silicon (имя совпадает с аргументом `-o`)
+./network-scanner-darwin-arm64
 
-# Для Intel
-./dist/network-scanner-darwin-amd64
-
-# Или универсальный бинарник (если создан)
-./dist/network-scanner-darwin-universal
+# Intel
+./network-scanner-darwin-amd64
 ```
+
+### После `./scripts/build-macos.sh`
+
+Бинарники лежат в **`build/release/<YYYY-MM-DD-N>/`**. Подставьте фактический подкаталог (его имя выводит скрипт при сборке):
+
+```bash
+./build/release/2026-04-24-1/network-scanner-darwin-arm64
+```
+
+Универсальный бинарник (если скрипт его создал): `./build/release/<YYYY-MM-DD-N>/network-scanner-darwin-universal`.
 
 ## Разрешения
 
 Для получения MAC адресов может потребоваться запуск с правами администратора:
 
 ```bash
-sudo ./dist/network-scanner-darwin-arm64
+sudo ./network-scanner-darwin-arm64
 ```
 
 ## Устранение проблем

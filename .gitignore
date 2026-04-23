@@ -12,9 +12,14 @@
 dist/
 Release/
 release/
+build/
 
 # Local test artifacts
 internal/ports/test.zip
+
+# CLI security report auto-names often land in repo root during manual runs
+/security-report-redacted-*.html
+/security-report-unredacted-*.html
 
 # Go
 *.exe

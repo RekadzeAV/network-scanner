@@ -108,7 +108,7 @@ go build -o network-scanner-gui.exe ./cmd/gui
 ```powershell
 .\scripts\build.bat
 ```
-✅ **Примечание**: Скрипт `build.bat` собирает обе версии (CLI и GUI) для всех поддерживаемых платформ.
+✅ **Примечание**: Скрипт `build.bat` собирает обе версии (CLI и GUI) для всех поддерживаемых платформ. Готовые файлы попадают в **`build\release\<YYYY-MM-DD-N>\`** (например **`windows\network-scanner.exe`**); см. [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md).
 
 **Запуск после сборки:**
 ```powershell

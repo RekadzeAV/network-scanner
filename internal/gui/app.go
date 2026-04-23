@@ -22,6 +22,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
@@ -62,187 +63,215 @@ type topologyBuildMetrics struct {
 
 // App представляет GUI приложение
 type App struct {
-	myApp                     fyne.App
-	myWindow                  fyne.Window
-	scanResults               []scanner.Result
-	networkScanner            *scanner.NetworkScanner
-	networkEntry              *widget.Entry
-	portRangeEntry            *widget.Entry
-	timeoutEntry              *widget.Entry
-	threadsEntry              *widget.Entry
-	scanUDPCheck              *widget.Check
-	scanBannersCheck          *widget.Check
-	scanOSActiveCheck         *widget.Check
-	scanVerboseLogsCheck      *widget.Check
-	scanVerboseInfoBtn        *widget.Button
-	autoProfileCheck          *widget.Check
-	autoProfileInfoBtn        *widget.Button
-	autoProfileStateText      *canvas.Text
-	presetQuickBtn            *widget.Button
-	presetBalBtn              *widget.Button
-	presetDeepBtn             *widget.Button
-	recommendedProfileBtn     *widget.Button
-	recommendedProfileInfoBtn *widget.Button
-	recommendedProfileBadge   *canvas.Text
-	scanTCPPortsCheck         *widget.Check
-	portWellKnownBtn          *widget.Button
-	portRegisteredBtn         *widget.Button
-	portDynamicBtn            *widget.Button
-	statusLabel               *widget.Label
-	resultsStateLabel         *widget.Label
-	autoProfileHeaderLabel    *widget.Label
-	diagnosticsLabel          *widget.Label
-	copyDiagnosticsBtn        *widget.Button
-	saveDiagnosticsBtn        *widget.Button
-	stageLabel                *widget.Label
-	progressBar               *widget.ProgressBar
-	scanControlsScroll        *container.Scroll
-	resultsScroll             *container.Scroll
-	resultsBody               *fyne.Container
-	resultsMode               string
-	resultsModeSel            *widget.RadioGroup
-	resultsSubMode            string
-	resultsSubModeSel         *widget.RadioGroup
-	resultsSort               string
-	resultsSortSel            *widget.Select
-	resultsFilterEnt          *widget.Entry
-	resultsFilterQuery        string
-	resultsCidrFilterEnt      *widget.Entry
-	resultsPortStateSel       *widget.Select
-	resultsPortStateMode      string
-	filtersInfoLabel          *widget.Label
-	resultsDiagnosticsGrid    *fyne.Container
-	resultsSortGrid           *fyne.Container
-	resultsCidrGrid           *fyne.Container
-	resultsPresetGrid         *fyne.Container
-	clearFilterBtn            *widget.Button
-	filterPresetSel           *widget.Select
-	saveFilterPresetBtn       *widget.Button
-	applyFilterPresetBtn      *widget.Button
-	chipLimitSel              *widget.Select
-	showRawBannersCheck       *widget.Check
-	maxPortChips              int
-	showRawBanners            bool
-	onlyWithOpenPorts         bool
-	openPortsOnlyCheck        *widget.Check
-	quickTypeChecks           map[string]*widget.Check
-	resetFiltersBtn           *widget.Button
-	scanButton                *widget.Button
-	stopButton                *widget.Button
-	saveButton                *widget.Button
-	buildTopoBtn              *widget.Button
-	stopTopoBtn               *widget.Button
-	saveTopoBtn               *widget.Button
-	copyPerfBtn               *widget.Button
-	savePerfBtn               *widget.Button
-	snmpCommEntry             *widget.Entry
-	snmpTimeoutEnt            *widget.Entry
-	lastTopology              *topology.Topology
-	lastSNMPReport            *snmpcollector.CollectReport
-	lastTopoMetric            topologyBuildMetrics
-	topologyText              *widget.RichText
-	topologyControlsScroll    *container.Scroll
-	topologyScroll            *container.Scroll
-	topologyStatus            *widget.Label
-	snmpStageLabel            *widget.Label
-	snmpProgress              *widget.ProgressBar
-	mainTabs                  *container.AppTabs
-	topologyImage             *canvas.Image
-	topologyImgBox            *fyne.Container
-	topologyImgScroll         *container.Scroll
-	topologyMainSplit         *container.Split
-	previewPath               string
-	refreshPreviewBtn         *widget.Button
-	zoomSelect                *widget.Select
-	openPreviewBtn            *widget.Button
-	topologyCancel            context.CancelFunc
-	toolsHostEntry            *widget.Entry
-	toolsPingCountEnt         *widget.Entry
-	toolsTimeoutEnt           *widget.Entry
-	toolsTraceHopsEnt         *widget.Entry
-	toolsDNSResolverEnt       *widget.Entry
-	toolsControlsScroll       *container.Scroll
-	toolButtonsGrid           *fyne.Container
-	operationsHeaderGrid      *fyne.Container
-	toolsOutput               *widget.RichText
-	toolsPingBtn              *widget.Button
-	toolsTraceBtn             *widget.Button
-	toolsDNSBtn               *widget.Button
-	toolsWhoisBtn             *widget.Button
-	toolsWiFiBtn              *widget.Button
-	toolsAuditBtn             *widget.Button
-	toolsAuditMinSeveritySel  *widget.Select
-	toolsRiskBtn              *widget.Button
-	toolsWOLMacEntry          *widget.Entry
-	toolsWOLBcastEntry        *widget.Entry
-	toolsWOLIfaceEntry        *widget.Entry
-	toolsWOLBtn               *widget.Button
-	toolsDeviceTargetEntry    *widget.Entry
-	toolsDeviceVendorEntry    *widget.Select
-	toolsDeviceUserEntry      *widget.Entry
-	toolsDevicePassEntry      *widget.Entry
-	toolsDeviceStatusBtn      *widget.Button
-	toolsDeviceRebootBtn      *widget.Button
-	operationsOutput          *widget.RichText
-	operationsSelect          *widget.Select
-	operationsSelectMap       map[string]string
-	selectedOperationID       string
-	operationsRetryBtn        *widget.Button
-	operationsCancelBtn       *widget.Button
-	operationsHistory         []Operation
-	confirmLargeScanBypass    bool
-	selectedHostIP            string
-	resultsState              string
-	resultsMainSplit          *container.Split
-	lastCanvasSize            fyne.Size
-	layoutProfile             string
-	pieChartCache             map[string]fyne.Resource
-	operations                *OperationsManager
+	myApp                       fyne.App
+	myWindow                    fyne.Window
+	scanResults                 []scanner.Result
+	networkScanner              *scanner.NetworkScanner
+	networkEntry                *widget.Entry
+	portRangeEntry              *widget.Entry
+	timeoutEntry                *widget.Entry
+	threadsEntry                *widget.Entry
+	scanUDPCheck                *widget.Check
+	scanBannersCheck            *widget.Check
+	scanOSActiveCheck           *widget.Check
+	scanVerboseLogsCheck        *widget.Check
+	scanVerboseInfoBtn          *widget.Button
+	autoProfileCheck            *widget.Check
+	autoProfileInfoBtn          *widget.Button
+	autoProfileStateText        *canvas.Text
+	presetQuickBtn              *widget.Button
+	presetBalBtn                *widget.Button
+	presetDeepBtn               *widget.Button
+	recommendedProfileBtn       *widget.Button
+	recommendedProfileInfoBtn   *widget.Button
+	recommendedProfileBadge     *canvas.Text
+	scanTCPPortsCheck           *widget.Check
+	portWellKnownBtn            *widget.Button
+	portRegisteredBtn           *widget.Button
+	portDynamicBtn              *widget.Button
+	statusLabel                 *widget.Label
+	resultsStateLabel           *widget.Label
+	autoProfileHeaderLabel      *widget.Label
+	diagnosticsLabel            *widget.Label
+	copyDiagnosticsBtn          *widget.Button
+	saveDiagnosticsBtn          *widget.Button
+	stageLabel                  *widget.Label
+	progressBar                 *widget.ProgressBar
+	scanControlsScroll          *container.Scroll
+	scanTabMainSplit            *container.Split
+	scanTabSplitInitialized     bool
+	scanTabSplitPersistPrimed   bool
+	lastPersistedScanSplit      float64
+	resultsScroll               *container.Scroll
+	resultsBody                 *fyne.Container
+	resultsMode                 string
+	resultsModeSel              *widget.RadioGroup
+	resultsSubMode              string
+	resultsSubModeSel           *widget.RadioGroup
+	resultsSort                 string
+	resultsSortSel              *widget.Select
+	resultsFilterEnt            *widget.Entry
+	resultsFilterQuery          string
+	resultsCidrFilterEnt        *widget.Entry
+	resultsPortStateSel         *widget.Select
+	resultsPortStateMode        string
+	filtersInfoLabel            *widget.Label
+	resultsDiagnosticsGrid      *fyne.Container
+	resultsSortGrid             *fyne.Container
+	resultsCidrGrid             *fyne.Container
+	resultsPresetGrid           *fyne.Container
+	clearFilterBtn              *widget.Button
+	filterPresetSel             *widget.Select
+	saveFilterPresetBtn         *widget.Button
+	applyFilterPresetBtn        *widget.Button
+	chipLimitSel                *widget.Select
+	showRawBannersCheck         *widget.Check
+	maxPortChips                int
+	showRawBanners              bool
+	onlyWithOpenPorts           bool
+	openPortsOnlyCheck          *widget.Check
+	quickTypeChecks             map[string]*widget.Check
+	resetFiltersBtn             *widget.Button
+	scanButton                  *widget.Button
+	stopButton                  *widget.Button
+	saveButton                  *widget.Button
+	buildTopoBtn                *widget.Button
+	stopTopoBtn                 *widget.Button
+	saveTopoBtn                 *widget.Button
+	copyPerfBtn                 *widget.Button
+	savePerfBtn                 *widget.Button
+	snmpCommEntry               *widget.Entry
+	snmpTimeoutEnt              *widget.Entry
+	lastTopology                *topology.Topology
+	lastSNMPReport              *snmpcollector.CollectReport
+	lastTopoMetric              topologyBuildMetrics
+	topologyText                *widget.RichText
+	topologyControlsScroll      *container.Scroll
+	topologyScroll              *container.Scroll
+	topologyStatus              *widget.Label
+	snmpStageLabel              *widget.Label
+	snmpProgress                *widget.ProgressBar
+	mainTabs                    *container.AppTabs
+	topologyImage               *canvas.Image
+	topologyImgBox              *fyne.Container
+	topologyImgScroll           *container.Scroll
+	topologyMainSplit           *container.Split
+	topologySplitInitialized    bool
+	topologySplitPersistPrimed  bool
+	lastPersistedTopologySplit  float64
+	previewPath                 string
+	refreshPreviewBtn           *widget.Button
+	zoomSelect                  *widget.Select
+	openPreviewBtn              *widget.Button
+	topologyCancel              context.CancelFunc
+	toolsHostEntry              *widget.Entry
+	toolsPingCountEnt           *widget.Entry
+	toolsTimeoutEnt             *widget.Entry
+	toolsTraceHopsEnt           *widget.Entry
+	toolsDNSResolverEnt         *widget.Entry
+	toolsControlsScroll         *container.Scroll
+	toolsTabMainSplit           *container.Split
+	toolsSplitInitialized       bool
+	toolsSplitPersistPrimed     bool
+	lastPersistedToolsSplit     float64
+	toolsOutputScroll           *container.Scroll
+	operationsOutputScroll      *container.Scroll
+	toolButtonsGrid             *fyne.Container
+	operationsHeaderGrid        *fyne.Container
+	toolsOutput                 *widget.RichText
+	toolsPingBtn                *widget.Button
+	toolsTraceBtn               *widget.Button
+	toolsDNSBtn                 *widget.Button
+	toolsWhoisBtn               *widget.Button
+	toolsWiFiBtn                *widget.Button
+	toolsAuditBtn               *widget.Button
+	toolsAuditMinSeveritySel    *widget.Select
+	toolsRiskBtn                *widget.Button
+	toolsWOLMacEntry            *widget.Entry
+	toolsWOLBcastEntry          *widget.Entry
+	toolsWOLIfaceEntry          *widget.Entry
+	toolsWOLBtn                 *widget.Button
+	toolsDeviceTargetEntry      *widget.Entry
+	toolsDeviceVendorEntry      *widget.Select
+	toolsDeviceUserEntry        *widget.Entry
+	toolsDevicePassEntry        *widget.Entry
+	toolsDeviceStatusBtn        *widget.Button
+	toolsDeviceRebootBtn        *widget.Button
+	operationsOutput            *widget.RichText
+	operationsSelect            *widget.Select
+	operationsSelectMap         map[string]string
+	selectedOperationID         string
+	operationsRetryBtn          *widget.Button
+	operationsCancelBtn         *widget.Button
+	operationsHistory           []Operation
+	confirmLargeScanBypass      bool
+	selectedHostIP              string
+	resultsState                string
+	resultsMainSplit            *container.Split
+	lastHostDetailsSplitKind    string // "V" (compact) или "H" — ориентация split с Host Details
+	rememberedHostDetailsSplitV float64
+	rememberedHostDetailsSplitH float64
+	hostDetailsSplitPrimedV     bool
+	hostDetailsSplitPrimedH     bool
+	lastPersistedHostDetailsV   float64
+	lastPersistedHostDetailsH   float64
+	lastCanvasSize              fyne.Size
+	lastCanvasScale             float32
+	layoutProfile               string
+	pieChartCache               map[string]fyne.Resource
+	operations                  *OperationsManager
 }
 
 const (
-	prefNetwork               = "scan.network"
-	prefPortRange             = "scan.port_range"
-	prefTimeout               = "scan.timeout_sec"
-	prefThreads               = "scan.threads"
-	prefScanUDP               = "scan.udp"
-	prefScanBanners           = "scan.grab_banners"
-	prefScanOSActive          = "scan.os_detect_active"
-	prefScanVerbosePortLogs   = "scan.verbose_port_logs"
-	prefScanTCPPorts          = "scan.scan_tcp_ports"
-	prefAutoProfile           = "scan.auto_profile"
-	prefPreset                = "scan.preset"
-	prefRecommendedBadge      = "scan.recommended_badge"
-	prefRecommendedBadgeClass = "scan.recommended_badge_class"
-	prefViewMode              = "scan.results_view_mode"
-	prefResultsSubMode        = "scan.results_submode"
-	prefSortMode              = "scan.results_sort_mode"
-	prefChipLimit             = "scan.results_chip_limit"
-	prefShowRawBanners        = "scan.results_show_raw_banners"
-	prefFilterQuery           = "scan.results_filter_query"
-	prefOnlyOpenPorts         = "scan.results_only_open_ports"
-	prefTypeFilters           = "scan.results_type_filters"
-	prefCidrFilter            = "scan.results_cidr_filter"
-	prefPortStateMode         = "scan.results_port_state_mode"
-	prefFilterPreset1         = "scan.results_filter_preset_1"
-	prefFilterPreset2         = "scan.results_filter_preset_2"
-	prefFilterPreset3         = "scan.results_filter_preset_3"
-	prefToolHost              = "scan.tools.host"
-	prefToolPingCount         = "scan.tools.ping_count"
-	prefToolTimeout           = "scan.tools.timeout_sec"
-	prefToolTraceHops         = "scan.tools.trace_hops"
-	prefToolResolver          = "scan.tools.dns_resolver"
-	prefToolAuditMinSeverity  = "scan.tools.audit_min_severity"
-	prefToolDeviceTarget      = "scan.tools.device_target"
-	prefToolDeviceVendor      = "scan.tools.device_vendor"
-	prefToolDeviceUser        = "scan.tools.device_user"
-	maxScanThreadsGUI         = 512
-	largeSubnetWarnHostGUI    = 512
-	autoProfileHostWarn       = 256
-	autoProfileHostLarge      = 512
-	autoProfileHostXLarge     = 1024
-	autoProfileHostXXLarge    = 2048
-	minWindowWidth            = 1024
+	prefNetwork                 = "scan.network"
+	prefPortRange               = "scan.port_range"
+	prefTimeout                 = "scan.timeout_sec"
+	prefThreads                 = "scan.threads"
+	prefScanUDP                 = "scan.udp"
+	prefScanBanners             = "scan.grab_banners"
+	prefScanOSActive            = "scan.os_detect_active"
+	prefScanVerbosePortLogs     = "scan.verbose_port_logs"
+	prefScanTCPPorts            = "scan.scan_tcp_ports"
+	prefAutoProfile             = "scan.auto_profile"
+	prefPreset                  = "scan.preset"
+	prefRecommendedBadge        = "scan.recommended_badge"
+	prefRecommendedBadgeClass   = "scan.recommended_badge_class"
+	prefViewMode                = "scan.results_view_mode"
+	prefResultsSubMode          = "scan.results_submode"
+	prefSortMode                = "scan.results_sort_mode"
+	prefChipLimit               = "scan.results_chip_limit"
+	prefShowRawBanners          = "scan.results_show_raw_banners"
+	prefFilterQuery             = "scan.results_filter_query"
+	prefOnlyOpenPorts           = "scan.results_only_open_ports"
+	prefTypeFilters             = "scan.results_type_filters"
+	prefCidrFilter              = "scan.results_cidr_filter"
+	prefPortStateMode           = "scan.results_port_state_mode"
+	prefFilterPreset1           = "scan.results_filter_preset_1"
+	prefFilterPreset2           = "scan.results_filter_preset_2"
+	prefFilterPreset3           = "scan.results_filter_preset_3"
+	prefToolHost                = "scan.tools.host"
+	prefToolPingCount           = "scan.tools.ping_count"
+	prefToolTimeout             = "scan.tools.timeout_sec"
+	prefToolTraceHops           = "scan.tools.trace_hops"
+	prefToolResolver            = "scan.tools.dns_resolver"
+	prefToolAuditMinSeverity    = "scan.tools.audit_min_severity"
+	prefToolDeviceTarget        = "scan.tools.device_target"
+	prefToolDeviceVendor        = "scan.tools.device_vendor"
+	prefToolDeviceUser          = "scan.tools.device_user"
+	prefScanTabSplitOffset      = "scan.ui.scan_tab_split_offset"
+	prefTopologyMainSplitOffset = "scan.ui.topology_main_split_offset"
+	prefToolsTabSplitOffset     = "scan.ui.tools_tab_split_offset"
+	prefHostDetailsSplitOffsetV = "scan.ui.host_details_split_offset_v"
+	prefHostDetailsSplitOffsetH = "scan.ui.host_details_split_offset_h"
+	maxScanThreadsGUI           = 512
+	largeSubnetWarnHostGUI      = 512
+	autoProfileHostWarn         = 256
+	autoProfileHostLarge        = 512
+	autoProfileHostXLarge       = 1024
+	autoProfileHostXXLarge      = 2048
+	minWindowWidth              = 1024
+
+	layoutResetInfoMessage = "Положение разделителей между панелями (вкладки Сканирование, Топология, Инструменты) и split «результаты / Host Details» восстановлено по умолчанию."
 )
 
 var deviceControlVendors = []string{
@@ -612,7 +641,7 @@ func (a *App) initUI() {
 	// Это ключевое изменение - используем Scroll контейнер для прокрутки результатов
 	a.resultsScroll = container.NewScroll(a.resultsBody)
 	// Минимальная высота области результатов (базово 75 dp × 1,55; прокрутка внутри)
-	a.resultsScroll.SetMinSize(fyne.NewSize(0, float32(75*1.55)))
+	a.resultsScroll.SetMinSize(fyne.NewSize(0, float32(75*0.775)))
 
 	portClassHint := widget.NewLabel("Системные (Well-Known) 0–1023 — резерв под известные и системные службы; для части портов нужны права администратора. Примеры: 21 FTP, 22 SSH, 25 SMTP, 53 DNS, 80 HTTP, 443 HTTPS. " +
 		"Зарегистрированные (Registered) 1024–49151 — назначения IANA для приложений (например 1433 MSSQL, 3306 MySQL, 8080 HTTP-alt). " +
@@ -724,14 +753,10 @@ func (a *App) initUI() {
 
 	a.scanControlsScroll = container.NewVScroll(scanControlsContainer)
 	a.scanControlsScroll.SetMinSize(fyne.NewSize(0, 220))
-	// Вкладка сканирования
-	scanTabContent := container.NewBorder(
-		a.scanControlsScroll,
-		nil,
-		nil,
-		nil,
-		resultsContainer,
-	)
+	// Вкладка сканирования: верх/низ с перетаскиваемой границей (высота панелей настраивается вручную).
+	a.scanTabMainSplit = container.NewVSplit(a.scanControlsScroll, resultsContainer)
+	a.scanTabMainSplit.Offset = 0.38
+	scanTabContent := a.scanTabMainSplit
 
 	// Вкладка топологии: отдельный экран с настройками и превью
 	a.topologyText = widget.NewRichText()
@@ -870,10 +895,10 @@ func (a *App) initUI() {
 	})
 	a.operationsRetryBtn.Disable()
 	a.operationsCancelBtn.Disable()
-	toolsOutputScroll := container.NewScroll(a.toolsOutput)
-	toolsOutputScroll.SetMinSize(fyne.NewSize(0, 380))
-	operationsScroll := container.NewScroll(a.operationsOutput)
-	operationsScroll.SetMinSize(fyne.NewSize(0, 150))
+	a.toolsOutputScroll = container.NewScroll(a.toolsOutput)
+	a.toolsOutputScroll.SetMinSize(fyne.NewSize(0, 380))
+	a.operationsOutputScroll = container.NewScroll(a.operationsOutput)
+	a.operationsOutputScroll.SetMinSize(fyne.NewSize(0, 150))
 	a.toolButtonsGrid = container.NewGridWithColumns(
 		5,
 		a.toolsPingBtn,
@@ -888,33 +913,33 @@ func (a *App) initUI() {
 		a.toolsDeviceRebootBtn,
 	)
 	a.toolsControlsScroll = container.NewVScroll(container.NewVBox(
-			widget.NewLabel("Хост/IP:"),
-			a.toolsHostEntry,
-			a.toolsDNSResolverEnt,
-			widget.NewLabel("Wake-on-LAN:"),
-			a.toolsWOLMacEntry,
-			a.toolsWOLBcastEntry,
-			a.toolsWOLIfaceEntry,
-			widget.NewLabel("Device Control (HTTP API):"),
-			a.toolsDeviceTargetEntry,
-			a.toolsDeviceVendorEntry,
-			widget.NewLabel("Профили: generic-http -> /api/{status|reboot}; tp-link-http -> /api/system/{status|reboot}."),
-			container.NewGridWithColumns(2, a.toolsDeviceUserEntry, a.toolsDevicePassEntry),
-			container.NewGridWithColumns(
-				2,
-				widget.NewLabel("Audit min severity:"),
-				a.toolsAuditMinSeveritySel,
-			),
-			container.NewGridWithColumns(
-				2,
-				widget.NewLabel("Ping пакетов:"),
-				a.toolsPingCountEnt,
-				widget.NewLabel("Timeout (сек):"),
-				a.toolsTimeoutEnt,
-				widget.NewLabel("Traceroute hops:"),
-				a.toolsTraceHopsEnt,
-			),
-			a.toolButtonsGrid,
+		widget.NewLabel("Хост/IP:"),
+		a.toolsHostEntry,
+		a.toolsDNSResolverEnt,
+		widget.NewLabel("Wake-on-LAN:"),
+		a.toolsWOLMacEntry,
+		a.toolsWOLBcastEntry,
+		a.toolsWOLIfaceEntry,
+		widget.NewLabel("Device Control (HTTP API):"),
+		a.toolsDeviceTargetEntry,
+		a.toolsDeviceVendorEntry,
+		widget.NewLabel("Профили: generic-http -> /api/{status|reboot}; tp-link-http -> /api/system/{status|reboot}."),
+		container.NewGridWithColumns(2, a.toolsDeviceUserEntry, a.toolsDevicePassEntry),
+		container.NewGridWithColumns(
+			2,
+			widget.NewLabel("Audit min severity:"),
+			a.toolsAuditMinSeveritySel,
+		),
+		container.NewGridWithColumns(
+			2,
+			widget.NewLabel("Ping пакетов:"),
+			a.toolsPingCountEnt,
+			widget.NewLabel("Timeout (сек):"),
+			a.toolsTimeoutEnt,
+			widget.NewLabel("Traceroute hops:"),
+			a.toolsTraceHopsEnt,
+		),
+		a.toolButtonsGrid,
 	))
 	a.toolsControlsScroll.SetMinSize(fyne.NewSize(0, 260))
 	a.operationsHeaderGrid = container.New(layout.NewGridLayoutWithColumns(2),
@@ -923,16 +948,16 @@ func (a *App) initUI() {
 		a.operationsRetryBtn,
 		a.operationsCancelBtn,
 	)
-	toolsTabContent := container.NewBorder(
+	toolsUpper := container.NewVBox(
 		a.toolsControlsScroll,
 		container.NewVBox(
 			a.operationsHeaderGrid,
-			operationsScroll,
+			a.operationsOutputScroll,
 		),
-		nil,
-		nil,
-		toolsOutputScroll,
 	)
+	a.toolsTabMainSplit = container.NewVSplit(toolsUpper, a.toolsOutputScroll)
+	a.toolsTabMainSplit.Offset = 0.44
+	toolsTabContent := a.toolsTabMainSplit
 
 	a.mainTabs = container.NewAppTabs(
 		container.NewTabItem("Сканирование", scanTabContent),
@@ -1456,6 +1481,143 @@ func (a *App) setPortRangeControlsEnabled(enabled bool) {
 	}
 }
 
+func (a *App) loadScanTabSplitFromPrefs() {
+	if a == nil || a.scanTabMainSplit == nil || a.myApp == nil {
+		return
+	}
+	v := a.myApp.Preferences().FloatWithFallback(prefScanTabSplitOffset, -1)
+	if v >= 0.16 && v <= 0.82 {
+		a.scanTabMainSplit.Offset = v
+		a.scanTabSplitInitialized = true
+		a.scanTabSplitPersistPrimed = true
+		a.lastPersistedScanSplit = v
+	}
+}
+
+func (a *App) clampScanTabMainSplitOffset() {
+	if a == nil || a.scanTabMainSplit == nil {
+		return
+	}
+	const lo, hi = 0.15, 0.78
+	o := a.scanTabMainSplit.Offset
+	if o < lo {
+		a.scanTabMainSplit.Offset = lo
+	} else if o > hi {
+		a.scanTabMainSplit.Offset = hi
+	}
+}
+
+func (a *App) maybePersistScanTabSplitOffset() {
+	if a == nil || a.scanTabMainSplit == nil || a.myApp == nil {
+		return
+	}
+	maybePersistFloatPref(a.myApp.Preferences(), prefScanTabSplitOffset, a.scanTabMainSplit.Offset,
+		&a.scanTabSplitPersistPrimed, &a.lastPersistedScanSplit, nil)
+}
+
+func (a *App) loadTopologySplitFromPrefs() {
+	if a == nil || a.topologyMainSplit == nil || a.myApp == nil {
+		return
+	}
+	v := a.myApp.Preferences().FloatWithFallback(prefTopologyMainSplitOffset, -1)
+	if v >= 0.18 && v <= 0.88 {
+		a.topologyMainSplit.Offset = v
+		a.topologySplitInitialized = true
+		a.topologySplitPersistPrimed = true
+		a.lastPersistedTopologySplit = v
+	}
+}
+
+func (a *App) clampTopologyMainSplitOffset() {
+	if a == nil || a.topologyMainSplit == nil {
+		return
+	}
+	const lo, hi = 0.18, 0.85
+	o := a.topologyMainSplit.Offset
+	if o < lo {
+		a.topologyMainSplit.Offset = lo
+	} else if o > hi {
+		a.topologyMainSplit.Offset = hi
+	}
+}
+
+func (a *App) maybePersistTopologySplitOffset() {
+	if a == nil || a.topologyMainSplit == nil || a.myApp == nil {
+		return
+	}
+	maybePersistFloatPref(a.myApp.Preferences(), prefTopologyMainSplitOffset, a.topologyMainSplit.Offset,
+		&a.topologySplitPersistPrimed, &a.lastPersistedTopologySplit, nil)
+}
+
+func (a *App) loadToolsTabSplitFromPrefs() {
+	if a == nil || a.toolsTabMainSplit == nil || a.myApp == nil {
+		return
+	}
+	v := a.myApp.Preferences().FloatWithFallback(prefToolsTabSplitOffset, -1)
+	if v >= 0.22 && v <= 0.82 {
+		a.toolsTabMainSplit.Offset = v
+		a.toolsSplitInitialized = true
+		a.toolsSplitPersistPrimed = true
+		a.lastPersistedToolsSplit = v
+	}
+}
+
+func (a *App) clampToolsTabMainSplitOffset() {
+	if a == nil || a.toolsTabMainSplit == nil {
+		return
+	}
+	const lo, hi = 0.22, 0.78
+	o := a.toolsTabMainSplit.Offset
+	if o < lo {
+		a.toolsTabMainSplit.Offset = lo
+	} else if o > hi {
+		a.toolsTabMainSplit.Offset = hi
+	}
+}
+
+func (a *App) maybePersistToolsTabSplitOffset() {
+	if a == nil || a.toolsTabMainSplit == nil || a.myApp == nil {
+		return
+	}
+	maybePersistFloatPref(a.myApp.Preferences(), prefToolsTabSplitOffset, a.toolsTabMainSplit.Offset,
+		&a.toolsSplitPersistPrimed, &a.lastPersistedToolsSplit, nil)
+}
+
+func (a *App) loadHostDetailsSplitFromPrefs() {
+	if a == nil || a.myApp == nil {
+		return
+	}
+	p := a.myApp.Preferences()
+	if v := p.FloatWithFallback(prefHostDetailsSplitOffsetV, -1); v >= 0.28 && v <= 0.92 {
+		a.rememberedHostDetailsSplitV = v
+		a.hostDetailsSplitPrimedV = true
+		a.lastPersistedHostDetailsV = v
+	}
+	if h := p.FloatWithFallback(prefHostDetailsSplitOffsetH, -1); h >= 0.35 && h <= 0.90 {
+		a.rememberedHostDetailsSplitH = h
+		a.hostDetailsSplitPrimedH = true
+		a.lastPersistedHostDetailsH = h
+	}
+}
+
+func (a *App) maybePersistHostDetailsSplitOffsets() {
+	if a == nil || a.resultsMainSplit == nil || a.myApp == nil {
+		return
+	}
+	p := a.myApp.Preferences()
+	cur := a.resultsMainSplit.Offset
+	switch a.lastHostDetailsSplitKind {
+	case "V":
+		maybePersistFloatPref(p, prefHostDetailsSplitOffsetV, cur, &a.hostDetailsSplitPrimedV, &a.lastPersistedHostDetailsV, func(v float64) {
+			a.rememberedHostDetailsSplitV = v
+		})
+	case "H":
+		maybePersistFloatPref(p, prefHostDetailsSplitOffsetH, cur, &a.hostDetailsSplitPrimedH, &a.lastPersistedHostDetailsH, func(v float64) {
+			a.rememberedHostDetailsSplitH = v
+		})
+	}
+}
+
 func (a *App) loadScanSettings() {
 	if a == nil || a.myApp == nil {
 		return
@@ -1640,6 +1802,10 @@ func (a *App) loadScanSettings() {
 			a.resultsPortStateSel.SetSelected("Все")
 		}
 	}
+	a.loadScanTabSplitFromPrefs()
+	a.loadTopologySplitFromPrefs()
+	a.loadToolsTabSplitFromPrefs()
+	a.loadHostDetailsSplitFromPrefs()
 	a.renderScanResultsView()
 }
 
@@ -3361,8 +3527,83 @@ func topoPortName(p *topology.Port) string {
 	return "-"
 }
 
+func (a *App) resetUIPanelLayoutWithFeedback() {
+	if a == nil {
+		return
+	}
+	a.resetUIPanelLayout()
+	if a.myWindow != nil {
+		dialog.ShowInformation("Вид", layoutResetInfoMessage, a.myWindow)
+	}
+}
+
+func (a *App) resetUIPanelLayout() {
+	if a == nil || a.myApp == nil {
+		return
+	}
+	p := a.myApp.Preferences()
+	p.RemoveValue(prefScanTabSplitOffset)
+	p.RemoveValue(prefTopologyMainSplitOffset)
+	p.RemoveValue(prefToolsTabSplitOffset)
+	p.RemoveValue(prefHostDetailsSplitOffsetV)
+	p.RemoveValue(prefHostDetailsSplitOffsetH)
+
+	a.rememberedHostDetailsSplitV = 0
+	a.rememberedHostDetailsSplitH = 0
+	a.lastHostDetailsSplitKind = ""
+	a.hostDetailsSplitPrimedV = false
+	a.hostDetailsSplitPrimedH = false
+
+	prof := strings.TrimSpace(a.layoutProfile)
+	if prof == "" {
+		prof = "normal"
+	}
+	if a.myWindow != nil {
+		fyne.Do(func() {
+			a.applyDefaultSplitOffsetsForProfile(prof)
+			a.renderScanResultsView()
+			if a.myWindow.Content() != nil {
+				a.myWindow.Content().Refresh()
+			}
+		})
+	} else {
+		a.applyDefaultSplitOffsetsForProfile(prof)
+		a.renderScanResultsView()
+	}
+}
+
+func (a *App) setupMainMenu() {
+	if a == nil || a.myWindow == nil {
+		return
+	}
+	resetItem := fyne.NewMenuItem("Сбросить расположение панелей (Ctrl+Shift+L)", func() {
+		a.resetUIPanelLayoutWithFeedback()
+	})
+	viewMenu := fyne.NewMenu("Вид", resetItem)
+	a.myWindow.SetMainMenu(fyne.NewMainMenu(viewMenu))
+}
+
+func (a *App) setupLayoutResetShortcut() {
+	if a == nil || a.myWindow == nil {
+		return
+	}
+	c := a.myWindow.Canvas()
+	if c == nil {
+		return
+	}
+	sc := &desktop.CustomShortcut{
+		KeyName:  fyne.KeyL,
+		Modifier: fyne.KeyModifierControl | fyne.KeyModifierShift,
+	}
+	c.AddShortcut(sc, func(fyne.Shortcut) {
+		a.resetUIPanelLayoutWithFeedback()
+	})
+}
+
 // Run запускает GUI приложение
 func (a *App) Run() {
+	a.setupMainMenu()
+	a.setupLayoutResetShortcut()
 	a.myWindow.SetOnClosed(func() {
 		if a.previewPath != "" {
 			_ = os.Remove(a.previewPath)

@@ -9,7 +9,7 @@ The project needs a stable engineering baseline for repeatable builds, test exec
 - Introduce unified command entry points in `Makefile`.
 - Add bootstrap scripts for Linux/macOS and Windows.
 - Add deployment + rollback documentation.
-- Keep a canonical roadmap entry in `docs/ROADMAP.md`.
+- Keep a canonical roadmap entry in [ROADMAP.md](../ROADMAP.md).
 - Require Conventional Commits and documentation updates in `CONTRIBUTING.md`.
 
 ## Alternatives

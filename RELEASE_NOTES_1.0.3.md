@@ -66,6 +66,8 @@
 .\scripts\build.bat
 ```
 
+Релизные скрипты складывают артефакты в **`build/release/<YYYY-MM-DD-N>/`** (на Windows — в подкаталоге **`windows\`**); см. `docs/BUILD_STRUCTURE.md`.
+
 ## ⚠️ Важные замечания
 
 1. **CGO обязателен для GUI версий:**

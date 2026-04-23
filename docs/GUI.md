@@ -62,6 +62,8 @@ func main() {
 go build -o network-scanner-gui ./cmd/gui
 ```
 
+Релизный скрипт **`./scripts/build-gui-release.sh`** сохраняет GUI-бинарники в **`build/release/<YYYY-MM-DD-N>/`** в корне репозитория. На macOS **`./launch-gui.sh`** подхватывает последнюю такую папку (при отсутствии — устаревший **`dist/`**). Подробнее: [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md).
+
 ### Запуск
 
 ```bash

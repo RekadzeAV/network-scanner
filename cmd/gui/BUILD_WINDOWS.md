@@ -18,7 +18,7 @@ go build -ldflags="-s -w -H windowsgui" -o network-scanner-gui.exe ./cmd/gui
 .\scripts\build.bat
 ```
 
-Скрипт автоматически добавит флаг `-H windowsgui` для GUI версии.
+Скрипт автоматически добавит флаг `-H windowsgui` для GUI версии. Собранные файлы — в **`build\release\<YYYY-MM-DD-N>\windows\`** в корне репозитория (см. [BUILD_STRUCTURE.md](../../docs/BUILD_STRUCTURE.md)).
 
 ### Кросскомпиляция из Linux/macOS
 

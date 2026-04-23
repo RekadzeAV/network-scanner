@@ -49,6 +49,10 @@
   - Runtime-перестройка grid-блоков фильтров/сортировки/operations в compact режиме (1-2 колонки)
   - Адаптивный рендер `Host Details` (вертикальный split в compact) и укороченные заголовки/колонки таблицы
   - Панели управления вкладок `Сканирование`, `Топология`, `Инструменты` переведены на `VScroll` для малых высот окна
+  - Адаптивные минимальные высоты панелей по размеру окна, «диагонали» области и `Canvas().Scale()`; перетаскиваемые `VSplit` на вкладках `Сканирование`, `Топология`, `Инструменты` с сохранением в `Preferences` (`scan.ui.scan_tab_split_offset`, `scan.ui.topology_main_split_offset`, `scan.ui.tools_tab_split_offset`)
+  - Сохранение split «результаты / Host Details» в подрежиме `Devices` (`scan.ui.host_details_split_offset_v` / `_h` для `VSplit`/`HSplit`)
+  - Меню **«Вид»** и сочетание **Ctrl+Shift+L**: сброс расположения панелей и указанных ключей к значениям по умолчанию
+  - Вынесена общая логика «прогрев + запись offset в Preferences» в `internal/gui/split_persist.go` (`maybePersistFloatPref`)
 - **Operations Runtime в GUI инструментах:**
   - Добавлен `OperationsManager` (`queued/running/success/failed/canceled`) с `Run/Cancel/Retry/List/Subscribe`
   - Во вкладке `Инструменты` добавлен `Operations Center` (история операций + `Retry/Cancel`)
@@ -146,6 +150,10 @@
   - В `scanner` добавлен адаптивный лимит параллельных порт-проверок на хост (ограничение суммарной нагрузки)
   - В GUI добавлен управляемый автопрофиль сканирования (чекбокс + подсказка + сохранение в preferences)
   - Добавлен цветовой индикатор состояния автопрофиля в UI (`Автопрофиль: ВКЛ/ВЫКЛ`) и кнопка с пояснением логики автокоррекции
+- **Вкладка `Сканирование` (layout):**
+  - Вертикальный `VSplit` между панелью управления сканом и блоком результатов (перетаскиваемая граница, стартовый offset `0.38`)
+  - Вывод инструментов и операций во вкладке `Инструменты` обёрнут в именованные `Scroll` на `App` для стабильных минимальных высот
+  - В watcher адаптивного layout сохраняется `Canvas().Scale()` вместе с размером окна, чтобы множитель layout учитывал DPI/масштаб интерфейса
 
 ### Документация
 - Обновлены `README.md`, `docs/USER_GUIDE.md`, `docs/TECHNICAL.md`, `docs/GUI_SMOKE_CHECKLIST.md` под новые CLI/GUI инструменты, фильтры и поведение сохранения.
@@ -170,6 +178,38 @@
 - Добавлен `docs/RELEASE_SUMMARY_STAGE2_P3.md` с кратким статусом закрытия Stage2/P3 и списком remaining шагов до formal close.
 - Добавлен `docs/RELEASE_READINESS_STAGE2_P3_PR_SNIPPET.md` (ready-to-paste PR block для Stage2/P3, EN/RU short/long).
 - Добавлен `docs/FINAL_PR_COMMENT_STAGE2_P3_READY.md` (готовый финальный PR-комментарий по Stage2/P3, RU).
+- Синхронизированы статусы фаз до `100%` в `docs/ROADMAP_P1_P3.md` для Stage 1 (`P1/P2/P3`) и Stage 2 (`P1/P2/P3`) по подтвержденным closure-прогонам Windows.
+- Полностью актуализирован `docs/DETAILED_BACKLOG_P3_STAGE2.md` (чекбоксы Stage 1 P3 и Stage 2 P1/P2/P3 переведены в закрытое состояние).
+- Актуализирован `docs/P1_CLOSURE_CHECKLIST.md` (противоречия со статусами roadmap устранены, блок `Post-P1` синхронизирован по P2).
+- Добавлены operational документы:
+  - `docs/RELEASE_READY_GAP_LIST.md` (приоритизированный backlog `P0/P1/P2` до финального sign-off)
+  - `docs/CHECKLIST_STATUS_INDEX.md` (единый индекс статусов checklist-документов)
+  - `docs/P0_SIGNOFF_RUNBOOK.md` (пошаговый runbook закрытия блокирующего `P0`)
+- Обновлены ссылки в `docs/README.md`, `docs/RELEASE_READINESS_SNAPSHOT.md`, `docs/RELEASE_ACCEPTANCE_CHECKLIST.md` для единой навигации по release/closure контексту.
+- В `docs/P3_CLOSURE_CHECKLIST.md` и `docs/RELEASE_ACCEPTANCE_CHECKLIST.md` явно зафиксирован текущий CI blocker (`GITHUB_TOKEN` отсутствует, последние `ci.yml` runs = `failure`) и шаги разблокировки.
+
+### Исправлено
+- `scripts/stage2-p3-closure-check.ps1`: устранены ложные падения PowerShell на ожидаемых stderr/warning сообщениях native-команд; closure-check стабильно проходит end-to-end на Windows.
+
+### Инфраструктура релизного закрытия
+- Добавлен preflight-скрипт `scripts/p0-signoff-preflight.ps1` и Makefile-цель `p0-preflight-win` для раннего выявления блокеров (`GITHUB_TOKEN`, runtime для Unix closure, green CI evidence).
+- Обновлен `docs/RELEASE_OPERATIONS_CHEATSHEET.md`: добавлен раздел `P0 preflight` и ссылка на `docs/P0_SIGNOFF_RUNBOOK.md` для быстрого разбора блокеров перед CI sign-off.
+- Обновлен `docs/RELEASE_READINESS_SNAPSHOT.md`: зафиксирован текущий preflight-статус `BLOCKED` и добавлена команда быстрой проверки `p0-signoff-preflight`.
+- Обновлены навигационные ссылки в `docs/P3_CLOSURE_CHECKLIST.md` и `docs/RELEASE_ACCEPTANCE_CHECKLIST.md` (runbook/gap/index/cheatsheet).
+- Обновлен `docs/README.md`: добавлен quick-start блок preflight перед финальным sign-off.
+- Обновлен `docs/RELEASE_ACCEPTANCE_CHECKLIST.md`: добавлен `Quick unblock` блок (preflight + `p3-close-all-win`).
+- Обновлен `docs/RELEASE_READY_GAP_LIST.md`: добавлена ссылка на `docs/RELEASE_OPERATIONS_CHEATSHEET.md` как быстрый операционный набор.
+- Добавлен `docs/STAGE2_100_COMMIT_READY.md` с кратким commit-ready итогом Stage2 и унифицированным quick-unblock сценарием.
+- Обновлен корневой `README.md`: добавлена ссылка на `docs/STAGE2_100_COMMIT_READY.md` в релизно-операционном индексе.
+- Добавлен `docs/COMMIT_READY_STAGE2_SIGNOFF.md` с готовыми вариантами commit message и составом Stage2 sign-off пакета.
+- Обновлены `docs/USER_GUIDE.md` и `docs/TECHNICAL.md`: добавлен preflight-блок (`p0-signoff-preflight`) в секции closure/sign-off.
+- Обновлен `docs/ROADMAP.md` (entry-point): добавлены ссылки на release/closure operational документы (`acceptance/snapshot/gap/index/runbook/stage2 commit-ready`).
+- Обновлен `docs/RELEASE_OPERATIONS_CHEATSHEET.md`: добавлены ссылки на `STAGE2_100_COMMIT_READY.md` и `COMMIT_READY_STAGE2_SIGNOFF.md`.
+- Добавлен `scripts/docs-link-check.ps1` + Makefile-цель `docs-link-check-win` для проверки локальных markdown-ссылок; добавлен раздел `Docs sanity` в `docs/RELEASE_OPERATIONS_CHEATSHEET.md`.
+- Обновлены `README.md` и `docs/README.md`: добавлены команды быстрого запуска `docs-link-check` перед коммитом.
+- Добавлен агрегирующий статус-скрипт `scripts/stage2-signoff-status.ps1` и Makefile-цель `stage2-signoff-status-win` (closure + docs sanity + P0 preflight одной командой); добавлен раздел в `docs/RELEASE_OPERATIONS_CHEATSHEET.md`.
+- Обновлены `README.md`, `docs/README.md` и `docs/P0_SIGNOFF_RUNBOOK.md`: добавлены команды запуска `stage2-signoff-status` как единой точки контроля готовности Stage2 sign-off.
+- `.gitignore`: добавлен каталог `build/` для локальных и релизных артефактов (скрипты сборки выводят в `build/release/`); корневой `release/` в ignore для совместимости со старыми локальными путями; добавлены шаблоны `security-report-{redacted,unredacted}-*.html` в корне (ручные прогоны `--security-report-file auto`).
 
 ### D-Track evidence (template for release notes)
 

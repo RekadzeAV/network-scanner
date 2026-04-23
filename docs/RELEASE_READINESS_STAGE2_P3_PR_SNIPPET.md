@@ -38,7 +38,7 @@ CI/операционные проверки обновлены до strict-ва
 
 ### Remaining before formal close
 - Run Stage2/P3 closure on target Linux/macOS environments.
-- Capture successful CI evidence and update `docs/P3_CLOSURE_CHECKLIST.md` final sign-off fields.
+- Capture successful CI evidence and update [P3_CLOSURE_CHECKLIST.md](P3_CLOSURE_CHECKLIST.md) final sign-off fields.
 
 ## Long (RU)
 
@@ -64,4 +64,4 @@ CI/операционные проверки обновлены до strict-ва
 
 ### Что осталось до formal close
 - Выполнить Stage2/P3 closure в целевых Linux/macOS средах.
-- Зафиксировать успешный CI evidence и обновить финальные поля в `docs/P3_CLOSURE_CHECKLIST.md`.
+- Зафиксировать успешный CI evidence и обновить финальные поля в [P3_CLOSURE_CHECKLIST.md](P3_CLOSURE_CHECKLIST.md).

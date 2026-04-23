@@ -81,15 +81,15 @@ go build -o network-scanner
 
 # Или используйте скрипты сборки:
 # macOS (рекомендуется)
-chmod +x build-macos.sh
-./build-macos.sh
+chmod +x scripts/build-macos.sh
+./scripts/build-macos.sh
 
 # Linux/macOS (все платформы)
-chmod +x build.sh
-./build.sh
+chmod +x scripts/build.sh
+./scripts/build.sh
 
-# Windows
-build.bat
+# Windows (из cmd/PowerShell в корне репозитория)
+# scripts\build.bat
 
 # Или соберите для других платформ:
 # Linux 64-bit
@@ -104,6 +104,8 @@ GOOS=darwin GOARCH=amd64 go build -o network-scanner-darwin-amd64
 # macOS ARM64 (Apple Silicon)
 GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 ```
+
+Релизные скрипты (`scripts/build.sh`, `scripts/build-macos.sh`, `scripts/build.bat` и др.) складывают готовые бинарники в **`build/release/`** в корне репозитория (см. [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)).
 
 ## Использование
 
@@ -214,8 +216,18 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 
 - **[RELEASE_ACCEPTANCE_CHECKLIST.md](RELEASE_ACCEPTANCE_CHECKLIST.md)** - Финальный чеклист приемки перед релизом
 - **[P1_CLOSURE_CHECKLIST.md](P1_CLOSURE_CHECKLIST.md)** - Формальное закрытие Stage 1 / P1
+- **[P3_CLOSURE_CHECKLIST.md](P3_CLOSURE_CHECKLIST.md)** - Формальное закрытие Stage 1 / P3 и CI sign-off
 - **[GUI_SMOKE_CHECKLIST.md](GUI_SMOKE_CHECKLIST.md)** - Ручной smoke-чеклист GUI
 - **[RELEASE_READINESS_SNAPSHOT.md](RELEASE_READINESS_SNAPSHOT.md)** - Текущий снимок готовности релиза
+- **[CHECKLIST_STATUS_INDEX.md](CHECKLIST_STATUS_INDEX.md)** - Единый индекс статусов всех checklist-документов
+- **[RELEASE_READY_GAP_LIST.md](RELEASE_READY_GAP_LIST.md)** - Короткий backlog оставшихся задач до финального sign-off
+- **[P0_SIGNOFF_RUNBOOK.md](P0_SIGNOFF_RUNBOOK.md)** - Пошаговый runbook закрытия блокирующего P0 (Cross-OS + CI evidence)
+- **[RELEASE_OPERATIONS_CHEATSHEET.md](RELEASE_OPERATIONS_CHEATSHEET.md)** - Команды релизного прогона и расположение локальных бинарников (`build/release/`)
+- **[BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)** - Структура каталогов релизной сборки
+- **[STAGE2_100_COMMIT_READY.md](STAGE2_100_COMMIT_READY.md)** - Краткий commit-ready итог по Stage2 и remaining шагам sign-off
+- **[COMMIT_READY_STAGE2_SIGNOFF.md](COMMIT_READY_STAGE2_SIGNOFF.md)** - Готовые варианты commit message для пакета Stage2 sign-off
+- **[ROADMAP_P1_P3.md](ROADMAP_P1_P3.md)** - Канонический статус фаз Stage 1/2 (`P1..P3`)
+- **[DETAILED_BACKLOG_P3_STAGE2.md](DETAILED_BACKLOG_P3_STAGE2.md)** - Детализированный backlog Stage 1 P3 + Stage 2 P1/P2/P3
 - **[RELEASE_READINESS_PR_READY.md](RELEASE_READINESS_PR_READY.md)** - Готовые short/long блоки статуса для PR
 - **[DOCS_SYNC_SUMMARY_2026-04-23.md](DOCS_SYNC_SUMMARY_2026-04-23.md)** - Сводка синхронизации документации
 - **[DOCS_SYNC_PR_SNIPPET_2026-04-23.md](DOCS_SYNC_PR_SNIPPET_2026-04-23.md)** - Короткий RU блок для PR-комментария
@@ -223,6 +235,32 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 - **[FINAL_PR_COMMENT_READY.md](FINAL_PR_COMMENT_READY.md)** - Финальный ready-to-paste комментарий в PR
 - **[MANUAL_SIGNOFF_TEMPLATE.md](MANUAL_SIGNOFF_TEMPLATE.md)** - Шаблон ручного sign-off
 - **[MANUAL_SIGNOFF_DRAFT.md](MANUAL_SIGNOFF_DRAFT.md)** - Черновик sign-off с предзаполненными auto-evidence
+
+### Быстрый preflight перед финальным sign-off (Windows)
+
+```powershell
+.\scripts\p0-signoff-preflight.ps1
+# или
+make p0-preflight-win
+```
+
+Preflight проверяет критические блокеры (`GITHUB_TOKEN`, рабочий `bash/sh` runtime для Unix closure, наличие успешного recent `ci.yml` run).
+
+### Единый агрегированный статус Stage2 sign-off (Windows)
+
+```powershell
+.\scripts\stage2-signoff-status.ps1
+# или
+make stage2-signoff-status-win
+```
+
+### Docs sanity: проверка локальных markdown-ссылок (Windows)
+
+```powershell
+.\scripts\docs-link-check.ps1
+# или
+make docs-link-check-win
+```
 
 - **[Инструкция по эксплуатации](../Инструкция%20по%20эксплуатации.md)** - Полная инструкция по эксплуатации программы (русский язык)
 - **[README.md](../README.md)** - Основная документация проекта

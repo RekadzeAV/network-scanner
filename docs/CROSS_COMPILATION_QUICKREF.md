@@ -76,9 +76,9 @@ go build -o network-scanner-gui-darwin-amd64 ./cmd/gui
 
 ## 📚 Подробная документация
 
-- **Полный анализ:** `docs/CROSS_COMPILATION_WINDOWS.md`
-- **Требования Windows:** `docs/BUILD_REQUIREMENTS_WINDOWS.md`
-- **Установка:** `docs/INSTALL_WINDOWS.md`
+- **Полный анализ:** [CROSS_COMPILATION_WINDOWS.md](CROSS_COMPILATION_WINDOWS.md)
+- **Требования Windows:** [BUILD_REQUIREMENTS_WINDOWS.md](BUILD_REQUIREMENTS_WINDOWS.md)
+- **Установка:** [INSTALL_WINDOWS.md](INSTALL_WINDOWS.md)
 
 ## ⚡ Рекомендации
 

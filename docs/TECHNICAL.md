@@ -65,6 +65,9 @@ Network Scanner построен на языке Go и использует ко
 │       └── formatter.go               # Доп. форматирование GUI представлений
 ├── docs/                    # Документация
 ├── scripts/                 # Скрипты сборки
+├── build/                   # Локальные артефакты (в .gitignore; не коммитится)
+│   └── release/             # Выход релизных скриптов: YYYY-MM-DD-N[/windows|linux|…]/
+├── launch-gui.sh            # macOS: запуск GUI из последнего `build/release/<дата-N>/` (fallback: устаревший `dist/`)
 ├── go.mod                   # Зависимости проекта
 └── README.md               # Основная документация
 ```
@@ -141,6 +144,8 @@ Network Scanner построен на языке Go и использует ко
 **Ключевые функции:**
 - `main()` - главная функция GUI приложения
 
+**Пакетная сборка (macOS):** `scripts/build-gui-release.sh` кладёт GUI-бинарники в `build/release/<YYYY-MM-DD-N>/`; для запуска последней такой сборки из корня репозитория — `./launch-gui.sh`. Подробнее: [GUI.md](GUI.md).
+
 ### 3. internal/gui/* - GUI архитектура
 
 **Ответственность (по модулям):**
@@ -190,7 +195,8 @@ type App struct {
   - `normal` (`1367..2199px`)
   - `wide` (`>= 2200px`)
 - Профиль применяется через единый runtime-хук `applyResponsiveLayout(...)`.
-- Вкладки `Сканирование`, `Топология`, `Инструменты` используют вертикальные scroll-контейнеры для панелей управления, чтобы контролы не "терялись" на малой высоте окна.
+- Вкладки `Сканирование`, `Топология`, `Инструменты` комбинируют **вертикальные split** (`VSplit`) между крупными блоками и **scroll** для длинных форм, чтобы контролы не «терялись» на малой высоте окна. Доли split настраиваются перетаскиванием; они сохраняются в `Preferences` (`scan.ui.scan_tab_split_offset`, `scan.ui.topology_main_split_offset`, `scan.ui.tools_tab_split_offset`). Дополнительно для подрежима `Devices` сохраняется split между блоком результатов и `Host Details`: `scan.ui.host_details_split_offset_v` (профиль `compact`, `VSplit`) и `scan.ui.host_details_split_offset_h` (`normal`/`wide`, `HSplit`). Сброс к умолчанию для текущего профиля: меню окна **«Вид» → «Сбросить расположение панелей (Ctrl+Shift+L)»** или глобальное сочетание **Ctrl+Shift+L** на канве окна (`resetUIPanelLayoutWithFeedback` → `resetUIPanelLayout`, `applyDefaultSplitOffsetsForProfile`, `renderScanResultsView`).
+- Минимальные высоты scroll-панелей дополнительно масштабируются от логического размера окна, гипотенузы `W×H` и `Canvas().Scale()` (`layoutAdaptiveMultiplier`, `adaptivePanelMinHeight` в `results_view.go`). Запись offset split в `Preferences` унифицирована через `maybePersistFloatPref` в `split_persist.go`.
 - В `compact` режиме:
   - `Host Details` рендерится в вертикальном split;
   - таблица результатов использует укороченные заголовки и узкие колонки;
@@ -504,7 +510,7 @@ require (
 ## Производительность
 
 Актуальный baseline и perf budget для `Этап 1 / P3` зафиксирован в:
-- `docs/P3_PERF_BASELINE.md`
+- [P3_PERF_BASELINE.md](P3_PERF_BASELINE.md)
 
 ### Оптимизации
 
@@ -802,7 +808,7 @@ require (
 
 Для ручной проверки совместимости `GraphML` во внешних инструментах используйте:
 
-- `docs/GRAPHML_COMPATIBILITY_CHECK.md`
+- [GRAPHML_COMPATIBILITY_CHECK.md](GRAPHML_COMPATIBILITY_CHECK.md)
 
 ### Closure-проверки этапов
 
@@ -863,6 +869,16 @@ require (
 `stage2-p2-closure-check` дополнительно проверяет генерацию `security report` и наличие секций `CVE Findings` + `Risk Signature Findings`.
 `stage2-p3-closure-check` дополнительно проверяет guardrails Stage2/P3: redaction/consent/report-id/auto filename для `security report` и policy/allowlist ограничения для `remote-exec`.
 CI helper-скрипты `check-ci-status.*` и `trigger-ci-workflow.*` работают в strict-режиме: required jobs включают `Lint`, `Test*`, `Build and Smoke*`, `Stage2 P1 Closure`, `Stage2 P3 Closure`.
+
+Preflight перед финальным sign-off (Windows):
+
+```powershell
+.\scripts\p0-signoff-preflight.ps1
+# или
+make p0-preflight-win
+```
+
+Preflight выполняет early-fail диагностику блокеров: отсутствующий `GITHUB_TOKEN`, нерабочий runtime `bash/sh` для Unix closure и отсутствие успешного recent run `ci.yml`.
 
 ---
 

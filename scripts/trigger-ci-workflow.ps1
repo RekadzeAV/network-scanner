@@ -9,6 +9,11 @@ Param(
 
 $ErrorActionPreference = "Stop"
 
+$resolveToken = Join-Path $PSScriptRoot "resolve-github-token.ps1"
+if (Test-Path -LiteralPath $resolveToken) {
+    . $resolveToken
+}
+
 function Get-RunJobs {
     param(
         [string]$OwnerName,
@@ -49,7 +54,7 @@ function Test-RequiredJobsGreen {
 }
 
 if (-not $env:GITHUB_TOKEN) {
-    throw "GITHUB_TOKEN is not set. Create a token with repo/workflow permissions and export it before running."
+    throw "GITHUB_TOKEN is not set. Set user env GITHUB_TOKEN, export it in this session, or run 'gh auth login' after installing GitHub CLI."
 }
 
 $headers = @{

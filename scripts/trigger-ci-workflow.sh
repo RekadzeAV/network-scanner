@@ -13,8 +13,10 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
+# shellcheck source=scripts/resolve-github-token.sh
+source "$(dirname "$0")/resolve-github-token.sh"
 if [[ -z "${GITHUB_TOKEN:-}" ]]; then
-  echo "GITHUB_TOKEN is not set. Create a token with repo/workflow permissions and export it before running." >&2
+  echo "GITHUB_TOKEN is not set. Export a token (repo+workflow), or run 'gh auth login' and retry." >&2
   exit 1
 fi
 

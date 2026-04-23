@@ -91,8 +91,10 @@ import (
 
 Все скрипты теперь используют путь `./cmd/network-scanner`:
 ```bash
-go build -o dist/network-scanner ./cmd/network-scanner
+go build -o network-scanner ./cmd/network-scanner
 ```
+
+Актуально для текущей версии репозитория: релизные скрипты (`scripts/build.sh`, `scripts/build.bat` и др.) складывают пакеты в **`build/release/`** (см. [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)); одиночный `go build -o …` по-прежнему кладёт файл в текущий каталог.
 
 ### 6. Перемещена документация
 

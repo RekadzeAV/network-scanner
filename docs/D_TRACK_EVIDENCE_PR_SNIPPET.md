@@ -28,4 +28,4 @@
 - Pending: external imports (yEd/Gephi), CI confirmation, and `dot`-available validation.
 ```
 
-Полный и детальный статус: `docs/D_TRACK_EVIDENCE_CURRENT.md`.
+Полный и детальный статус: [D_TRACK_EVIDENCE_CURRENT.md](D_TRACK_EVIDENCE_CURRENT.md).
