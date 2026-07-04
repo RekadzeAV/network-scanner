@@ -61,7 +61,9 @@
    go build -o network-scanner ./cmd/network-scanner
    ```
 
-Релизные скрипты в `scripts/` (`build.bat`, `build.sh`, `build-macos.sh`, `build-windows.sh`, `build-release-windows-only.ps1` в корне и др.) сохраняют собранные бинарники в каталог `build/release/` в корне репозитория (подпапки по дате и номеру сборки). На macOS после `./scripts/build-gui-release.sh` последнюю GUI-сборку можно открыть командой **`./launch-gui.sh`** в корне репозитория (скрипт ищет `build/release/`, при отсутствии — устаревший `dist/`).
+Релизные скрипты в `scripts/` (`build.bat`, `build.sh`, `build-macos.sh`, `build-windows.sh` и др.) сохраняют собранные бинарники в каталог `build/release/` в корне репозитория (подпапки по дате и номеру сборки). На macOS после `./scripts/build-gui-release.sh` последнюю GUI-сборку можно открыть командой **`./build/release/<YYYY-MM-DD-N>/gui-darwin-universal`** в корне репозитория.
+
+> **Примечание:** `build-release-windows-only.ps1` и `launch-gui.sh` [ARCHIVED] — устаревшие скрипты, перемещены в `internal/legacy/`. Используйте `scripts/build-windows.sh` и `scripts/build-gui-release.sh`.
 
 #### Вариант 2: Использование готовых бинарников
 
@@ -926,15 +928,16 @@ Preflight показывает блокеры по `GITHUB_TOKEN`, runtime `bash
 
 ## Дополнительные ресурсы
 
-- [Инструкция по эксплуатации](../Инструкция%20по%20эксплуатации.md) - Полная инструкция по эксплуатации (русский язык)
 - [Техническая документация](TECHNICAL.md) - Техническая документация для разработчиков
-- [Архитектура проекта](ARCHITECTURE.md) - Описание архитектуры проекта
+- [Архитектура проекта](ARCHITECTURE.md) - Описание архитектуры проекта (v2.0)
 - [Инструкция по установке](INSTALL.md) - Инструкции по установке для разных платформ
 - [README.md](../README.md) - Основная документация проекта
-- [Карта разработки](../DEVELOPMENT_MAP.md) - Детальная карта разработки проекта
+- [План реализации](IMPLEMENTATION_PLAN.md) - План реализации v2.0
+- [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md) - Структура каталогов релизной сборки (`build/release/`)
+- [RELEASE_OPERATIONS_CHEATSHEET.md](RELEASE_OPERATIONS_CHEATSHEET.md) - Команды closure и локальные релизные артефакты
 
 ---
 
-**Версия документа:** 1.0.5  
-**Последнее обновление:** 2026-04-23
+**Версия документа:** 2.0.0  
+**Последнее обновление:** 2026-01-XX
 

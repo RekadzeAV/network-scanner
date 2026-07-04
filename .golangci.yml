@@ -1,11 +1,26 @@
-version: "2"
-
-run:
+﻿run:
   timeout: 5m
-  tests: true
+  tests:
+    enable:
+      - all
 
 linters:
-  default: standard
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
 
 issues:
-  max-same-issues: 0
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - govet

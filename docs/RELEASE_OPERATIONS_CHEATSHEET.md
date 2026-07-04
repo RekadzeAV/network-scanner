@@ -61,7 +61,9 @@ make stage2-p3-check-win
 
 ## Локальные бинарники (скрипты сборки)
 
-Релизные скрипты (`scripts/build.bat`, `scripts/build.sh`, `build-release-windows-only.ps1` и др.) пишут артефакты в **`build/release/<YYYY-MM-DD-N>/`** в корне репозитория (на Windows бинарники — в **`windows\`**). Каталог **`build/`** в `.gitignore`.
+Релизные скрипты (`scripts/build.bat`, `scripts/build.sh` и др.) пишут артефакты в **`build/release/<YYYY-MM-DD-N>/`** в корне репозитория (на Windows бинарники — в **`windows\`**). Каталог **`build/`** в `.gitignore`.
+
+> **Примечание:** `build-release-windows-only.ps1` [ARCHIVED] — устаревший скрипт, перемещён в `internal/legacy/`. Используйте `scripts/build-windows.sh`.
 
 ## Минимальный релизный sanity
 

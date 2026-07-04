@@ -1,118 +1,110 @@
 # Структура проекта Network Scanner
 
-## План реорганизации
+**Версия:** 2.0.0  
+**Дата обновления:** 2026-01-XX
 
-### Текущая структура (плоская)
-```
-Сканер локальной сети/
-├── main.go
-├── scanner.go
-├── network.go
-├── display.go
-├── go.mod
-├── *.md (документация)
-├── *.sh/*.bat (скрипты)
-└── .gitignore
-```
-
-### Новая структура (организованная)
+## Текущая структура (актуальная)
 
 ```
-Сканер локальной сети/
+network-scanner/
 ├── cmd/
-│   ├── network-scanner/
-│   │   └── main.go              # Точка входа CLI приложения
-│   └── gui/
-│       └── main.go              # Точка входа GUI приложения
+│   ├── network-scanner/    # CLI точка входа
+│   │   ├── main.go         # Точка входа CLI
+│   │   ├── cmd/            # Команды CLI (scan, security, topology, и т.д.)
+│   │   └── dpi_windows.go  # DPI awareness для Windows
+│   └── gui/                # GUI точка входа
 ├── internal/
-│   ├── scanner/
-│   │   └── scanner.go           # Логика сканирования
-│   ├── network/
-│   │   └── network.go           # Работа с сетью
-│   ├── display/
-│   │   └── display.go           # Отображение результатов (CLI)
-│   └── gui/
-│       ├── app.go               # Основная логика GUI приложения
-│       └── formatter.go         # Форматирование результатов для GUI
-├── docs/
-│   ├── README.md                # Основная документация
-│   ├── USER_GUIDE.md            # Руководство пользователя
-│   ├── INSTALL.md               # Инструкции по установке
-│   ├── QUICKSTART-macOS.md     # Быстрый старт для macOS
-│   ├── TECHNICAL.md             # Техническая документация
-│   ├── ARCHITECTURE.md          # Архитектура проекта
-│   ├── ANALYSIS.md              # Анализ проекта
-│   └── DOCUMENTATION_CHECK.md   # Отчет о проверке
-├── scripts/
-│   ├── build.sh                 # Скрипт сборки для Unix
-│   ├── build-macos.sh           # Скрипт сборки для macOS
-│   └── build.bat                # Скрипт сборки для Windows
-├── build/                       # Локальные артефакты (в .gitignore)
-│   └── release/                 # Выход релизных скриптов (YYYY-MM-DD-N/…)
-├── go.mod                       # Зависимости проекта
-├── go.sum                       # Checksums зависимостей
-├── .gitignore                   # Игнорируемые файлы
-└── README.md                    # Корневой README (ссылки на docs/)
+│   ├── builder/            # DI Container и сборка зависимостей
+│   ├── contracts/          # Service interfaces (общие интерфейсы)
+│   ├── services/           # Service wrappers и factory
+│   ├── scanner/            # Ядро сканирования
+│   │   ├── scanner.go      # NetworkScanner
+│   │   ├── interfaces.go   # Интерфейсы (NetworkProber, PortScanner, и т.д.)
+│   │   ├── deviceclassifier/ # Определение типов устройств
+│   │   └── daemon/         # Daemon mode для фоновой работы
+│   ├── network/            # Сетевые операции
+│   │   ├── network.go      # Определение сети, парсинг CIDR
+│   │   ├── prober.go       # NetworkProber (ping, ARP)
+│   │   ├── port_scanner.go # PortScanner (TCP/UDP)
+│   │   └── parser.go       # Парсинг диапазонов
+│   ├── display/            # Вывод результатов (CLI)
+│   ├── presenter/          # Презентеры (CLI, JSON, XML)
+│   ├── gui/                # GUI компоненты (Fyne)
+│   │   ├── app.go          # Главный файл GUI
+│   │   ├── scan_controller.go    # Контроллер сканирования
+│   │   ├── topology_controller.go # Контроллер топологии
+│   │   ├── results_view.go       # Отображение результатов
+│   │   └── operations.go         # Operations Runtime
+│   ├── topology/           # Построение топологии сети
+│   ├── snmpcollector/      # SNMP сбор данных
+│   ├── security/           # Анализ безопасности
+│   ├── audit/              # Аудит открытых портов
+│   ├── risksignature/      # Risk Signatures
+│   ├── devicecontrol/      # Device Control (HTTP API)
+│   ├── remoteexec/         # Remote Exec (SSH/WMI/WinRM)
+│   ├── inventory/          # Инвентаризация (SQLite)
+│   ├── comparator/         # Сравнение снапшотов
+│   ├── alerting/           # Система уведомлений
+│   ├── api/                # REST API
+│   ├── report/             # Экспорт отчетов (PDF/HTML)
+│   ├── banner/             # Banner grabbing
+│   ├── osdetect/           # Определение ОС
+│   ├── ports/              # Базы портов и сервисов
+│   ├── cache/              # Кэширование (DNS, MAC)
+│   ├── batch/              # Батч-обработка (SNMP)
+│   ├── profiler/           # CPU/Memory profiling
+│   ├── wol/                # Wake-on-LAN
+│   ├── nettools/           # Сетевые инструменты (ping, traceroute, dns, whois, wifi)
+│   ├── diff/               # Сравнение сканирований
+│   ├── redact/             # Маскирование чувствительных данных
+│   ├── errors/             # Единая система ошибок
+│   ├── logger/             # Логирование
+│   ├── mock/               # Mock-сервисы для тестирования
+│   └── legacy/             # Архивированный код
+├── scripts/                # Скрипты сборки и тестов
+├── docs/                   # Документация
+├── config/                 # Конфигурационные файлы
+├── inventory/              # База данных инвентаризации (SQLite)
+├── build/                  # Локальные артефакты (в .gitignore)
+│   └── release/            # Выход релизных скриптов (YYYY-MM-DD-N/)
+├── .github/workflows/      # CI/CD
+├── go.mod                  # Зависимости проекта
+├── go.sum                  # Checksums зависимостей
+├── .gitignore              # Игнорируемые файлы
+└── README.md               # Корневой README
 ```
 
-## Преимущества новой структуры
+## Преимущества структуры
 
-1. **Разделение ответственности:**
-   - `cmd/` - точки входа приложения
-   - `internal/` - внутренние пакеты (не экспортируются)
-   - `docs/` - вся документация в одном месте
-   - `scripts/` - скрипты сборки отдельно
-
-2. **Соответствие стандартам Go:**
+1. **Соответствие стандартам Go:**
    - Стандартная структура Go проектов
-   - Легче для понимания другими разработчиками
-   - Готовность к расширению
+   - `cmd/` для точек входа
+   - `internal/` для внутренних пакетов
 
-3. **Улучшенная организация:**
-   - Легче найти нужные файлы
+2. **Модульность и разделение ответственности:**
+   - Каждый модуль отвечает за свою область
+   - DI Container для сборки зависимостей
+   - Интерфейсы из `internal/contracts/`
+
+3. **Расширяемость:**
+   - Легко добавлять новые модули
    - Четкое разделение кода и документации
    - Удобнее для поддержки
 
-## Изменения в импортах
+4. **Тестируемость:**
+   - Mock-сервисы в `internal/mock/`
+   - Unit-тесты для каждого пакета
+   - Integration-тесты с build tag
 
-### CLI приложение (cmd/network-scanner/main.go)
+## Связанные документы
 
-```go
-package main
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Архитектура проекта (v2.0)
+- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - План реализации v2.0
+- [USER_GUIDE.md](USER_GUIDE.md) - Руководство пользователя
+- [TECHNICAL.md](TECHNICAL.md) - Техническая документация
 
-import (
-    "network-scanner/internal/scanner"
-    "network-scanner/internal/network"
-    "network-scanner/internal/display"
-)
-```
+---
 
-### GUI приложение (cmd/gui/main.go)
-
-```go
-package main
-
-import (
-    "network-scanner/internal/gui"
-)
-
-func main() {
-    app := gui.NewApp()
-    app.Run()
-}
-```
-
-### GUI компоненты (internal/gui/app.go)
-
-```go
-package gui
-
-import (
-    "network-scanner/internal/scanner"
-    "network-scanner/internal/network"
-    "network-scanner/internal/display"
-    "fyne.io/fyne/v2"
-    // ... другие импорты Fyne
-)
-```
+**Версия документа:** 2.0.0  
+**Последнее обновление:** 2026-01-XX
 

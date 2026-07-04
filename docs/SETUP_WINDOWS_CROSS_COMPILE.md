@@ -210,6 +210,7 @@ RUN GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc CGO_ENABLED=1 go build .
 
 ## Дополнительные ресурсы
 
+- [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md) — куда складывается результат `scripts/build-windows.sh` (`build/release/`)
 - [Go CGO Documentation](https://pkg.go.dev/cmd/cgo)
 - [Go Cross Compilation](https://go.dev/doc/install/source#crosscompile)
 - [mingw-w64 Official Site](https://www.mingw-w64.org/)

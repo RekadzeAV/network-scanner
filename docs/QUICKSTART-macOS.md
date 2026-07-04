@@ -16,7 +16,7 @@ cd "Сканер локальной сети"
 ./scripts/build-macos.sh
 ```
 
-Скрипт сохраняет бинарники в **`build/release/<YYYY-MM-DD-N>/`** в корне репозитория (подкаталог печатается при сборке; см. [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)).
+Скрипт сохраняет бинарники в **`build/<YYYY-MM-DD-N>/`** в корне репозитория (подкаталог печатается при сборке; см. [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)).
 
 ## 3. Запустите
 

@@ -2,10 +2,30 @@
 
 [![GitHub](https://img.shields.io/github/license/RekadzeAV/network-scanner)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/RekadzeAV/network-scanner)](https://goreportcard.com/report/github.com/RekadzeAV/network-scanner)
+[![CI](https://github.com/RekadzeAV/network-scanner/actions/workflows/go.yml/badge.svg)](https://github.com/RekadzeAV/network-scanner/actions)
 
 Кроссплатформенная утилита для сканирования локальных сетей с детальной аналитикой.
 
 **Репозиторий:** https://github.com/RekadzeAV/network-scanner
+
+---
+
+## 📊 Текущее состояние проекта
+
+| Метрика | Значение |
+|---------|----------|
+| Базовый функционал | ✅ 100% (13/13 задач) |
+| Coverage GUI | 17.8% (требует улучшения, цель 60%) |
+| Coverage Core | ~75% (требует улучшения, цель 85%) |
+| Пройдено тестов | 33/33 ✅ |
+| CLI размер | 60.6 MB |
+| GUI размер | 58.5 MB |
+
+**Текущая версия:** v1.0.5  
+**Фокус развития:** Качество кода, тесты, производительность (v2.0)
+
+---
 
 ## 🚀 Быстрый старт
 
@@ -29,81 +49,103 @@ go build -o network-scanner-gui ./cmd/gui
 ./network-scanner-gui
 ```
 
-### Что нового в GUI
-
-- Подрежимы `Devices/Security` на вкладке сканирования.
-- `Host Details Drawer` с быстрыми действиями (`Ping/Traceroute/DNS/Whois/WOL`).
-- `Operations Center` в `Инструменты` с историей и действиями `Retry/Cancel`.
-- `Security Dashboard` с агрегированными findings и экспортом HTML-отчета.
-
 ## 📁 Структура проекта
 
 ```
-Сканер локальной сети/
+network-scanner/
 ├── cmd/
-│   ├── network-scanner/    # Точка входа CLI приложения
-│   └── gui/                # Точка входа GUI приложения
+│   ├── network-scanner/    # CLI точка входа
+│   │   ├── main.go         # Точка входа CLI
+│   │   ├── cmd/            # Команды CLI (scan, security, topology, и т.д.)
+│   │   └── dpi_windows.go  # DPI awareness для Windows
+│   └── gui/                # GUI точка входа
 ├── internal/
-│   ├── scanner/           # Логика сканирования
-│   ├── network/           # Работа с сетью
-│   ├── display/           # Отображение результатов (CLI)
-│   └── gui/               # Компоненты графического интерфейса
-├── docs/                  # Документация
-├── scripts/               # Скрипты сборки
-└── README.md             # Этот файл
+│   ├── builder/            # DI Container и сборка зависимостей
+│   ├── contracts/          # Service interfaces (общие интерфейсы)
+│   ├── services/           # Service wrappers и factory
+│   ├── scanner/            # Ядро сканирования
+│   │   ├── scanner.go      # NetworkScanner
+│   │   ├── interfaces.go   # Интерфейсы (NetworkProber, PortScanner, и т.д.)
+│   │   ├── deviceclassifier/ # Определение типов устройств
+│   │   └── daemon/         # Daemon mode для фоновой работы
+│   ├── network/            # Сетевые операции
+│   │   ├── network.go      # Определение сети, парсинг CIDR
+│   │   ├── prober.go       # NetworkProber (ping, ARP)
+│   │   ├── port_scanner.go # PortScanner (TCP/UDP)
+│   │   └── parser.go       # Парсинг диапазонов
+│   ├── display/            # Вывод результатов (CLI)
+│   ├── presenter/          # Презентеры (CLI, JSON, XML)
+│   ├── gui/                # GUI компоненты (Fyne)
+│   │   ├── app.go          # Главный файл GUI
+│   │   ├── scan_controller.go    # Контроллер сканирования
+│   │   ├── topology_controller.go # Контроллер топологии
+│   │   ├── results_view.go       # Отображение результатов
+│   │   └── operations.go         # Operations Runtime
+│   ├── topology/           # Построение топологии сети
+│   ├── snmpcollector/      # SNMP сбор данных
+│   ├── security/           # Анализ безопасности
+│   ├── audit/              # Аудит открытых портов
+│   ├── risksignature/      # Risk Signatures
+│   ├── devicecontrol/      # Device Control (HTTP API)
+│   ├── remoteexec/         # Remote Exec (SSH/WMI/WinRM)
+│   ├── inventory/          # Инвентаризация (SQLite)
+│   ├── comparator/         # Сравнение снапшотов
+│   ├── alerting/           # Система уведомлений
+│   ├── api/                # REST API
+│   ├── report/             # Экспорт отчетов (PDF/HTML)
+│   ├── banner/             # Banner grabbing
+│   ├── osdetect/           # Определение ОС
+│   ├── ports/              # Базы портов и сервисов
+│   ├── cache/              # Кэширование (DNS, MAC)
+│   ├── batch/              # Батч-обработка (SNMP)
+│   ├── profiler/           # CPU/Memory profiling
+│   ├── wol/                # Wake-on-LAN
+│   ├── nettools/           # Сетевые инструменты (ping, traceroute, dns, whois, wifi)
+│   ├── diff/               # Сравнение сканирований
+│   ├── redact/             # Маскирование чувствительных данных
+│   ├── errors/             # Единая система ошибок
+│   ├── logger/             # Логирование
+│   ├── mock/               # Mock-сервисы для тестирования
+│   └── legacy/             # Архивированный код
+├── scripts/                # Скрипты сборки и тестов
+├── docs/                   # Документация
+├── config/                 # Конфигурационные файлы
+├── inventory/              # База данных инвентаризации (SQLite)
+└── .github/workflows/      # CI/CD
 ```
 
 ## 📚 Документация
 
 Полная документация находится в папке [docs/](docs/):
 
-- **[Инструкция по эксплуатации](Инструкция%20по%20эксплуатации.md)** - Полная инструкция по эксплуатации программы (русский язык)
-- **[README.md](docs/README.md)** - Основная документация с описанием возможностей
+### Основная документация
 - **[USER_GUIDE.md](docs/USER_GUIDE.md)** - Подробное руководство пользователя
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Архитектура проекта (v2.0)
+- **[TECHNICAL.md](docs/TECHNICAL.md)** - Техническая документация для разработчиков
 - **[GUI.md](docs/GUI.md)** - Документация по GUI версии приложения
 - **[INSTALL.md](docs/INSTALL.md)** - Инструкции по установке
 - **[QUICKSTART-macOS.md](docs/QUICKSTART-macOS.md)** - Быстрый старт для macOS
-- **[TECHNICAL.md](docs/TECHNICAL.md)** - Техническая документация
-- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Архитектура проекта
 - **[ROADMAP.md](docs/ROADMAP.md)** - Канонический роадмап проекта
-- **[TEST_NETWORK_PROFILE.md](docs/TEST_NETWORK_PROFILE.md)** - Фиксированный профиль тестовой сети (подсеть, шлюз, DNS, NAS)
-- **[P1_CLOSURE_CHECKLIST.md](docs/P1_CLOSURE_CHECKLIST.md)** - Чеклист формального закрытия этапа P1
+- **[IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)** - План реализации v2.0
+
+### Отчеты и чеклисты
 - **[ANALYSIS.md](docs/ANALYSIS.md)** - Анализ проекта
-- **[RELEASE_SUMMARY_UI_RESULTS.md](docs/RELEASE_SUMMARY_UI_RESULTS.md)** - Краткий релиз-итог по UI результатов
-- **[RELEASE_SUMMARY_STAGE2_P2.md](docs/RELEASE_SUMMARY_STAGE2_P2.md)** - Краткий релиз-итог по Stage2 P2 (Risk Signatures + Device Control)
-- **[RELEASE_SUMMARY_STAGE2_P3.md](docs/RELEASE_SUMMARY_STAGE2_P3.md)** - Краткий релиз-итог по Stage2 P3 (CVE + Security Report + Remote Exec)
-- **[PR_DESCRIPTION_UI_RESULTS.md](docs/PR_DESCRIPTION_UI_RESULTS.md)** - Готовое описание PR по доработкам UI результатов
-- **[UI_IMPLEMENTATION_BACKLOG.md](docs/UI_IMPLEMENTATION_BACKLOG.md)** - Актуализированный backlog UI-рефакторинга (`P0..P5`)
-- **[RELEASE_ACCEPTANCE_CHECKLIST.md](docs/RELEASE_ACCEPTANCE_CHECKLIST.md)** - Финальный чеклист приемки перед релизом
-- **[P3_CLOSURE_CHECKLIST.md](docs/P3_CLOSURE_CHECKLIST.md)** - Формальное закрытие Stage 1 / P3 и CI sign-off
-- **[RELEASE_OPERATIONS_CHEATSHEET.md](docs/RELEASE_OPERATIONS_CHEATSHEET.md)** - Краткий набор команд для closure-прогонов и релизного дежурства
-- **[BUILD_STRUCTURE.md](docs/BUILD_STRUCTURE.md)** - Структура каталогов релизных скриптов (`build/release/`)
-- **[RELEASE_READINESS_SNAPSHOT.md](docs/RELEASE_READINESS_SNAPSHOT.md)** - Текущий срез готовности релиза (авто/ручные шаги)
-- **[CHECKLIST_STATUS_INDEX.md](docs/CHECKLIST_STATUS_INDEX.md)** - Единый индекс статусов по всем checklist-документам
-- **[RELEASE_READY_GAP_LIST.md](docs/RELEASE_READY_GAP_LIST.md)** - Приоритизированный backlog оставшихся шагов до финального sign-off
-- **[P0_SIGNOFF_RUNBOOK.md](docs/P0_SIGNOFF_RUNBOOK.md)** - Пошаговый runbook закрытия блокирующего P0 (Cross-OS + CI evidence)
-- **[STAGE2_100_COMMIT_READY.md](docs/STAGE2_100_COMMIT_READY.md)** - Краткий commit-ready итог по Stage2 и remaining шагам sign-off
-- **[RELEASE_READINESS_PR_SNIPPET.md](docs/RELEASE_READINESS_PR_SNIPPET.md)** - Готовый блок статуса для PR/релиз-комментария
-- **[RELEASE_READINESS_STAGE2_P3_PR_SNIPPET.md](docs/RELEASE_READINESS_STAGE2_P3_PR_SNIPPET.md)** - Готовый PR-блок для Stage2/P3 (EN/RU, short/long)
-- **[RELEASE_READINESS_PR_READY.md](docs/RELEASE_READINESS_PR_READY.md)** - Короткий и расширенный ready-to-paste блок для PR
-- **[DOCS_SYNC_SUMMARY_2026-04-23.md](docs/DOCS_SYNC_SUMMARY_2026-04-23.md)** - Сводка синхронизации документации (флаги/Go baseline)
-- **[DOCS_SYNC_PR_SNIPPET_2026-04-23.md](docs/DOCS_SYNC_PR_SNIPPET_2026-04-23.md)** - Короткий ready-to-paste RU блок для PR
-- **[DOCS_SYNC_PR_SNIPPET_2026-04-23_EN.md](docs/DOCS_SYNC_PR_SNIPPET_2026-04-23_EN.md)** - Короткий ready-to-paste EN блок для PR
-- **[FINAL_PR_COMMENT_READY.md](docs/FINAL_PR_COMMENT_READY.md)** - Финальный ready-to-paste комментарий для PR
-- **[FINAL_PR_COMMENT_STAGE2_P3_READY.md](docs/FINAL_PR_COMMENT_STAGE2_P3_READY.md)** - Финальный ready-to-paste комментарий для PR по Stage2/P3 (RU)
-- **[MANUAL_SIGNOFF_TEMPLATE.md](docs/MANUAL_SIGNOFF_TEMPLATE.md)** - Шаблон ручного sign-off перед релизом
-- **[MANUAL_SIGNOFF_DRAFT.md](docs/MANUAL_SIGNOFF_DRAFT.md)** - Черновик sign-off с предзаполненными авто-evidence
-- **[GRAPHML_COMPATIBILITY_CHECK.md](docs/GRAPHML_COMPATIBILITY_CHECK.md)** - Ручная проверка совместимости GraphML (yEd/Gephi)
-- **[D_TRACK_EVIDENCE_TEMPLATE.md](docs/D_TRACK_EVIDENCE_TEMPLATE.md)** - Шаблон evidence-блока для D-track hardening
-- **[D_TRACK_EVIDENCE_CURRENT.md](docs/D_TRACK_EVIDENCE_CURRENT.md)** - Текущий снимок статуса D-track evidence для ветки
-- **[D_TRACK_EVIDENCE_PR_SNIPPET.md](docs/D_TRACK_EVIDENCE_PR_SNIPPET.md)** - Короткий ready-to-paste блок для описания PR
-- **[DEVELOPMENT_MAP.md](DEVELOPMENT_MAP.md)** - Детальная карта разработки проекта
-- **[ROADMAP_P1_P3.md](docs/ROADMAP_P1_P3.md)** - Дорожная карта приоритетов P1–P3 (два этапа развития)
-- **[DETAILED_BACKLOG_P3_STAGE2.md](docs/DETAILED_BACKLOG_P3_STAGE2.md)** - Детализированный backlog задач по Этапу 1 P3 и Этапу 2 P1/P2/P3
+- **[P1_CLOSURE_CHECKLIST.md](docs/P1_CLOSURE_CHECKLIST.md)** - Чеклист закрытия P1
+- **[P3_CLOSURE_CHECKLIST.md](docs/P3_CLOSURE_CHECKLIST.md)** - Чеклист закрытия P3
+- **[RELEASE_OPERATIONS_CHEATSHEET.md](docs/RELEASE_OPERATIONS_CHEATSHEET.md)** - Команды closure и релизного дежурства
+- **[BUILD_STRUCTURE.md](docs/BUILD_STRUCTURE.md)** - Структура каталогов релизной сборки
+- **[RELEASE_READINESS_SNAPSHOT.md](docs/RELEASE_READINESS_SNAPSHOT.md)** - Срез готовности релиза
+- **[CHECKLIST_STATUS_INDEX.md](docs/CHECKLIST_STATUS_INDEX.md)** - Индекс статусов по всем чеклистам
+
+### История и релизы
 - **[CHANGELOG.md](CHANGELOG.md)** - История изменений проекта
+- **[RELEASE_SUMMARY_UI_RESULTS.md](docs/RELEASE_SUMMARY_UI_RESULTS.md)** - Релиз-итог по UI результатов
+- **[RELEASE_SUMMARY_STAGE2_P2.md](docs/RELEASE_SUMMARY_STAGE2_P2.md)** - Релиз-итог по Stage2 P2
+- **[RELEASE_SUMMARY_STAGE2_P3.md](docs/RELEASE_SUMMARY_STAGE2_P3.md)** - Релиз-итог по Stage2 P3
+
+### Прочее
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - Правила вклада и соглашения по коммитам
-- **[QUICKSTART_WINDOWS_BUILD.md](QUICKSTART_WINDOWS_BUILD.md)** - Быстрый старт: сборка для Windows на macOS
-- **[RELEASE_NOTES_1.0.3.md](RELEASE_NOTES_1.0.3.md)** - Примечания к релизу 1.0.3
+- **[TEST_NETWORK_PROFILE.md](docs/TEST_NETWORK_PROFILE.md)** - Профиль тестовой сети
 
 ## 🔧 Сборка
 
@@ -177,7 +219,9 @@ scripts\build.bat
 ./scripts/build-windows.sh  # Требует mingw-w64
 ```
 
-Релизные артефакты этих скриптов (включая `build-release-windows-only.ps1`) создаются в каталоге `build/release/` в корне репозитория, в подпапках вида `YYYY-MM-DD-N/` (например `windows/` для Windows).
+Релизные артефакты этих скриптов создаются в каталоге `build/` в корне репозитория, в подпапках вида `YYYY-MM-DD-N/` (например `windows/` для Windows).
+
+> **Примечание:** `build-release-windows-only.ps1` [ARCHIVED] — устаревший скрипт, перемещён в `internal/legacy/`. Используйте `scripts/build-windows.sh`.
 
 ### Smoke-проверки (регрессии CLI)
 
@@ -814,17 +858,15 @@ make p3-close-all
 
 ## 🔗 Ссылки
 
-- [Инструкция по эксплуатации](Инструкция%20по%20эксплуатации.md) - Полная инструкция по эксплуатации (русский язык)
 - [Руководство пользователя](docs/USER_GUIDE.md) - Подробное руководство пользователя
 - [Инструкция по установке](docs/INSTALL.md) - Инструкции по установке
 - [Техническая документация](docs/TECHNICAL.md) - Техническая документация
-- [Архитектура проекта](docs/ARCHITECTURE.md) - Архитектура проекта
-- [Анализ проекта](docs/ANALYSIS.md) - Анализ проекта
-- [Карта разработки](DEVELOPMENT_MAP.md) - Детальная карта разработки
+- [Архитектура проекта](docs/ARCHITECTURE.md) - Архитектура проекта (v2.0)
+- [План реализации](docs/IMPLEMENTATION_PLAN.md) - План реализации v2.0
 - [История изменений](CHANGELOG.md) - История изменений
-- [Быстрый старт: Windows сборка](QUICKSTART_WINDOWS_BUILD.md) - Сборка для Windows на macOS
+- [Правила вклада](CONTRIBUTING.md) - Правила вклада и соглашения по коммитам
 
 ---
 
-**Версия документа:** 1.0.5  
-**Последнее обновление:** 2026-04-23
+**Версия документа:** 2.0.0  
+**Последнее обновление:** 2026-01-XX

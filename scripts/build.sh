@@ -7,7 +7,7 @@ echo "Сборка Network Scanner..."
 # Создаем директорию для бинарников с датой сборки и номером
 BUILD_DATE=$(date +%Y-%m-%d)
 BUILD_NUM=1
-RELEASE_DIR="build/release/${BUILD_DATE}-${BUILD_NUM}"
+RELEASE_DIR="build/${BUILD_DATE}-${BUILD_NUM}"
 
 # Находим следующий доступный номер сборки
 while [ -d "${RELEASE_DIR}" ]; do

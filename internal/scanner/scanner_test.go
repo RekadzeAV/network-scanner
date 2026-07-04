@@ -255,7 +255,7 @@ func TestDetectDeviceType(t *testing.T) {
 					{Port: 443, State: "open"},
 				},
 			},
-			want: "Web Server",
+			want: "Server",
 		},
 		{
 			name: "Router",
@@ -265,7 +265,7 @@ func TestDetectDeviceType(t *testing.T) {
 					{Port: 22, State: "open"},
 				},
 			},
-			want: "Router/Network Device",
+			want: "Router/Switch",
 		},
 		{
 			name: "Database Server",
@@ -274,7 +274,7 @@ func TestDetectDeviceType(t *testing.T) {
 					{Port: 3306, State: "open"},
 				},
 			},
-			want: "Database Server",
+			want: "Server",
 		},
 		{
 			name: "Windows Computer",
@@ -284,7 +284,7 @@ func TestDetectDeviceType(t *testing.T) {
 					{Port: 445, State: "open"},
 				},
 			},
-			want: "Windows Computer",
+			want: "Desktop/Laptop",
 		},
 		{
 			name: "Linux Server",
@@ -293,7 +293,7 @@ func TestDetectDeviceType(t *testing.T) {
 					{Port: 22, State: "open"},
 				},
 			},
-			want: "Linux/Unix Server",
+			want: "Server",
 		},
 		{
 			name: "Printer",
@@ -311,14 +311,14 @@ func TestDetectDeviceType(t *testing.T) {
 					{Port: 9999, State: "open"}, // Используем порт, который не попадает под другие категории
 				},
 			},
-			want: "IoT Device", // Должно быть определено как IoT, так как только 1 порт и не попадает под другие категории
+			want: "IoT", // Должно быть определено как IoT, так как только 1 порт и не попадает под другие категории
 		},
 		{
 			name: "Unknown Device",
 			result: Result{
 				Ports: []PortInfo{},
 			},
-			want: "Unknown Device",
+			want: "Unknown",
 		},
 	}
 

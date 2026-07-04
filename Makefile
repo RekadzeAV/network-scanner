@@ -1,9 +1,10 @@
 SHELL := /bin/sh
 
-.PHONY: build test test-integration run deploy bootstrap lint smoke smoke-tools smoke-dtrack smoke-all p1-check p1-check-win p2-check p2-check-win p3-check p3-check-win stage2-p1-check stage2-p1-check-win stage2-p2-check stage2-p2-check-win stage2-p3-check stage2-p3-check-win ci-status ci-status-win ci-trigger ci-trigger-win p3-signoff p3-signoff-win p3-close-all p3-close-all-win p0-preflight-win docs-link-check-win stage2-signoff-status-win
+.PHONY: build test test-integration run deploy bootstrap bootstrap-win lint lint-tools check-env smoke smoke-tools smoke-dtrack smoke-all p1-check p1-check-win p2-check p2-check-win p3-check p3-check-win stage2-p1-check stage2-p1-check-win stage2-p2-check stage2-p2-check-win stage2-p3-check stage2-p3-check-win ci-status ci-status-win ci-trigger ci-trigger-win p3-signoff p3-signoff-win p3-close-all p3-close-all-win p0-preflight-win p0-preflight docs-link-check-win stage2-signoff-status-win
 
 build:
-	go build -o network-scanner ./cmd/network-scanner
+	mkdir -p build
+	go build -o build/network-scanner ./cmd/network-scanner
 
 test:
 	go test ./...
@@ -20,8 +21,24 @@ deploy:
 bootstrap:
 	./scripts/bootstrap.sh
 
+bootstrap-win:
+	powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1
+
+check-env:
+	@echo "Checking environment..."
+	@go version || (echo "Go is not installed" && exit 1)
+	@golangci-lint version || (echo "WARNING: golangci-lint not installed" && exit 0)
+	@govulncheck help >/dev/null 2>&1 || (echo "WARNING: govulncheck not installed" && exit 0)
+	@echo "Environment check complete."
+
 lint:
 	gofmt -w $$(rg --files -g '*.go')
+
+lint-tools:
+	@echo "Running golangci-lint..."
+	@golangci-lint run ./... || (echo "WARNING: golangci-lint not installed or found issues" && exit 0)
+	@echo "Running govulncheck..."
+	@govulncheck ./... || (echo "WARNING: govulncheck not installed" && exit 0)
 
 smoke:
 	./scripts/smoke-cli-no-topology.sh

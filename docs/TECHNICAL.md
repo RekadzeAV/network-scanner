@@ -56,6 +56,7 @@ Network Scanner построен на языке Go и использует ко
 │       ├── app.go                     # Composition root GUI и wiring вкладок
 │       ├── scan_controller.go         # UI-state сканирования
 │       ├── topology_controller.go     # UI-state топологии
+│       ├── topology_interactive_map.go # Интерактивная карта (узлы/связи, selection, filters)
 │       ├── operations.go              # Runtime операций (Run/Cancel/Retry)
 │       ├── results_view.go            # Devices/Security подрежимы, filters, drawer
 │       ├── results_model.go           # Базовый пайплайн фильтрации/сортировки
@@ -67,7 +68,7 @@ Network Scanner построен на языке Go и использует ко
 ├── scripts/                 # Скрипты сборки
 ├── build/                   # Локальные артефакты (в .gitignore; не коммитится)
 │   └── release/             # Выход релизных скриптов: YYYY-MM-DD-N[/windows|linux|…]/
-├── launch-gui.sh            # macOS: запуск GUI из последнего `build/release/<дата-N>/` (fallback: устаревший `dist/`)
+├── internal/legacy/         # [ARCHIVED] Устаревшие файлы: launch-gui.sh, build-release-windows-only.ps1
 ├── go.mod                   # Зависимости проекта
 └── README.md               # Основная документация
 ```
@@ -144,7 +145,9 @@ Network Scanner построен на языке Go и использует ко
 **Ключевые функции:**
 - `main()` - главная функция GUI приложения
 
-**Пакетная сборка (macOS):** `scripts/build-gui-release.sh` кладёт GUI-бинарники в `build/release/<YYYY-MM-DD-N>/`; для запуска последней такой сборки из корня репозитория — `./launch-gui.sh`. Подробнее: [GUI.md](GUI.md).
+**Пакетная сборка (macOS):** `scripts/build-gui-release.sh` кладёт GUI-бинарники в `build/release/<YYYY-MM-DD-N>/`; для запуска последней такой сборки из корня репозитория — `./build/release/<YYYY-MM-DD-N>/gui-darwin-universal`. Подробнее: [GUI.md](GUI.md).
+
+> **Примечание:** `launch-gui.sh` [ARCHIVED] — устаревший скрипт, перемещён в `internal/legacy/`.
 
 ### 3. internal/gui/* - GUI архитектура
 
@@ -156,12 +159,16 @@ Network Scanner построен на языке Go и использует ко
   - переходы scan UI-state (`start/completion/timeout`) и синхронизация статусов.
 - `topology_controller.go`:
   - переходы topology UI-state (`progress/canceled/failure/success`).
+- `topology_interactive_map.go`:
+  - интерактивный topology graph-view (выбор узлов/связей, фильтры по типу устройства и confidence связи, click-through в `Host Details`).
 - `operations.go`:
   - runtime операций для tools/долгих задач (`queued/running/success/failed/canceled`);
   - действия `Run`, `Cancel`, `Retry`, подписка на обновления.
 - `results_view.go` + `results_model.go`:
   - базовый пайплайн фильтрации/сортировки;
-  - рендер `Devices` (`Таблица`/`Карточки`) и `Host Details Drawer`.
+  - рендер `Devices` (`Таблица`/`Карточки`) и `Host Details Drawer`;
+  - debounce обновлений результатов + cache-key пайплайна фильтрации/сортировки;
+  - virtualized cards на `widget.List` с progressive load (`Показать еще`).
 - `security_view.go`:
   - `Security` подрежим с агрегированными findings (`audit + risk signatures`) и HTML export.
 - `results_analytics_view.go` + `results_charts.go`:
@@ -187,7 +194,8 @@ type App struct {
 - `buildTopology()` + topology-state методы в `topology_controller.go`
 - tool-операции через `runToolOperation(...)` и `OperationsManager`
 - `renderScanResultsView()` с подрежимами `Devices/Security`
-- `saveResults()` / `saveTopology()` / `savePerformanceReport()`
+- `saveResults()` / `saveTopology()` / `savePerformanceReport()` (`saveTopology()` выполняет `Topology.Validate()` перед экспортом)
+- `scheduleResultsRender(...)` для сглаживания burst-обновлений фильтров/поиска
 
 **Responsive layout policy (оконный/fullscreen):**
 - Профиль интерфейса вычисляется по ширине canvas:
@@ -207,6 +215,11 @@ type App struct {
 - Функционал должен оставаться одинаково доступным в оконном и полноэкранном режимах.
 - Новые UI-блоки должны иметь fallback для `compact` (stack/scroll/уменьшение числа колонок).
 - Не добавлять "жесткие" размеры без проверки на матрице разрешений (`1366x768` и выше, включая high-DPI).
+- Для больших выдач рендер не должен пересобирать весь cards-список сразу: использовать virtualized/paged стратегию.
+
+**Perf baseline (GUI results pipeline):**
+- benchmark: `BenchmarkFilteredSortedResultsLarge` (`internal/gui/results_model_benchmark_test.go`)
+- запуск: `go test -run '^$' -bench BenchmarkFilteredSortedResultsLarge -benchmem ./internal/gui`
 
 ### 4. internal/gui/formatter.go - Форматирование для GUI
 
@@ -768,12 +781,14 @@ require (
 
 ## Дополнительные ресурсы
 
-- [Инструкция по эксплуатации](../Инструкция%20по%20эксплуатации.md) - Полная инструкция по эксплуатации (русский язык)
 - [Руководство пользователя](USER_GUIDE.md) - Подробное руководство пользователя
-- [Архитектура проекта](ARCHITECTURE.md) - Описание архитектуры проекта
+- [Архитектура проекта](ARCHITECTURE.md) - Описание архитектуры проекта (v2.0)
 - [GUI документация](GUI.md) - Документация по GUI версии
 - [Инструкция по установке](INSTALL.md) - Инструкции по установке
+- [План реализации](IMPLEMENTATION_PLAN.md) - План реализации v2.0
 - [README.md](../README.md) - Основная документация проекта
+- [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md) - Структура каталогов релизной сборки (`build/release/`)
+- [RELEASE_OPERATIONS_CHEATSHEET.md](RELEASE_OPERATIONS_CHEATSHEET.md) - Команды closure и локальные релизные артефакты
 
 ---
 
@@ -882,6 +897,6 @@ Preflight выполняет early-fail диагностику блокеров:
 
 ---
 
-**Версия документа:** 1.0.5  
-**Последнее обновление:** 2026-04-23
+**Версия документа:** 2.0.0  
+**Последнее обновление:** 2026-01-XX
 

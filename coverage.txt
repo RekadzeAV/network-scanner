@@ -1,0 +1,268 @@
+﻿go : # network-scanner/internal/alerting [network-scanner/internal/alerting.test]
+строка:1 знак:1
++ go test -cover ./internal/... 2>&1 | Out-File -FilePath coverage.txt  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (# network-scann.../alerting.test]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+internal\alerting\alerting.go:1:1: invalid BOM in the middle of the file
+FAIL	network-scanner/internal/alerting [build failed]
+# network-scanner/internal/comparator [network-scanner/internal/comparator.test]
+internal\comparator\comparator.go:1:1: invalid BOM in the middle of the file
+# network-scanner/internal/api [network-scanner/internal/api.test]
+internal\api\alerting_handlers.go:1:1: invalid BOM in the middle of the file
+FAIL	network-scanner/internal/api [build failed]
+ok  	network-scanner/internal/audit	(cached)	coverage: 78.9% of statements
+ok  	network-scanner/internal/banner	(cached)	coverage: 24.1% of statements
+ok  	network-scanner/internal/batch	(cached)	coverage: 92.2% of statements
+# network-scanner/internal/inventory [network-scanner/internal/inventory.test]
+internal\inventory\store.go:1:1: invalid BOM in the middle of the file
+# network-scanner/internal/report [network-scanner/internal/report.test]
+internal\report\html_export.go:1:1: invalid BOM in the middle of the file
+	network-scanner/internal/builder		coverage: 0.0% of statements
+ok  	network-scanner/internal/cache	(cached)	coverage: 93.0% of statements
+FAIL	network-scanner/internal/comparator [build failed]
+?   	network-scanner/internal/contracts	[no test files]
+ok  	network-scanner/internal/cve	(cached)	coverage: 76.0% of statements
+ok  	network-scanner/internal/devicecontrol	(cached)	coverage: 71.4% of statements
+ok  	network-scanner/internal/diff	(cached)	coverage: 96.0% of statements
+ok  	network-scanner/internal/display	(cached)	coverage: 61.5% of statements
+ok  	network-scanner/internal/errors	(cached)	coverage: 97.4% of statements
+2026/07/04 22:29:50 Fyne error:  Preferences API requires a unique ID, use app.NewWithID() or the FyneApp.toml ID field
+2026/07/04 22:29:50   At: C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/app.go:61
+2026/07/04 22:29:50 *** Error in Fyne call thread, this should have been called in fyne.Do[AndWait] ***
+2026/07/04 22:29:50   From: E:/GitHub-Ai/network-scanner/internal/gui/app.go:406
+coverage: 6.2% of statements
+panic: test timed out after 10m0s
+	running tests:
+		TestNewApp (10m0s)
+
+goroutine 22 [running]:
+testing.(*M).startAlarm.func1()
+	C:/Program Files/Go/src/testing/testing.go:2682 +0x345
+created by time.goFunc
+	C:/Program Files/Go/src/time/sleep.go:215 +0x2d
+
+goroutine 1 [chan receive, 9 minutes, locked to thread]:
+testing.(*T).Run(0xc0007068c0, {0x7ff7eca0aa9d?, 0x7ff7ebf02010?}, 0x7ff7eca8cae0)
+	C:/Program Files/Go/src/testing/testing.go:2005 +0x469
+testing.runTests.func1(0xc0007068c0)
+	C:/Program Files/Go/src/testing/testing.go:2477 +0x37
+testing.tRunner(0xc0007068c0, 0xc000941c70)
+	C:/Program Files/Go/src/testing/testing.go:1934 +0xc3
+testing.runTests(0xc00019ea50, {0x7ff7ec7d2b20, 0xa2, 0xa2}, {0x7?, 0xc000a43640?, 0x7ff7ed404ec0?})
+	C:/Program Files/Go/src/testing/testing.go:2475 +0x4b4
+testing.(*M).Run(0xc000a46fa0)
+	C:/Program Files/Go/src/testing/testing.go:2337 +0x63a
+main.main()
+	_testmain.go:399 +0x9b
+
+goroutine 9 [select, 9 minutes]:
+fyne.io/fyne/v2/internal/async.(*UnboundedChan[...]).processing(0x7ff7ecbd3ae0)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:43 +0xda
+created by fyne.io/fyne/v2/internal/async.NewUnboundedChan[...] in goroutine 1
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:20 +0x10a
+
+goroutine 57 [chan receive, 9 minutes]:
+fyne.io/fyne/v2/internal/driver/glfw.runOnMainWithWait(0xc00179e1b0, 0x1)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/driver/glfw/loop.go:53 +0xfc
+fyne.io/fyne/v2/internal/driver/glfw.(*gLDriver).DoFromGoroutine.func1()
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/driver/glfw/driver.go:70 +0x1c
+fyne.io/fyne/v2/internal/async.EnsureNotMain(0xc001790560)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/goroutine.go:29 +0x3f
+fyne.io/fyne/v2/internal/driver/glfw.(*gLDriver).DoFromGoroutine(0x7ff7ebe1a2a0?, 0xc00179e1b0, 0x60?)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/driver/glfw/driver.go:69 +0x56
+fyne.io/fyne/v2.DoAndWait(0xc00179e1b0)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/thread.go:9 +0x3a
+fyne.io/fyne/v2/internal/async.EnsureMain(0xc00179e1b0)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/goroutine.go:53 +0xba
+fyne.io/fyne/v2/internal/driver/glfw.(*gLDriver).CreateWindow(0xc0017a4000, {0x7ff7eca62917, 0x3a})
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/driver/glfw/window.go:900 +0x9b
+fyne.io/fyne/v2/app.(*fyneApp).NewWindow(0x7ff7eca1b48f?, {0x7ff7eca62917?, 0x7ff7ecbb2840?})
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/app.go:67 +0x22
+network-scanner/internal/gui.NewApp()
+	E:/GitHub-Ai/network-scanner/internal/gui/app.go:406 +0x98
+network-scanner/internal/gui.TestNewApp(0xc000786c40)
+	E:/GitHub-Ai/network-scanner/internal/gui/app_test.go:22 +0x39
+testing.tRunner(0xc000786c40, 0x7ff7eca8cae0)
+	C:/Program Files/Go/src/testing/testing.go:1934 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Program Files/Go/src/testing/testing.go:1997 +0x44b
+
+goroutine 46 [select, 10 minutes]:
+fyne.io/fyne/v2/internal/async.(*UnboundedChan[...]).processing(0x7ff7ecbd3a40)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:43 +0xdd
+created by fyne.io/fyne/v2/internal/async.NewUnboundedChan[...] in goroutine 10
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:20 +0x10a
+
+goroutine 50 [select, 10 minutes]:
+fyne.io/fyne/v2/internal/async.(*UnboundedChan[...]).processing(0x7ff7ecbd3a40)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:43 +0xdd
+created by fyne.io/fyne/v2/internal/async.NewUnboundedChan[...] in goroutine 47
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:20 +0x10a
+
+goroutine 21 [select, 10 minutes]:
+fyne.io/fyne/v2/internal/async.(*UnboundedChan[...]).processing(0x7ff7ecbd3a40)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:43 +0xdd
+created by fyne.io/fyne/v2/internal/async.NewUnboundedChan[...] in goroutine 12
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:20 +0x10a
+
+goroutine 66 [syscall, 9 minutes, locked to thread]:
+syscall.SyscallN(0x7ff7ec8df100?, {0xc0015f9b80?, 0x0?, 0x0?})
+	C:/Program Files/Go/src/runtime/syscall_windows.go:500 +0x1e
+golang.org/x/sys/windows.GetQueuedCompletionStatus(0x380, 0xc000778c00?, 0xc000a0cfb0?, 0x0?, 0xffffffff)
+	C:/Users/Rekad/go/pkg/mod/golang.org/x/sys@v0.42.0/windows/zsyscall_windows.go:2618 +0xb0
+github.com/fsnotify/fsnotify.(*readDirChangesW).readEvents(0xc001608080)
+	C:/Users/Rekad/go/pkg/mod/github.com/fsnotify/fsnotify@v1.9.0/backend_windows.go:491 +0x75
+created by github.com/fsnotify/fsnotify.newBackend in goroutine 13
+	C:/Users/Rekad/go/pkg/mod/github.com/fsnotify/fsnotify@v1.9.0/backend_windows.go:53 +0x198
+
+goroutine 67 [chan receive, 9 minutes]:
+fyne.io/fyne/v2/app.watchFile.func1()
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/settings_desktop.go:42 +0x79
+created by fyne.io/fyne/v2/app.watchFile in goroutine 13
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/settings_desktop.go:41 +0xe9
+
+goroutine 68 [select, 9 minutes]:
+fyne.io/fyne/v2/internal/async.(*UnboundedChan[...]).processing(0x7ff7ecbd3a40)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:43 +0xdd
+created by fyne.io/fyne/v2/internal/async.NewUnboundedChan[...] in goroutine 13
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:20 +0x10a
+
+goroutine 69 [chan receive, 9 minutes]:
+fyne.io/fyne/v2/internal/driver/glfw.runOnMainWithWait(0xc0009c02e0, 0x1)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/driver/glfw/loop.go:53 +0xfc
+fyne.io/fyne/v2/internal/driver/glfw.(*gLDriver).DoFromGoroutine.func1()
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/driver/glfw/driver.go:70 +0x1c
+fyne.io/fyne/v2/internal/async.EnsureNotMain(0xc0009c02f0)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/goroutine.go:29 +0x3f
+fyne.io/fyne/v2/internal/driver/glfw.(*gLDriver).DoFromGoroutine(0x10?, 0xc0009c02e0, 0x1?)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/driver/glfw/driver.go:69 +0x56
+fyne.io/fyne/v2.DoAndWait(0xc0009c02e0)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/thread.go:9 +0x3a
+fyne.io/fyne/v2/app.(*preferences).resetSavedRecently.func1()
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/preferences.go:54 +0x65
+created by fyne.io/fyne/v2/app.(*preferences).resetSavedRecently in goroutine 13
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/preferences.go:50 +0x4f
+
+goroutine 71 [syscall, 9 minutes, locked to thread]:
+syscall.SyscallN(0x7ff7ec8df100?, {0xc001625b80?, 0x0?, 0x0?})
+	C:/Program Files/Go/src/runtime/syscall_windows.go:500 +0x1e
+golang.org/x/sys/windows.GetQueuedCompletionStatus(0x374, 0xc00151cf00?, 0xc0015ceff0?, 0x0?, 0xffffffff)
+	C:/Users/Rekad/go/pkg/mod/golang.org/x/sys@v0.42.0/windows/zsyscall_windows.go:2618 +0xb0
+github.com/fsnotify/fsnotify.(*readDirChangesW).readEvents(0xc001608180)
+	C:/Users/Rekad/go/pkg/mod/github.com/fsnotify/fsnotify@v1.9.0/backend_windows.go:491 +0x75
+created by github.com/fsnotify/fsnotify.newBackend in goroutine 70
+	C:/Users/Rekad/go/pkg/mod/github.com/fsnotify/fsnotify@v1.9.0/backend_windows.go:53 +0x198
+
+goroutine 72 [chan receive, 9 minutes]:
+fyne.io/fyne/v2/app.watchFile.func1()
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/settings_desktop.go:42 +0x79
+created by fyne.io/fyne/v2/app.watchFile in goroutine 70
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/settings_desktop.go:41 +0xe9
+
+goroutine 73 [select, 9 minutes]:
+fyne.io/fyne/v2/internal/async.(*UnboundedChan[...]).processing(0x7ff7ecbd3a40)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:43 +0xdd
+created by fyne.io/fyne/v2/internal/async.NewUnboundedChan[...] in goroutine 70
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:20 +0x10a
+
+goroutine 74 [chan receive, 9 minutes]:
+fyne.io/fyne/v2/internal/driver/glfw.runOnMainWithWait(0xc000984560, 0x1)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/driver/glfw/loop.go:53 +0xfc
+fyne.io/fyne/v2/internal/driver/glfw.(*gLDriver).DoFromGoroutine.func1()
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/driver/glfw/driver.go:70 +0x1c
+fyne.io/fyne/v2/internal/async.EnsureNotMain(0xc000984570)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/goroutine.go:29 +0x3f
+fyne.io/fyne/v2/internal/driver/glfw.(*gLDriver).DoFromGoroutine(0x10?, 0xc000984560, 0x1?)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/driver/glfw/driver.go:69 +0x56
+fyne.io/fyne/v2.DoAndWait(0xc000984560)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/thread.go:9 +0x3a
+fyne.io/fyne/v2/app.(*preferences).resetSavedRecently.func1()
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/preferences.go:54 +0x65
+created by fyne.io/fyne/v2/app.(*preferences).resetSavedRecently in goroutine 70
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/preferences.go:50 +0x4f
+
+goroutine 52 [syscall, 9 minutes, locked to thread]:
+syscall.SyscallN(0x7ff7ec8df100?, {0xc00163fb80?, 0x0?, 0x0?})
+	C:/Program Files/Go/src/runtime/syscall_windows.go:500 +0x1e
+golang.org/x/sys/windows.GetQueuedCompletionStatus(0x34c, 0xc001620300?, 0xc001600270?, 0x0?, 0xffffffff)
+	C:/Users/Rekad/go/pkg/mod/golang.org/x/sys@v0.42.0/windows/zsyscall_windows.go:2618 +0xb0
+github.com/fsnotify/fsnotify.(*readDirChangesW).readEvents(0xc00172a080)
+	C:/Users/Rekad/go/pkg/mod/github.com/fsnotify/fsnotify@v1.9.0/backend_windows.go:491 +0x75
+created by github.com/fsnotify/fsnotify.newBackend in goroutine 82
+	C:/Users/Rekad/go/pkg/mod/github.com/fsnotify/fsnotify@v1.9.0/backend_windows.go:53 +0x198
+
+goroutine 53 [chan receive, 9 minutes]:
+fyne.io/fyne/v2/app.watchFile.func1()
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/settings_desktop.go:42 +0x79
+created by fyne.io/fyne/v2/app.watchFile in goroutine 82
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/settings_desktop.go:41 +0xe9
+
+goroutine 54 [select, 9 minutes]:
+fyne.io/fyne/v2/internal/async.(*UnboundedChan[...]).processing(0x7ff7ecbd3a40)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:43 +0xdd
+created by fyne.io/fyne/v2/internal/async.NewUnboundedChan[...] in goroutine 82
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:20 +0x10a
+
+goroutine 55 [chan receive, 9 minutes]:
+fyne.io/fyne/v2/internal/driver/glfw.runOnMainWithWait(0xc0009c0300, 0x1)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/driver/glfw/loop.go:53 +0xfc
+fyne.io/fyne/v2/internal/driver/glfw.(*gLDriver).DoFromGoroutine.func1()
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/driver/glfw/driver.go:70 +0x1c
+fyne.io/fyne/v2/internal/async.EnsureNotMain(0xc0009c0310)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/goroutine.go:29 +0x3f
+fyne.io/fyne/v2/internal/driver/glfw.(*gLDriver).DoFromGoroutine(0x10?, 0xc0009c0300, 0x1?)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/driver/glfw/driver.go:69 +0x56
+fyne.io/fyne/v2.DoAndWait(0xc0009c0300)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/thread.go:9 +0x3a
+fyne.io/fyne/v2/app.(*preferences).resetSavedRecently.func1()
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/preferences.go:54 +0x65
+created by fyne.io/fyne/v2/app.(*preferences).resetSavedRecently in goroutine 82
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/preferences.go:50 +0x4f
+
+goroutine 100 [syscall, 9 minutes, locked to thread]:
+syscall.SyscallN(0x100000fff?, {0xc001747b80?, 0xc001742180?, 0xc000183108?})
+	C:/Program Files/Go/src/runtime/syscall_windows.go:500 +0x1e
+golang.org/x/sys/windows.GetQueuedCompletionStatus(0x280, 0xc0017ae080?, 0x0?, 0xfff?, 0xffffffff)
+	C:/Users/Rekad/go/pkg/mod/golang.org/x/sys@v0.42.0/windows/zsyscall_windows.go:2618 +0xb0
+github.com/fsnotify/fsnotify.(*readDirChangesW).readEvents(0xc0017a6080)
+	C:/Users/Rekad/go/pkg/mod/github.com/fsnotify/fsnotify@v1.9.0/backend_windows.go:491 +0x75
+created by github.com/fsnotify/fsnotify.newBackend in goroutine 57
+	C:/Users/Rekad/go/pkg/mod/github.com/fsnotify/fsnotify@v1.9.0/backend_windows.go:53 +0x198
+
+goroutine 101 [chan receive, 9 minutes]:
+fyne.io/fyne/v2/app.watchFile.func1()
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/settings_desktop.go:42 +0x79
+created by fyne.io/fyne/v2/app.watchFile in goroutine 57
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/app/settings_desktop.go:41 +0xe9
+
+goroutine 102 [select, 9 minutes]:
+fyne.io/fyne/v2/internal/async.(*UnboundedChan[...]).processing(0x7ff7ecbd3a40)
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:43 +0xdd
+created by fyne.io/fyne/v2/internal/async.NewUnboundedChan[...] in goroutine 57
+	C:/Users/Rekad/go/pkg/mod/fyne.io/fyne/v2@v2.7.1/internal/async/chan.go:20 +0x10a
+FAIL	network-scanner/internal/gui	600.547s
+ok  	network-scanner/internal/integration	(cached)	coverage: [no statements]
+FAIL	network-scanner/internal/inventory [build failed]
+	network-scanner/internal/logger		coverage: 0.0% of statements
+ok  	network-scanner/internal/mock	(cached)	coverage: 89.0% of statements
+ok  	network-scanner/internal/nettools	(cached)	coverage: 70.1% of statements
+ok  	network-scanner/internal/network	(cached)	coverage: 80.7% of statements
+ok  	network-scanner/internal/osdetect	(cached)	coverage: 57.7% of statements
+ok  	network-scanner/internal/ports	(cached)	coverage: 80.5% of statements
+	network-scanner/internal/presenter		coverage: 0.0% of statements
+	network-scanner/internal/profiler		coverage: 0.0% of statements
+ok  	network-scanner/internal/redact	(cached)	coverage: 100.0% of statements
+ok  	network-scanner/internal/remoteexec	(cached)	coverage: 63.8% of statements
+FAIL	network-scanner/internal/report [build failed]
+ok  	network-scanner/internal/risksignature	(cached)	coverage: 74.4% of statements
+ok  	network-scanner/internal/scanner	(cached)	coverage: 52.1% of statements
+ok  	network-scanner/internal/scanner/daemon	(cached)	coverage: 46.2% of statements
+ok  	network-scanner/internal/scanner/deviceclassifier	(cached)	coverage: 48.7% of statements
+ok  	network-scanner/internal/security	(cached)	coverage: 88.2% of statements
+ok  	network-scanner/internal/services	(cached)	coverage: 88.3% of statements
+ok  	network-scanner/internal/snmpcollector	(cached)	coverage: 6.7% of statements
+ok  	network-scanner/internal/topology	(cached)	coverage: 71.8% of statements
+ok  	network-scanner/internal/wol	(cached)	coverage: 37.5% of statements
+FAIL

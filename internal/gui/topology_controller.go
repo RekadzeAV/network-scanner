@@ -102,6 +102,7 @@ func (a *App) applyTopologySuccess(topoStatus string, topoPreview string, topo *
 	a.snmpProgress.Hide()
 	a.topologyText.ParseMarkdown(topoPreview)
 	a.topologyScroll.ScrollToTop()
+	a.renderTopologyInteractiveMap(topo)
 	a.statusLabel.Refresh()
 	a.topologyStatus.Refresh()
 	a.snmpStageLabel.Refresh()

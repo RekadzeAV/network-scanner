@@ -2,12 +2,21 @@
 
 This file is the canonical roadmap entry point for the project.
 
-## Current roadmap
+## Текущее состояние проекта
 
-- See detailed priorities and milestones in [ROADMAP_P1_P3.md](ROADMAP_P1_P3.md).
-- See implementation task breakdown in [DETAILED_BACKLOG_P3_STAGE2.md](DETAILED_BACKLOG_P3_STAGE2.md).
+**Версия:** v1.0.5  
+**Базовый функционал:** ✅ 100% (13/13 задач)  
+**Фокус развития:** Качество кода, тесты, производительность (v2.0)
 
-## Release and closure operations
+---
+
+## Текущий план
+
+- Основной план реализации v2.0: [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
+- Детальные приоритеты и вехи: [ROADMAP_P1_P3.md](ROADMAP_P1_P3.md)
+- Детализированный бэклог задач: [DETAILED_BACKLOG_P3_STAGE2.md](DETAILED_BACKLOG_P3_STAGE2.md)
+
+## Release и closure операции
 
 - Release acceptance checklist: [RELEASE_ACCEPTANCE_CHECKLIST.md](RELEASE_ACCEPTANCE_CHECKLIST.md)
 - Readiness snapshot: [RELEASE_READINESS_SNAPSHOT.md](RELEASE_READINESS_SNAPSHOT.md)
@@ -20,5 +29,6 @@ This file is the canonical roadmap entry point for the project.
 ## Maintenance rules
 
 - Update this file when roadmap structure changes.
+- Keep [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) updated after each completed phase.
 - Keep [ROADMAP_P1_P3.md](ROADMAP_P1_P3.md) updated after each completed phase.
 - Keep [DETAILED_BACKLOG_P3_STAGE2.md](DETAILED_BACKLOG_P3_STAGE2.md) in sync with execution status for Stage 1 P3 and Stage 2 P1/P2/P3.

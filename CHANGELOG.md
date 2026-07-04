@@ -7,6 +7,85 @@
 
 ## [Unreleased]
 
+### Performance hardening (v2.0 benchmarks)
+- Добавлены comprehensive бенчмарки для критических путей:
+  - `internal/scanner/benchmarks_test.go`: 30+ бенчмарков (ParseNetworkRange, ParsePortRange, GetServiceName, IsPortOpen, ScanHost, и т.д.)
+  - `internal/network/benchmarks_test.go`: 20+ бенчмарков (ParseNetworkRange, ParsePortRange, GetServiceName, IsPortOpen, IsUDPPortOpen, и т.д.)
+  - `internal/topology/benchmarks_test.go`: 20+ бенчмарков (BuildTopology, NormalizeMAC, NodeID, и т.д.)
+  - `internal/network/arp_cache_benchmark_test.go`: 10+ бенчмарков (ARPCacheGet, ARPCacheGetBatch, ARPCacheRefresh, ParseWindowsARP, ParseLinuxARP, и т.д.)
+- Ключевые результаты бенчмарков (AMD Ryzen 7 7800X3D):
+  - `BenchmarkGetServiceName`: 5.5 ns/op, 0 allocs/op (zero-allocation lookup)
+  - `BenchmarkParseNetworkRange` (/24): 6.7 µs/op, 268 allocs/op
+  - `BenchmarkParsePortRange` (1-100): 3.5 µs/op, 21 allocs/op
+  - `BenchmarkBuildTopology` (50 устройств): 29 µs/op, 352 allocs/op
+  - `BenchmarkIsPortOpen`: 127 µs/op, 27 allocs/op
+  - `BenchmarkARPCacheGet`: 12 ns/op, 0 allocs/op (zero-allocation cache lookup)
+  - `BenchmarkARPCacheGetBatch` (100 IP): 6.4 µs/op, 11 allocs/op
+  - `BenchmarkParseLinuxARP`: 495 ns/op, 6 allocs/op
+- Добавлены stress-тесты для больших диапазонов (IPv6 /112, порты 1-65535)
+- Добавлены concurrent-бенчмарки для проверки thread-safety
+
+### Added (Async ARP Caching)
+- **Модуль `internal/network/arp_cache.go`:**
+  - Асинхронное кэширование ARP-таблицы с фоновым обновлением
+  - Конфигурируемый TTL для свежести данных
+  - Потокобезопасный доступ через sync.RWMutex
+  - Методы: `Get()`, `GetBatch()`, `Refresh()`, `RefreshAsync()`, `GetAll()`
+  - Кроссплатформенная поддержка: Windows (`arp -a`) и Linux (`ip neigh` / `arp -n`)
+  - Парсеры: `parseWindowsARP()`, `parseLinuxARP()`, `parseLinuxARPFromArpString()`
+  - Вспомогательная функция: `ResolveMACBatch()` для разрешения MAC-адресов
+- **Тесты:** `internal/network/arp_cache_test.go` — 30+ тестов:
+  - Базовые операции: `NewARPCache`, `Get`, `Refresh`, `RefreshAsync`
+  - Edge cases: expired entries, concurrent access, invalid MAC
+  - Платформенные парсеры: Windows ARP, Linux ARP
+  - Stress-тесты: rapid refresh, concurrent Get/Refresh
+- **Бенчмарки:** `internal/network/arp_cache_benchmark_test.go` — 10 бенчмарков:
+  - `BenchmarkARPCacheGet`: 12 ns/op, 0 allocs/op
+  - `BenchmarkARPCacheGetBatch`: 6.4 µs/op (100 IP)
+  - `BenchmarkParseLinuxARP`: 495 ns/op
+  - `BenchmarkARPCacheConcurrentGet`: 30 ns/op (parallel)
+
+### Added (Incremental CLI Output)
+- **Модуль `internal/scanner/incremental.go`:**
+  - Инкрементальный вывод через каналы событий
+  - Типы событий: `start`, `progress`, `host`, `summary`
+  - `IncrementalScanner` — обёртка над `NetworkScanner`
+  - `ConsumeEvents()` — чтение событий с handler
+  - `PrintEventHandler` — вывод в консоль (verbose/quiet режимы)
+  - `CollectEventHandler` — сбор результатов в слайс
+  - Поддержка context cancellation
+- **Тесты:** `internal/scanner/incremental_test.go` — 30+ тестов
+- **Бенчмарки:** 3 бенчмарка (`PrintEventHandler`, `CollectEventHandler`)
+
+### Added (Adaptive Port-Scanning Limits)
+- **Модуль `internal/scanner/adaptive_scanner.go`:**
+  - Адаптивное управление budget probe на основе метрик сети
+  - Конфигурируемые параметры: MinBudget, MaxBudget, InitialBudget, SpeedThreshold, ErrorThreshold
+  - Метрики: probesTotal, probesOpen, probesClosed, probesError
+  - Автоматическая адаптация: снижение при высоких ошибках, увеличение при низкой нагрузке
+  - Интервал адаптации: конфигурируемый (по умолчанию 1s)
+  - Методы: `GetBudget()`, `SetBudget()`, `RecordProbe()`, `Adapt()`, `GetMetrics()`, `GetSummary()`
+- **Тесты:** `internal/scanner/adaptive_scanner_test.go` — 25+ тестов
+  - Базовые операции: GetBudget, SetBudget, RecordProbe
+  - Edge cases: error rate, open rate, adapt thresholds
+  - Stress-тесты: concurrent probe recording
+- **Бенчмарки:** 3 бенчмарка (GetBudget, SetBudget, RecordProbe)
+
+### Исправлено
+- **Panic в `internal/ports/db.go` при форматировании имени сервиса:**
+  - Добавлена защита `defer/recover` для `titleEn.String()` в `formatIANAServiceName`
+  - Исправлена potential index out of range при обработке пустых rune-слайсов
+  - Fallback на lowercase при панике в text/cases библиотеке
+  - Verified: все бенчмарки проходят без panic
+
+### Документация v2.0
+- Полностью обновлена `docs/IMPLEMENTATION_PLAN.md`: добавлен план v2.0 с метриками качества (coverage GUI 60%, core 85%)
+- Обновлена `docs/ARCHITECTURE.md` до версии 2.0: добавлена структура DI Container, новые пакеты (builder, contracts, presenter)
+- Обновлен `README.md`: добавлена таблица текущего состояния проекта, актуальная структура проекта, компактный список документации
+- Обновлены `docs/USER_GUIDE.md`, `docs/TECHNICAL.md`, `docs/GUI.md`, `docs/ROADMAP.md`: синхронизированы ссылки на связанные документы
+- Добавлены метрики качества в `docs/IMPLEMENTATION_PLAN.md`: coverage, performance, code quality
+- Обновлены внутренние ссылки между документами: удалены устаревшие ссылки, добавлены актуальные
+
 ### Инженерный baseline
 - Базовые инженерные точки входа в `Makefile`: `make build`, `make test`, `make run`, `make deploy`.
 - Скрипты первичной настройки окружения: `scripts/bootstrap.sh` и `scripts/bootstrap.ps1`.

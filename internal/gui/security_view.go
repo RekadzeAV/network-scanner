@@ -61,6 +61,17 @@ func (a *App) buildSecurityDashboardView(data []scanner.Result) fyne.CanvasObjec
 	summary.WriteString(fmt.Sprintf("- High: `%d`\n", severityCounts["high"]))
 	summary.WriteString(fmt.Sprintf("- Medium: `%d`\n", severityCounts["medium"]))
 	summary.WriteString(fmt.Sprintf("- Low: `%d`\n", severityCounts["low"]))
+	securityIndex := audit.SecurityIndexFromSeverityCounts(severityCounts)
+	indicator := "GREEN"
+	if securityIndex < 70 {
+		indicator = "YELLOW"
+	}
+	if securityIndex < 40 {
+		indicator = "RED"
+	}
+	summary.WriteString("\n#### Network security index\n\n")
+	summary.WriteString(fmt.Sprintf("- Index: `%d/100`\n", securityIndex))
+	summary.WriteString(fmt.Sprintf("- Indicator: `%s`\n", indicator))
 
 	exportBtn := widget.NewButton("Export security report (HTML)", func() {
 		a.exportSecurityDashboardReport(data, signatureFindings)
@@ -86,7 +97,7 @@ func (a *App) buildSecurityFindingsTable(portFindings []audit.Finding, signature
 			source:   "port-audit",
 			severity: strings.ToLower(strings.TrimSpace(f.Severity)),
 			host:     strings.TrimSpace(f.Host),
-			title:    strings.TrimSpace(f.Title),
+			title:    strings.TrimSpace(audit.HumanReadable(f)),
 		})
 	}
 	for _, f := range signatureFindings {

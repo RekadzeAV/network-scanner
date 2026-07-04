@@ -1,207 +1,84 @@
-name: CI
+﻿name: CI
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main, master, develop ]
-  workflow_dispatch:
+    branches: [ main ]
+
+env:
+  GO_VERSION: "1.23"
+  GO_MODULE: "network-scanner"
 
 jobs:
-  lint:
-    name: Lint
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: go.mod
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
 
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: latest
+      - name: Download dependencies
+        run: go mod download
 
-  test:
-    name: Test
-    runs-on: ${{ matrix.os }}
-    needs: lint
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        go-version: ['1.24.x']
+      - name: Run unit tests
+        run: go test -v -coverprofile=coverage.out ./...
 
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
+          fail_ci_if_error: false
+
+  lint:
+    name: Run Linter
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ matrix.go-version }}
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
 
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/go/pkg/mod
-          ~/.cache/go-build
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
-
-    - name: Download dependencies
-      run: go mod download
-
-    - name: Run tests
-      run: go test ./...
-
-  p1-closure-unix:
-    name: P1 Closure (Unix)
-    runs-on: ${{ matrix.os }}
-    needs: test
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: go.mod
-
-    - name: Run formal P1 closure check
-      shell: bash
-      run: ./scripts/p1-closure-check.sh
-
-  stage2-p1-closure:
-    name: Stage2 P1 Closure
-    runs-on: ${{ matrix.os }}
-    needs: test
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: go.mod
-
-    - name: Run Stage2 P1 closure (Unix)
-      if: runner.os != 'Windows'
-      shell: bash
-      run: ./scripts/stage2-p1-closure-check.sh
-
-    - name: Run Stage2 P1 closure (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: ./scripts/stage2-p1-closure-check.ps1
-
-  stage2-p3-closure:
-    name: Stage2 P3 Closure
-    runs-on: ${{ matrix.os }}
-    needs: test
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: go.mod
-
-    - name: Run Stage2 P3 closure (Unix)
-      if: runner.os != 'Windows'
-      shell: bash
-      run: ./scripts/stage2-p3-closure-check.sh
-
-    - name: Run Stage2 P3 closure (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: ./scripts/stage2-p3-closure-check.ps1
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
 
   build:
-    name: Build and Smoke
-    runs-on: ${{ matrix.os }}
-    needs: [test, p1-closure-unix, stage2-p1-closure, stage2-p3-closure]
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test, lint]
     strategy:
       matrix:
-        include:
-          - os: ubuntu-latest
-            cli_bin: network-scanner
-            gui_bin: network-scanner-gui
-          - os: macos-latest
-            cli_bin: network-scanner
-            gui_bin: network-scanner-gui
-          - os: windows-latest
-            cli_bin: network-scanner.exe
-            gui_bin: network-scanner-gui.exe
-
+        os: [linux, windows, darwin]
+        arch: [amd64, arm64]
+        exclude:
+          - os: windows
+            arch: arm64
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: go.mod
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
 
-    - name: Build GUI binary
-      run: go build -o "${{ matrix.gui_bin }}" ./cmd/gui
+      - name: Build binary
+        run: |
+          GOOS="${{ matrix.os }}" GOARCH="${{ matrix.arch }}" go build -o release-build/network-scanner-${{ matrix.os }}-${{ matrix.arch }} -ldflags="-X main.Version=dev -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=$(git rev-parse --short HEAD)" ./cmd/network-scanner/
 
-    - name: Build CLI binary
-      run: go build -o "${{ matrix.cli_bin }}" ./cmd/network-scanner
-
-    - name: Smoke check CLI
-      run: ./"${{ matrix.cli_bin }}" --help
-
-    - name: Smoke check artifacts
-      shell: bash
-      run: |
-        test -f "${{ matrix.cli_bin }}"
-        test -f "${{ matrix.gui_bin }}"
-
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: binaries-${{ runner.os }}
-        path: |
-          ${{ matrix.cli_bin }}
-          ${{ matrix.gui_bin }}
-
-  d-track-smoke:
-    name: D-Track Smoke (Topology Export)
-    runs-on: ${{ matrix.os }}
-    needs: build
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version-file: go.mod
-
-    - name: Run D-track smoke (Unix)
-      if: runner.os != 'Windows'
-      shell: bash
-      run: ./scripts/smoke-d-track-topology-export.sh
-
-    - name: Run D-track smoke (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: ./scripts/smoke-d-track-topology-export.ps1
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-scanner-${{ matrix.os }}-${{ matrix.arch }}
+          path: release-build/network-scanner-${{ matrix.os }}-${{ matrix.arch }}

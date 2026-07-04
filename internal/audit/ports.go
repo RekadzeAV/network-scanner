@@ -135,6 +135,56 @@ func BuildSummary(findings []Finding) Summary {
 	return s
 }
 
+// HumanReadable преобразует техническую находку в сообщение для нетехнического пользователя.
+func HumanReadable(f Finding) string {
+	host := strings.TrimSpace(f.Host)
+	if host == "" {
+		host = "неизвестном устройстве"
+	} else {
+		host = "устройстве " + host
+	}
+	switch strings.TrimSpace(strings.ToLower(f.Title)) {
+	case "telnet без шифрования":
+		return fmt.Sprintf("На %s обнаружен Telnet: пароли могут передаваться без шифрования.", host)
+	case "ftp без шифрования":
+		return fmt.Sprintf("На %s открыт FTP без защиты: данные и пароли могут быть перехвачены.", host)
+	case "smb доступен", "smb/netbios доступен":
+		return fmt.Sprintf("На %s доступен SMB: убедитесь, что доступ ограничен только доверенной сетью.", host)
+	case "rdp доступен":
+		return fmt.Sprintf("На %s открыт RDP: рекомендуется доступ только через VPN и с MFA.", host)
+	default:
+		portPart := ""
+		if f.Port > 0 {
+			portPart = fmt.Sprintf(" (порт %d/%s)", f.Port, strings.ToLower(strings.TrimSpace(f.Protocol)))
+		}
+		title := strings.TrimSpace(f.Title)
+		if title == "" {
+			title = "Обнаружен потенциальный риск"
+		}
+		return fmt.Sprintf("На %s обнаружена проблема: %s%s.", host, title, portPart)
+	}
+}
+
+// SecurityIndexFromSeverityCounts возвращает индекс безопасности 0..100.
+// Формула: 100 - сумма весов рисков (critical=30, high=20, medium=10, low=5).
+func SecurityIndexFromSeverityCounts(counts map[string]int) int {
+	if counts == nil {
+		return 100
+	}
+	score := 100
+	score -= counts["critical"] * 30
+	score -= counts["high"] * 20
+	score -= counts["medium"] * 10
+	score -= counts["low"] * 5
+	if score < 0 {
+		return 0
+	}
+	if score > 100 {
+		return 100
+	}
+	return score
+}
+
 // NormalizeSeverity нормализует строковое значение уровня критичности.
 // Поддерживаются: all, critical, high, medium, low.
 func NormalizeSeverity(v string) (string, bool) {

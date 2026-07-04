@@ -195,6 +195,14 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 
 Проект включает подробную документацию:
 
+### Плановое внедрение по промту
+
+- [PROMPT_EXECUTION_ANALYSIS.md](PROMPT_EXECUTION_ANALYSIS.md) - анализ разрыва и архитектурные решения
+- [PROMPT_EXECUTION_SPEC.md](PROMPT_EXECUTION_SPEC.md) - постановка и границы реализации
+- [PROMPT_EXECUTION_DEVELOPMENT_LOG.md](PROMPT_EXECUTION_DEVELOPMENT_LOG.md) - журнал разработки и изменений структуры
+- [PROMPT_EXECUTION_ROADMAP.md](PROMPT_EXECUTION_ROADMAP.md) - актуальный roadmap по фазам
+- [PHASE2_TASKS_CHECKLIST.md](PHASE2_TASKS_CHECKLIST.md) - детальный список задач и подзадач Фазы 2 со статусами
+
 ### Smoke и closure проверки (оперативно)
 
 ```bash
@@ -223,7 +231,7 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 - **[RELEASE_READY_GAP_LIST.md](RELEASE_READY_GAP_LIST.md)** - Короткий backlog оставшихся задач до финального sign-off
 - **[P0_SIGNOFF_RUNBOOK.md](P0_SIGNOFF_RUNBOOK.md)** - Пошаговый runbook закрытия блокирующего P0 (Cross-OS + CI evidence)
 - **[RELEASE_OPERATIONS_CHEATSHEET.md](RELEASE_OPERATIONS_CHEATSHEET.md)** - Команды релизного прогона и расположение локальных бинарников (`build/release/`)
-- **[BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)** - Структура каталогов релизной сборки
+- **[BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)** - Структура каталогов релизной сборки (`build/release/`)
 - **[STAGE2_100_COMMIT_READY.md](STAGE2_100_COMMIT_READY.md)** - Краткий commit-ready итог по Stage2 и remaining шагам sign-off
 - **[COMMIT_READY_STAGE2_SIGNOFF.md](COMMIT_READY_STAGE2_SIGNOFF.md)** - Готовые варианты commit message для пакета Stage2 sign-off
 - **[ROADMAP_P1_P3.md](ROADMAP_P1_P3.md)** - Канонический статус фаз Stage 1/2 (`P1..P3`)

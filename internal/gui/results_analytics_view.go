@@ -15,13 +15,23 @@ import (
 func (a *App) buildResultsAnalyticsView(data []scanner.Result) fyne.CanvasObject {
 	protocols, deviceTypes := collectAnalytics(data)
 	normalizedTypes := normalizeDeviceTypes(deviceTypes)
+	cacheKey := buildPieChartCacheKey("analytics:"+strings.TrimSpace(a.resultsMode), protocols) + "|" + buildPieChartCacheKey("types", normalizedTypes)
+	if a.analyticsCacheView != nil && cacheKey == a.analyticsCacheKey {
+		return a.analyticsCacheView
+	}
 	if strings.EqualFold(strings.TrimSpace(a.resultsMode), "Карточки") {
-		return container.NewHBox(
+		view := container.NewHBox(
 			a.buildPieChart("Протоколы", protocols),
 			a.buildPieChart("Типы устройств", normalizedTypes),
 		)
+		a.analyticsCacheKey = cacheKey
+		a.analyticsCacheView = view
+		return view
 	}
-	return widget.NewCard("Аналитика", "", widget.NewRichTextFromMarkdown(buildAnalyticsMarkdown(protocols, normalizedTypes)))
+	view := widget.NewCard("Аналитика", "", widget.NewRichTextFromMarkdown(buildAnalyticsMarkdown(protocols, normalizedTypes)))
+	a.analyticsCacheKey = cacheKey
+	a.analyticsCacheView = view
+	return view
 }
 
 func buildAnalyticsMarkdown(protocols map[string]int, deviceTypes map[string]int) string {

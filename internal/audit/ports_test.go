@@ -90,3 +90,37 @@ func TestNormalizeSeverity(t *testing.T) {
 		t.Fatal("expected invalid severity")
 	}
 }
+
+func TestHumanReadable(t *testing.T) {
+	f := Finding{
+		Host:     "192.168.1.1",
+		Port:     23,
+		Protocol: "tcp",
+		Title:    "Telnet без шифрования",
+	}
+	msg := HumanReadable(f)
+	if !strings.Contains(strings.ToLower(msg), "telnet") {
+		t.Fatalf("expected telnet in message, got %q", msg)
+	}
+	if !strings.Contains(msg, "192.168.1.1") {
+		t.Fatalf("expected host in message, got %q", msg)
+	}
+}
+
+func TestSecurityIndexFromSeverityCounts(t *testing.T) {
+	score := SecurityIndexFromSeverityCounts(map[string]int{
+		"critical": 1,
+		"high":     1,
+		"medium":   1,
+		"low":      1,
+	})
+	if score != 35 {
+		t.Fatalf("expected score 35, got %d", score)
+	}
+	if SecurityIndexFromSeverityCounts(nil) != 100 {
+		t.Fatal("expected default score 100")
+	}
+	if SecurityIndexFromSeverityCounts(map[string]int{"critical": 10}) != 0 {
+		t.Fatal("expected clamped score 0")
+	}
+}

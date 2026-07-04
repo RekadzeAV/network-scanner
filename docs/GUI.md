@@ -11,6 +11,7 @@ internal/gui/
 ├── app.go                    # Основная логика GUI приложения
 ├── scan_controller.go        # UI-оркестрация стадий/состояний сканирования
 ├── topology_controller.go    # UI-оркестрация стадий/состояний построения топологии
+├── topology_interactive_map.go # Интерактивная карта топологии (узлы/связи/click-through)
 ├── operations.go             # Runtime операций (queued/running/success/failed/canceled)
 ├── security_view.go          # Security Dashboard (audit + risk signatures)
 ├── results_view.go           # Рендер таблицы/карточек, фильтры и Host Details Drawer
@@ -62,7 +63,9 @@ func main() {
 go build -o network-scanner-gui ./cmd/gui
 ```
 
-Релизный скрипт **`./scripts/build-gui-release.sh`** сохраняет GUI-бинарники в **`build/release/<YYYY-MM-DD-N>/`** в корне репозитория. На macOS **`./launch-gui.sh`** подхватывает последнюю такую папку (при отсутствии — устаревший **`dist/`**). Подробнее: [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md).
+Релизный скрипт **`./scripts/build-gui-release.sh`** сохраняет GUI-бинарники в **`build/release/<YYYY-MM-DD-N>/`** в корне репозитория. Для запуска на macOS используйте `./scripts/build-gui-release.sh && ./build/release/<YYYY-MM-DD-N>/gui-darwin-universal`. Подробнее: [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md).
+
+> **Примечание:** `launch-gui.sh` [ARCHIVED] — устаревший скрипт, перемещён в `internal/legacy/`. Используйте `scripts/build-gui-release.sh`.
 
 ### Запуск
 
@@ -81,6 +84,7 @@ go build -o network-scanner-gui ./cmd/gui
 - **Инструменты** - `Ping`, `Traceroute`, `DNS`, `Whois`, `Wi-Fi`, `Wake-on-LAN`, `Аудит портов`, `Risk Signatures`, `Device Control`
 - **Operations Center** - история операций инструментов с действиями `Retry`/`Cancel`
 - **Host Details Drawer** - панель деталей выбранного хоста + быстрые действия (`Ping`/`Traceroute`/`DNS`/`Whois`/`WOL`)
+- **Интерактивная карта топологии** - выбор узлов и связей, фильтры (`query/type/confidence`) и click-through в `Host Details`
 - **Диагностика сканирования** - копирование/сохранение diagnostics summary последнего запуска
 - **Автопрофиль сканирования** - мягкая авто-коррекция heavy-настроек на больших подсетях (`ports/threads`)
 - **Рекомендуемые настройки** - отдельная кнопка с безопасным one-click профилем и подсказкой `Почему?` по логике адаптации
@@ -119,6 +123,12 @@ GUI версия использует:
 Для вкладки результатов используется комбинированный UI:
 - подрежим `Devices` — таблица/карточки + Host Details Drawer + встроенная аналитика;
 - подрежим `Security` — сводка findings (`audit` + `risk signatures`) и экспорт HTML отчета.
+
+Для больших выдач в `Devices` применяются оптимизации:
+- debounce перерисовки для burst-ввода фильтров/поиска;
+- virtualized cards через `widget.List` (рендерятся только видимые элементы);
+- progressive load карточек кнопкой `Показать еще (...)`;
+- cache/prefetch для `Host Details` по IP (ускоряет переключение между соседними хостами).
 
 Для вкладки инструментов используется `RichText` с markdown-совместимым выводом и отдельный `Operations Center` для отслеживания выполнения и повторного запуска операций.
 
@@ -164,15 +174,17 @@ GUI версия работает на всех платформах, подде
 
 ## Дополнительные ресурсы
 
-- [Инструкция по эксплуатации](../Инструкция%20по%20эксплуатации.md) - Полная инструкция по эксплуатации (русский язык)
 - [Руководство пользователя](USER_GUIDE.md) - Подробное руководство пользователя
 - [Техническая документация](TECHNICAL.md) - Техническая документация для разработчиков
-- [Архитектура проекта](ARCHITECTURE.md) - Описание архитектуры проекта
+- [Архитектура проекта](ARCHITECTURE.md) - Описание архитектуры проекта (v2.0)
+- [План реализации](IMPLEMENTATION_PLAN.md) - План реализации v2.0
 - [Инструкция по установке](INSTALL.md) - Инструкции по установке
 - [README.md](../README.md) - Основная документация проекта
+- [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md) - Структура каталогов релизной сборки (`build/release/`)
+- [RELEASE_OPERATIONS_CHEATSHEET.md](RELEASE_OPERATIONS_CHEATSHEET.md) - Команды closure и локальные релизные артефакты
 
 ---
 
-**Версия документа:** 1.0.7  
-**Последнее обновление:** 2026-04-23
+**Версия документа:** 2.0.0  
+**Последнее обновление:** 2026-01-XX
 

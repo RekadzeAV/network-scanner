@@ -22,7 +22,105 @@ import (
 	"network-scanner/internal/network"
 	"network-scanner/internal/osdetect"
 	portdb "network-scanner/internal/ports"
+	"network-scanner/internal/scanner/deviceclassifier"
 )
+
+// Package scanner предоставляет основной движок сканирования сети.
+//
+// # Основные компоненты
+//
+// NetworkScanner — главный struct для сканирования сети.
+//
+//	NewNetworkScanner() — создает сканер с дефолтными зависимостями.
+//	NewScanner() — создает сканер с внедренными зависимостями (DI).
+//	Scan() — запускает сканирование сети.
+//	Stop() — останавливает сканирование.
+//	GetResults() — возвращает результаты сканирования.
+//
+// # Процесс сканирования
+//
+//  1. ParseNetworkRange — парсит CIDR диапазон (например 192.168.1.0/24)
+//  2. Ping discovery — проверяет доступность хостов через ICMP/ports
+//  3. Port scanning — сканирует TCP/UDP порты на активных хостах
+//  4. MAC/Hostname — получает MAC адрес и hostname для каждого хоста
+//  5. Device type — определяет тип устройства по открытым портам и MAC
+//  6. SNMP probe — проверяет доступность SNMP (порт 161)
+//
+// # UDP сканирование
+//
+// UDP сканирование включает известные порты:
+//
+//	const knownUDPPorts = 9 // 53, 67, 68, 69, 123, 161, 162, 514, 1194
+//
+// Для каждого хоста запускается параллельное сканирование с ограничением
+// параллельности (udpSemaphoreSize=50).
+//
+// # Проверка живости хоста
+//
+// isHostAlive проверяет доступность хоста через probe на commonPorts:
+//
+//	const commonHostPorts = 6 // 80, 443, 22, 135, 139, 445
+//
+// Использует параллельные dial-connections с таймаутом probeTimeout.
+//
+// # Banner grabbing
+//
+// При включенном grabBanners, для открытых портов из shouldGrabBannerPort
+// выполняется сбор баннера с таймаутом bannerGrabTimeout.
+//
+// # Определение типа устройства
+//
+// detectDeviceType использует deviceclassifier для определения типа:
+//
+//   - Router/Network Device: порты 80, 443, 22, 161, 514
+//   - Computer: порты 135, 139, 445, 3389
+//   - Server: порты 22, 80, 443, 3306, 5432
+//   - Unknown: другие комбинации
+//
+// # MAC адрес
+//
+// getMACAddress пытается получить MAC через:
+//
+//  1. networkProber.ResolveMAC (если внедрен)
+//  2. Системную ARP таблицу (/proc/net/arp, arp -a, arp -n)
+//  3. PCAP ARP request (требует root прав)
+//
+// # Конфигурация таймаутов
+//
+//	const (
+//	    udpProbeTimeoutDivisor = 3    // probeTimeout = timeout / 3
+//	    hostProbeTimeoutMin    = 150ms // минимальный probe timeout
+//	    hostProbeTimeoutMax    = 800ms // максимальный probe timeout
+//	    bannerGrabTimeoutDivisor = 2   // bannerTimeout = timeout / 2
+//	    bannerGrabTimeoutMin     = 300ms
+//	    bannerGrabTimeoutMax     = 2s
+//	    snmpProbeTimeoutMax      = 500ms
+//	)
+//
+// # Пример использования
+//
+//	import "network-scanner/internal/scanner"
+//
+//	func main() {
+//	    ns := scanner.NewNetworkScanner("192.168.1.0/24", 2*time.Second, "1-1024", 50, false)
+//	    ns.SetScanUDP(true)
+//	    ns.SetGrabBanners(true)
+//	    ns.SetProgressCallback(func(stage string, current, total int, msg string) {
+//	        fmt.Printf("%s: %d/%d - %s\n", stage, current, total, msg)
+//	    })
+//	    ns.Scan()
+//	    results := ns.GetResults()
+//	}
+//
+// # Потокобезопасность
+//
+// NetworkScanner потокобезопасен для вызовов:
+//
+//   - SetScanUDP, SetScanTCPPorts, SetGrabBanners — до вызова Scan()
+//   - GetResults — во время и после Scan()
+//   - Stop — во время Scan() для отмены
+//
+//内部的 results слайс защищен sync.RWMutex.
 
 // Result содержит результаты сканирования одного хоста
 type Result struct {
@@ -95,6 +193,50 @@ const (
 	globalPortProbeBudget = 512
 	minPerHostPortThreads = 8
 	maxPerHostPortThreads = 64
+
+	// UDP порты для сканирования
+	knownUDPPorts = 9
+
+	// Магические числа для сканирования
+	udpSemaphoreSize       = 50
+	udpResultBufferSize    = 9 // равно knownUDPPorts
+	udpCollectTimeout      = 100 * time.Millisecond
+	udpProbeTimeoutDivisor = 3
+
+	// Таймауты для проверки живости
+	hostProbeTimeoutMin = 150 * time.Millisecond
+	hostProbeTimeoutMax = 800 * time.Millisecond
+
+	// Таймауты для banner grabbing
+	bannerGrabTimeoutDivisor = 2
+	bannerGrabTimeoutMin     = 300 * time.Millisecond
+	bannerGrabTimeoutMax     = 2 * time.Second
+
+	// SNMP probe timeout
+	snmpProbeTimeoutMax = 500 * time.Millisecond
+
+	// SNMP UDP/TCP порт
+	snmpPort = 161
+
+	// Задержки для неблокирующих операций
+	macTimeout         = 100 * time.Millisecond
+	hostnameTimeout    = 100 * time.Millisecond
+	arpCommandTimeout  = 3 * time.Second
+	ifaceTimeout       = 3 * time.Second
+	ifaceAddrTimeout   = 1 * time.Second
+	arpResponseTimeout = 2 * time.Second
+
+	// Common ports для проверки живости хоста
+	commonHostPorts = 6
+
+	// MAC OUI prefix length
+	macOUIPrefixLength = 8
+
+	// Windows ARP MAC format length
+	windowsMACFormatLength = 17
+
+	// PCAP buffer size
+	pcapBufferSize = 1024
 )
 
 // NewNetworkScanner создает новый сканер
@@ -452,16 +594,19 @@ func (ns *NetworkScanner) isHostAlive(ip string) bool {
 	// Быстрая проверка живости: запускаем probe по нескольким портам параллельно
 	// и завершаем проверку сразу после первого успешного подключения.
 	commonPorts := []string{"80", "443", "22", "135", "139", "445"}
+	if len(commonPorts) != commonHostPorts {
+		logger.LogDebug("commonHostPorts=%d, но commonPorts имеет %d элементов — рассинхрон", commonHostPorts, len(commonPorts))
+	}
 	if ns.verbosePortLogs {
 		logger.LogDebug("Проверка доступности хоста %s через порты: %v", ip, commonPorts)
 	}
 
-	probeTimeout := ns.timeout / 3
-	if probeTimeout < 150*time.Millisecond {
-		probeTimeout = 150 * time.Millisecond
+	probeTimeout := ns.timeout / udpProbeTimeoutDivisor
+	if probeTimeout < hostProbeTimeoutMin {
+		probeTimeout = hostProbeTimeoutMin
 	}
-	if probeTimeout > 800*time.Millisecond {
-		probeTimeout = 800 * time.Millisecond
+	if probeTimeout > hostProbeTimeoutMax {
+		probeTimeout = hostProbeTimeoutMax
 	}
 
 	ctx, cancel := context.WithCancel(ns.ctx)
@@ -670,12 +815,12 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 					Service:  network.GetServiceName(p),
 				}
 				if isOpen && ns.grabBanners && shouldGrabBannerPort(p) {
-					bt := ns.timeout / 2
-					if bt < 300*time.Millisecond {
-						bt = 300 * time.Millisecond
+					bt := ns.timeout / bannerGrabTimeoutDivisor
+					if bt < bannerGrabTimeoutMin {
+						bt = bannerGrabTimeoutMin
 					}
-					if bt > 2*time.Second {
-						bt = 2 * time.Second
+					if bt > bannerGrabTimeoutMax {
+						bt = bannerGrabTimeoutMax
 					}
 					if b, err := banner.GrabTCP(ipStr, p, bt); err == nil && strings.TrimSpace(b) != "" {
 						portInfo.Banner = b
@@ -755,126 +900,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 
 	// UDP сканирование (если включено)
 	if ns.scanUDP {
-		logger.LogDebug("Начинаю UDP сканирование для хоста %s", ipStr)
-		udpPorts := []int{53, 67, 68, 69, 123, 161, 162, 514, 1194} // Известные UDP порты
-		udpSem := make(chan struct{}, 50)                           // Ограничиваем параллельность UDP сканирования
-		udpWg := sync.WaitGroup{}
-		udpResults := make(chan PortInfo, len(udpPorts))
-		udpDone := make(chan struct{})
-
-		udpScanCancelled := false
-	udpPortLoop:
-		for _, udpPort := range udpPorts {
-			// Проверяем, не отменено ли сканирование
-			select {
-			case <-ns.ctx.Done():
-				atomic.AddInt64(&ns.udpCancelHosts, 1)
-				udpScanCancelled = true
-				break udpPortLoop
-			default:
-			}
-			if udpScanCancelled {
-				break udpPortLoop
-			}
-
-			udpSem <- struct{}{}
-			udpWg.Add(1)
-			go func(p int) {
-				defer func() { <-udpSem }()
-				defer udpWg.Done()
-
-				select {
-				case <-ns.ctx.Done():
-					return
-				default:
-				}
-
-				udpCheckStart := time.Now()
-				atomic.AddInt64(&ns.udpProbeTotal, 1)
-				isOpen := ns.scanUDPPort(ipStr, p)
-				udpCheckDuration := time.Since(udpCheckStart)
-
-				if isOpen {
-					atomic.AddInt64(&ns.udpProbeOpen, 1)
-					if ns.verbosePortLogs {
-						logger.LogDebug("Хост %s: UDP порт %d открыт (проверка заняла %v)", ipStr, p, udpCheckDuration)
-					}
-					portInfo := PortInfo{
-						Port:     p,
-						State:    "open",
-						Protocol: "udp",
-						Service:  network.GetServiceName(p),
-					}
-					select {
-					case udpResults <- portInfo:
-					case <-ns.ctx.Done():
-						return
-					}
-				} else if ns.showClosed {
-					atomic.AddInt64(&ns.udpProbeNoOpen, 1)
-					if ns.verbosePortLogs {
-						logger.LogDebug("Хост %s: UDP порт %d закрыт/фильтруется (проверка заняла %v)", ipStr, p, udpCheckDuration)
-					}
-					portInfo := PortInfo{
-						Port:     p,
-						State:    "filtered",
-						Protocol: "udp",
-						Service:  network.GetServiceName(p),
-					}
-					select {
-					case udpResults <- portInfo:
-					case <-ns.ctx.Done():
-						return
-					}
-				} else {
-					atomic.AddInt64(&ns.udpProbeNoOpen, 1)
-				}
-			}(udpPort)
-		}
-
-		// Ждем завершения UDP сканирования
-		go func() {
-			udpWg.Wait()
-			close(udpResults)
-			close(udpDone)
-		}()
-
-		// Собираем UDP результаты
-		udpCollected := false
-		for !udpCollected {
-			select {
-			case udpPortInfo, ok := <-udpResults:
-				if !ok {
-					udpCollected = true
-					break
-				}
-				result.Ports = append(result.Ports, udpPortInfo)
-				if udpPortInfo.State == "open" {
-					openPorts++
-					protocol := getProtocolFromPort(udpPortInfo.Port)
-					if protocol != "" {
-						result.Protocols = appendIfNotExists(result.Protocols, protocol)
-						logger.LogDebug("Хост %s: определен протокол %s по UDP порту %d", ipStr, protocol, udpPortInfo.Port)
-					}
-				}
-			case <-ns.ctx.Done():
-				<-udpDone
-				for udpPortInfo := range udpResults {
-					result.Ports = append(result.Ports, udpPortInfo)
-					if udpPortInfo.State == "open" {
-						openPorts++
-						protocol := getProtocolFromPort(udpPortInfo.Port)
-						if protocol != "" {
-							result.Protocols = appendIfNotExists(result.Protocols, protocol)
-						}
-					}
-				}
-				udpCollected = true
-			case <-time.After(100 * time.Millisecond):
-				// Небольшая задержка для сбора результатов
-			}
-		}
-		logger.LogDebug("UDP сканирование для хоста %s завершено", ipStr)
+		ns.scanHostUDP(ipStr, &result)
 	}
 
 	// Собираем результаты MAC и hostname (неблокирующе)
@@ -886,7 +912,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 	case <-macErrChan:
 		logger.LogDebug("Хост %s: MAC адрес не получен (ошибка или таймаут)", ipStr)
 		// Игнорируем ошибку получения MAC
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(macTimeout):
 		logger.LogDebug("Хост %s: MAC адрес не получен (таймаут ожидания)", ipStr)
 		// Не ждем долго, если MAC еще не получен
 	default:
@@ -903,7 +929,7 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 	case <-hostnameErrChan:
 		logger.LogDebug("Хост %s: hostname не получен (ошибка DNS)", ipStr)
 		// Игнорируем ошибку DNS
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(hostnameTimeout):
 		logger.LogDebug("Хост %s: hostname не получен (таймаут ожидания)", ipStr)
 		// Не ждем долго, если hostname еще не получен
 	default:
@@ -927,13 +953,13 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 	}
 	// SNMP определяем по уже собранным данным; активный probe используем только при необходимости
 	// и с коротким таймаутом, чтобы не замедлять массовое сканирование.
-	result.SNMPEnabled = hasOpenPort(result.Ports, 161, "udp") || hasOpenPort(result.Ports, 161, "tcp")
+	result.SNMPEnabled = hasOpenPort(result.Ports, snmpPort, "udp") || hasOpenPort(result.Ports, snmpPort, "tcp")
 	if !result.SNMPEnabled {
 		snmpProbeTimeout := ns.timeout
-		if snmpProbeTimeout > 500*time.Millisecond {
-			snmpProbeTimeout = 500 * time.Millisecond
+		if snmpProbeTimeout > snmpProbeTimeoutMax {
+			snmpProbeTimeout = snmpProbeTimeoutMax
 		}
-		result.SNMPEnabled = ns.scanUDPPortWithTimeout(ipStr, 161, snmpProbeTimeout)
+		result.SNMPEnabled = ns.scanUDPPortWithTimeout(ipStr, snmpPort, snmpProbeTimeout)
 	}
 	logger.LogDebug("Хост %s: определен тип устройства: %s", ipStr, result.DeviceType)
 
@@ -969,6 +995,119 @@ func (ns *NetworkScanner) portThreadsForHost(portCount int) int {
 		perHost = 1
 	}
 	return perHost
+}
+
+// scanHostUDP сканирует известные UDP порты для указанного хоста
+func (ns *NetworkScanner) scanHostUDP(ipStr string, result *Result) {
+	logger.LogDebug("Начинаю UDP сканирование для хоста %s", ipStr)
+	defer logger.LogDebug("UDP сканирование для хоста %s завершено", ipStr)
+
+	udpPorts := []int{53, 67, 68, 69, 123, 161, 162, 514, 1194}
+	udpSem := make(chan struct{}, udpSemaphoreSize)
+	udpWg := sync.WaitGroup{}
+	udpResults := make(chan PortInfo, udpResultBufferSize)
+	udpDone := make(chan struct{})
+
+	udpScanCancelled := false
+udpPortLoop:
+	for _, udpPort := range udpPorts {
+		select {
+		case <-ns.ctx.Done():
+			atomic.AddInt64(&ns.udpCancelHosts, 1)
+			udpScanCancelled = true
+			break udpPortLoop
+		default:
+		}
+		if udpScanCancelled {
+			break udpPortLoop
+		}
+
+		udpSem <- struct{}{}
+		udpWg.Add(1)
+		go func(p int) {
+			defer func() { <-udpSem }()
+			defer udpWg.Done()
+
+			select {
+			case <-ns.ctx.Done():
+				return
+			default:
+			}
+
+			udpCheckStart := time.Now()
+			atomic.AddInt64(&ns.udpProbeTotal, 1)
+			isOpen := ns.scanUDPPort(ipStr, p)
+			udpCheckDuration := time.Since(udpCheckStart)
+
+			if isOpen {
+				atomic.AddInt64(&ns.udpProbeOpen, 1)
+				if ns.verbosePortLogs {
+					logger.LogDebug("Хост %s: UDP порт %d открыт (проверка заняла %v)", ipStr, p, udpCheckDuration)
+				}
+				portInfo := PortInfo{
+					Port:     p,
+					State:    "open",
+					Protocol: "udp",
+					Service:  network.GetServiceName(p),
+				}
+				select {
+				case udpResults <- portInfo:
+				case <-ns.ctx.Done():
+					return
+				}
+			} else if ns.showClosed {
+				atomic.AddInt64(&ns.udpProbeNoOpen, 1)
+				if ns.verbosePortLogs {
+					logger.LogDebug("Хост %s: UDP порт %d закрыт/фильтруется (проверка заняла %v)", ipStr, p, udpCheckDuration)
+				}
+				portInfo := PortInfo{
+					Port:     p,
+					State:    "filtered",
+					Protocol: "udp",
+					Service:  network.GetServiceName(p),
+				}
+				select {
+				case udpResults <- portInfo:
+				case <-ns.ctx.Done():
+					return
+				}
+			} else {
+				atomic.AddInt64(&ns.udpProbeNoOpen, 1)
+			}
+		}(udpPort)
+	}
+
+	// Ждем завершения UDP сканирования
+	go func() {
+		udpWg.Wait()
+		close(udpResults)
+		close(udpDone)
+	}()
+
+	// Собираем UDP результаты
+	udpCollected := false
+	for !udpCollected {
+		select {
+		case udpPortInfo, ok := <-udpResults:
+			if !ok {
+				udpCollected = true
+				break
+			}
+			result.Ports = append(result.Ports, udpPortInfo)
+			if udpPortInfo.State == "open" {
+				result.Protocols = appendIfNotExists(result.Protocols, getProtocolFromPort(udpPortInfo.Port))
+				logger.LogDebug("Хост %s: определен протокол %s по UDP порту %d", ipStr, getProtocolFromPort(udpPortInfo.Port), udpPortInfo.Port)
+			}
+		case <-ns.ctx.Done():
+			<-udpDone
+			for udpPortInfo := range udpResults {
+				result.Ports = append(result.Ports, udpPortInfo)
+			}
+			udpCollected = true
+		case <-time.After(udpCollectTimeout):
+			// Небольшая задержка для сбора результатов
+		}
+	}
 }
 
 // getMACAddress получает MAC адрес через ARP
@@ -1059,7 +1198,7 @@ func (ns *NetworkScanner) readMACFromLinuxARP(ipStr string) (string, error) {
 // readMACFromWindowsARP читает MAC адрес через команду arp -a на Windows
 func (ns *NetworkScanner) readMACFromWindowsARP(ipStr string) (string, error) {
 	// Создаем контекст с таймаутом для избежания зависания в Windows
-	ctx, cancel := context.WithTimeout(ns.ctx, 3*time.Second)
+	ctx, cancel := context.WithTimeout(ns.ctx, arpCommandTimeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "arp", "-a", ipStr)
@@ -1107,7 +1246,7 @@ func (ns *NetworkScanner) readMACFromWindowsARP(ipStr string) (string, error) {
 // readMACFromDarwinARP читает MAC адрес через команду arp -a на macOS
 func (ns *NetworkScanner) readMACFromDarwinARP(ipStr string) (string, error) {
 	// Создаем контекст с таймаутом
-	ctx, cancel := context.WithTimeout(ns.ctx, 3*time.Second)
+	ctx, cancel := context.WithTimeout(ns.ctx, arpCommandTimeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "arp", "-n", ipStr)
@@ -1187,7 +1326,7 @@ func (ns *NetworkScanner) getMACViaARPRequest(ip net.IP) (string, error) {
 		// Успешно получили интерфейсы
 	case err := <-errChan:
 		return "", err
-	case <-time.After(3 * time.Second):
+	case <-time.After(ifaceTimeout):
 		return "", fmt.Errorf("таймаут получения сетевых интерфейсов")
 	case <-ns.ctx.Done():
 		return "", fmt.Errorf("сканирование отменено")
@@ -1216,7 +1355,7 @@ func (ns *NetworkScanner) getMACViaARPRequest(ip net.IP) (string, error) {
 			// Успешно получили адреса
 		case <-addrErrChan:
 			continue
-		case <-time.After(1 * time.Second):
+		case <-time.After(ifaceAddrTimeout):
 			// Таймаут для получения адресов интерфейса, пропускаем этот интерфейс
 			continue
 		case <-ns.ctx.Done():
@@ -1236,7 +1375,7 @@ func (ns *NetworkScanner) getMACViaARPRequest(ip net.IP) (string, error) {
 		}
 
 		// Пытаемся открыть интерфейс (может требовать root прав)
-		handle, err := pcap.OpenLive(iface.Name, 1024, true, pcap.BlockForever)
+		handle, err := pcap.OpenLive(iface.Name, pcapBufferSize, true, pcap.BlockForever)
 		if err != nil {
 			// Если не получилось (нет прав), пропускаем
 			continue
@@ -1275,7 +1414,7 @@ func (ns *NetworkScanner) getMACViaARPRequest(ip net.IP) (string, error) {
 
 		// Ждем ответ
 		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-		timeout := time.After(2 * time.Second)
+		timeout := time.After(arpResponseTimeout)
 		for {
 			select {
 			case packet := <-packetSource.Packets():
@@ -1303,137 +1442,19 @@ func (ns *NetworkScanner) getMACViaARPRequest(ip net.IP) (string, error) {
 // detectDeviceType определяет тип устройства по открытым портам, MAC и hostname
 // Использует улучшенную эвристику с учетом производителя и комбинаций портов
 func (ns *NetworkScanner) detectDeviceType(result Result) string {
-	// Анализируем открытые порты для определения типа устройства
-	ports := make(map[int]bool)
+	ports := make([]deviceclassifier.Port, 0, len(result.Ports))
 	for _, p := range result.Ports {
-		ports[p.Port] = true
+		ports = append(ports, deviceclassifier.Port{
+			Port:     p.Port,
+			State:    p.State,
+			Protocol: p.Protocol,
+		})
 	}
-
-	// Определяем производителя для более точной классификации
-	vendor := strings.ToLower(result.DeviceVendor)
-	isNetworkVendor := strings.Contains(vendor, "cisco") || strings.Contains(vendor, "netgear") ||
-		strings.Contains(vendor, "d-link") || strings.Contains(vendor, "tp-link") ||
-		strings.Contains(vendor, "linksys") || strings.Contains(vendor, "asus") ||
-		strings.Contains(vendor, "belkin")
-	isRaspberryPi := strings.Contains(vendor, "raspberry")
-	isVM := strings.Contains(vendor, "vmware") || strings.Contains(vendor, "virtualbox") ||
-		strings.Contains(vendor, "qemu") || strings.Contains(vendor, "hyper-v") ||
-		strings.Contains(vendor, "parallels")
-
-	// Анализ hostname для дополнительной информации
-	hostname := strings.ToLower(result.Hostname)
-	isRouterHostname := strings.Contains(hostname, "router") || strings.Contains(hostname, "gateway") ||
-		strings.Contains(hostname, "ap") || strings.Contains(hostname, "accesspoint") ||
-		strings.Contains(hostname, "wifi") || strings.Contains(hostname, "wlan")
-
-	// Принтер (высокий приоритет - специфичные порты)
-	if ports[9100] || ports[515] || ports[631] || ports[161] {
-		return "Printer"
-	}
-
-	// База данных (высокий приоритет - специфичные порты)
-	if ports[3306] || ports[5432] || ports[1433] || ports[27017] || ports[6379] {
-		return "Database Server"
-	}
-
-	// Роутер/сетевое оборудование
-	// Комбинация веб-портов + SSH + сетевой производитель или router в hostname
-	if (ports[80] || ports[443] || ports[8080]) && ports[22] {
-		if isNetworkVendor || isRouterHostname {
-			return "Router/Network Device"
-		}
-		// Если есть веб + SSH, но нет явных признаков сервера - вероятно роутер
-		if !ports[3306] && !ports[5432] && !ports[1433] {
-			return "Router/Network Device"
-		}
-	}
-
-	// Сетевое оборудование по производителю и портам
-	if isNetworkVendor && (ports[80] || ports[443] || ports[8080] || ports[22] || ports[23]) {
-		return "Router/Network Device"
-	}
-
-	// Виртуальная машина
-	if isVM {
-		if ports[3306] || ports[5432] || ports[1433] {
-			return "Virtual Machine (Database)"
-		}
-		if ports[80] || ports[443] || ports[8080] {
-			return "Virtual Machine (Web Server)"
-		}
-		if ports[22] {
-			return "Virtual Machine (Linux Server)"
-		}
-		return "Virtual Machine"
-	}
-
-	// Raspberry Pi
-	if isRaspberryPi {
-		if ports[22] {
-			return "Raspberry Pi (Linux Server)"
-		}
-		if ports[80] || ports[443] {
-			return "Raspberry Pi (Web Server)"
-		}
-		return "Raspberry Pi"
-	}
-
-	// Windows машина (RDP, SMB, NetBIOS)
-	if ports[3389] || (ports[445] && ports[135]) || ports[139] {
-		return "Windows Computer"
-	}
-
-	// Linux/Unix сервер (SSH + другие серверные порты)
-	if ports[22] {
-		if ports[80] || ports[443] || ports[8080] {
-			return "Linux/Unix Server (Web)"
-		}
-		if ports[3306] || ports[5432] {
-			return "Linux/Unix Server (Database)"
-		}
-		return "Linux/Unix Server"
-	}
-
-	// Веб-сервер (HTTP/HTTPS без SSH)
-	if ports[80] || ports[443] || ports[8080] || ports[8443] {
-		// Если только веб-порты и нет других серверных портов
-		if !ports[22] && !ports[3306] && !ports[5432] {
-			return "Web Server"
-		}
-	}
-
-	// Медиа-сервер (DLNA, Plex, etc.)
-	if ports[32400] || ports[8200] || ports[5000] || ports[1900] {
-		return "Media Server"
-	}
-
-	// Игровая консоль или устройство
-	if ports[3074] || ports[9308] || ports[3658] {
-		return "Gaming Console"
-	}
-
-	// IoT устройство (мало портов, специфичные комбинации)
-	if len(result.Ports) > 0 && len(result.Ports) < 3 {
-		// Проверяем на типичные IoT порты
-		if ports[1883] || ports[5683] || ports[8080] {
-			return "IoT Device"
-		}
-		// Если только один нестандартный порт
-		if len(result.Ports) == 1 {
-			port := result.Ports[0].Port
-			if port > 1024 && port < 65535 && !ports[80] && !ports[443] {
-				return "IoT Device"
-			}
-		}
-	}
-
-	// Сетевое хранилище (NAS)
-	if ports[2049] || ports[111] || (ports[445] && !ports[3389]) {
-		return "Network Storage (NAS)"
-	}
-
-	// Если ничего не подошло
-	return "Unknown Device"
+	return deviceclassifier.Classify(deviceclassifier.Input{
+		Ports:        ports,
+		DeviceVendor: result.DeviceVendor,
+		Hostname:     result.Hostname,
+	})
 }
 
 // Stop останавливает сканирование

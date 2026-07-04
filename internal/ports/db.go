@@ -26,59 +26,59 @@ var (
 
 // portLabelOverrides сохраняют прежние удобочитаемые подписи там, где они расходятся с сырыми именами IANA.
 var portLabelOverrides = map[int]string{
-	20: "FTP-Data",
-	21: "FTP",
-	22: "SSH",
-	23: "Telnet",
-	25: "SMTP",
-	53: "DNS",
-	67: "DHCP",
-	68: "DHCP-Client",
-	69: "TFTP",
-	80: "HTTP",
-	88: "Kerberos",
-	110: "POP3",
-	123: "NTP",
-	135: "MSRPC",
-	139: "NetBIOS-SSN",
-	143: "IMAP",
-	161: "SNMP",
-	162: "SNMP-Trap",
-	389: "LDAP",
-	443: "HTTPS",
-	445: "SMB",
-	465: "SMTPS",
-	514: "Syslog",
-	587: "SMTP-Submission",
-	636: "LDAPS",
-	873: "RSync",
-	993: "IMAPS",
-	995: "POP3S",
-	1194: "OpenVPN",
-	1433: "MSSQL",
-	1723: "PPTP",
-	2049: "NFS",
-	3000: "Node.js",
-	3306: "MySQL",
-	3389: "RDP",
-	5000: "Flask",
-	5060: "SIP",
-	5061: "SIPS",
-	5432: "PostgreSQL",
-	5900: "VNC",
-	5901: "VNC-1",
-	5902: "VNC-2",
-	6379: "Redis",
-	8000: "HTTP-Alt",
-	8001: "HTTP-Alt",
-	8008: "HTTP-Alt",
-	8080: "HTTP-Proxy",
-	8081: "HTTP-Proxy-Alt",
-	8443: "HTTPS-Alt",
-	8880: "HTTP-Alt",
-	8888: "HTTP-Alt",
-	9000: "SonarQube",
-	9090: "Prometheus",
+	20:    "FTP-Data",
+	21:    "FTP",
+	22:    "SSH",
+	23:    "Telnet",
+	25:    "SMTP",
+	53:    "DNS",
+	67:    "DHCP",
+	68:    "DHCP-Client",
+	69:    "TFTP",
+	80:    "HTTP",
+	88:    "Kerberos",
+	110:   "POP3",
+	123:   "NTP",
+	135:   "MSRPC",
+	139:   "NetBIOS-SSN",
+	143:   "IMAP",
+	161:   "SNMP",
+	162:   "SNMP-Trap",
+	389:   "LDAP",
+	443:   "HTTPS",
+	445:   "SMB",
+	465:   "SMTPS",
+	514:   "Syslog",
+	587:   "SMTP-Submission",
+	636:   "LDAPS",
+	873:   "RSync",
+	993:   "IMAPS",
+	995:   "POP3S",
+	1194:  "OpenVPN",
+	1433:  "MSSQL",
+	1723:  "PPTP",
+	2049:  "NFS",
+	3000:  "Node.js",
+	3306:  "MySQL",
+	3389:  "RDP",
+	5000:  "Flask",
+	5060:  "SIP",
+	5061:  "SIPS",
+	5432:  "PostgreSQL",
+	5900:  "VNC",
+	5901:  "VNC-1",
+	5902:  "VNC-2",
+	6379:  "Redis",
+	8000:  "HTTP-Alt",
+	8001:  "HTTP-Alt",
+	8008:  "HTTP-Alt",
+	8080:  "HTTP-Proxy",
+	8081:  "HTTP-Proxy-Alt",
+	8443:  "HTTPS-Alt",
+	8880:  "HTTP-Alt",
+	8888:  "HTTP-Alt",
+	9000:  "SonarQube",
+	9090:  "Prometheus",
 	27015: "Steam",
 	25565: "Minecraft",
 	27017: "MongoDB",
@@ -179,6 +179,7 @@ func formatIANAServiceName(raw string) string {
 	if raw == "" {
 		return ""
 	}
+
 	if full, ok := segmentAcronyms[strings.ToLower(raw)]; ok {
 		return full
 	}
@@ -193,6 +194,9 @@ func formatIANAServiceName(raw string) string {
 			continue
 		}
 		rs := []rune(lp)
+		if len(rs) == 0 {
+			continue
+		}
 		rs[0] = unicode.ToUpper(rs[0])
 		for j := 1; j < len(rs); j++ {
 			rs[j] = unicode.ToLower(rs[j])
@@ -207,9 +211,15 @@ func formatIANAServiceName(raw string) string {
 	if strings.EqualFold(raw, "mongodb") {
 		return "MongoDB"
 	}
-	// Несколько слов без дефиса в реестре
+	// Несколько слов без дефиса в реестре — защищённый вызов
 	if !strings.Contains(raw, "-") && len(raw) > 3 {
-		return titleEn.String(strings.ToLower(raw))
+		result := func() string {
+			defer func() { recover() }()
+			return titleEn.String(strings.ToLower(raw))
+		}()
+		if result != "" {
+			return result
+		}
 	}
 	return s
 }

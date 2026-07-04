@@ -40,7 +40,7 @@ cd "Сканер локальной сети"
 ./scripts/build-macos.sh
 ```
 
-Результат скрипта — в каталоге **`build/release/<YYYY-MM-DD-N>/`** в корне репозитория (см. [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)).
+Результат скрипта — в каталоге **`build/<YYYY-MM-DD-N>/`** в корне репозитория (см. [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)).
 
 ### Ручная сборка
 

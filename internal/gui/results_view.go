@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,11 +18,25 @@ import (
 	"network-scanner/internal/scanner"
 )
 
+type resultsRenderStats struct {
+	FilteredCount int
+	VisibleCount  int
+	Duration      time.Duration
+}
+
 // filteredSortedResults применяет фильтры и сортировку к a.scanResults.
 func (a *App) filteredSortedResults() []scanner.Result {
 	if len(a.scanResults) == 0 {
 		return nil
 	}
+	cacheKey := a.buildResultsPipelineCacheKey()
+	a.resultsPipelineCacheMu.RLock()
+	if cacheKey != "" && cacheKey == a.resultsPipelineCacheKey && len(a.resultsPipelineCacheData) > 0 {
+		cached := a.resultsPipelineCacheData
+		a.resultsPipelineCacheMu.RUnlock()
+		return cached
+	}
+	a.resultsPipelineCacheMu.RUnlock()
 	base := filterResultsForDisplayAdvanced(
 		a.scanResults,
 		a.resultsFilterQuery,
@@ -28,7 +44,12 @@ func (a *App) filteredSortedResults() []scanner.Result {
 		a.onlyWithOpenPorts,
 	)
 	out := a.applyAdvancedFilters(base)
-	return sortedResultsForDisplayWithMode(out, a.resultsSort)
+	sorted := sortedResultsForDisplayWithMode(out, a.resultsSort)
+	a.resultsPipelineCacheMu.Lock()
+	a.resultsPipelineCacheKey = cacheKey
+	a.resultsPipelineCacheData = sorted
+	a.resultsPipelineCacheMu.Unlock()
+	return sorted
 }
 
 func (a *App) currentDisplayedResults() []scanner.Result {
@@ -45,7 +66,36 @@ func (a *App) selectedTypeFilters() []string {
 			out = append(out, strings.TrimSpace(name))
 		}
 	}
+	sort.Strings(out)
 	return out
+}
+
+func (a *App) buildResultsPipelineCacheKey() string {
+	if a == nil {
+		return ""
+	}
+	parts := []string{
+		strconv.FormatUint(a.scanResultsVersion, 10),
+		strings.TrimSpace(a.resultsFilterQuery),
+		strings.TrimSpace(a.resultsSort),
+		strings.TrimSpace(a.resultsPortStateMode),
+		strconv.FormatBool(a.onlyWithOpenPorts),
+	}
+	if a.resultsCidrFilterEnt != nil {
+		parts = append(parts, strings.TrimSpace(a.resultsCidrFilterEnt.Text))
+	}
+	parts = append(parts, strings.Join(a.selectedTypeFilters(), ","))
+	return strings.Join(parts, "|")
+}
+
+func (a *App) invalidateResultsPipelineCache() {
+	if a == nil {
+		return
+	}
+	a.resultsPipelineCacheMu.Lock()
+	a.resultsPipelineCacheKey = ""
+	a.resultsPipelineCacheData = nil
+	a.resultsPipelineCacheMu.Unlock()
 }
 
 func (a *App) applyAdvancedFilters(base []scanner.Result) []scanner.Result {
@@ -142,6 +192,51 @@ func (a *App) updateFiltersInfoLabel() {
 	a.filtersInfoLabel.SetText(fmt.Sprintf("Активных фильтров: %d", a.activeFilterCount()))
 }
 
+func (a *App) updateResultsPerfLabel(stats resultsRenderStats) {
+	if a == nil || a.resultsPerfLabel == nil {
+		return
+	}
+	if stats.FilteredCount <= 0 {
+		a.resultsPerfLabel.SetText("Рендер: n/a")
+		return
+	}
+	a.resultsPerfLabel.SetText(fmt.Sprintf("Рендер: %dms (%d/%d)", stats.Duration.Milliseconds(), stats.VisibleCount, stats.FilteredCount))
+}
+
+func (a *App) scheduleResultsRender(immediate bool) {
+	if a == nil {
+		return
+	}
+	if immediate || a.resultsRenderDebounce <= 0 {
+		a.cancelPendingResultsRender()
+		a.renderScanResultsView()
+		return
+	}
+	a.resultsRenderTimerMu.Lock()
+	defer a.resultsRenderTimerMu.Unlock()
+	if a.resultsRenderTimer != nil {
+		a.resultsRenderTimer.Stop()
+	}
+	delay := a.resultsRenderDebounce
+	a.resultsRenderTimer = time.AfterFunc(delay, func() {
+		fyne.Do(func() {
+			a.renderScanResultsView()
+		})
+	})
+}
+
+func (a *App) cancelPendingResultsRender() {
+	if a == nil {
+		return
+	}
+	a.resultsRenderTimerMu.Lock()
+	defer a.resultsRenderTimerMu.Unlock()
+	if a.resultsRenderTimer != nil {
+		a.resultsRenderTimer.Stop()
+		a.resultsRenderTimer = nil
+	}
+}
+
 func (a *App) captureHostDetailsSplitOffsetBeforeRebuild() {
 	if a == nil || a.resultsMainSplit == nil || a.lastHostDetailsSplitKind == "" {
 		return
@@ -172,6 +267,11 @@ func (a *App) renderScanResultsView() {
 	if a.resultsBody == nil {
 		return
 	}
+	started := time.Now()
+	defer func() {
+		a.lastRenderStats.Duration = time.Since(started)
+		a.updateResultsPerfLabel(a.lastRenderStats)
+	}()
 	a.updateFiltersInfoLabel()
 	a.captureHostDetailsSplitOffsetBeforeRebuild()
 
@@ -193,6 +293,10 @@ func (a *App) renderScanResultsView() {
 	}
 
 	filtered := a.filteredSortedResults()
+	a.lastRenderStats = resultsRenderStats{
+		FilteredCount: len(filtered),
+		VisibleCount:  len(filtered),
+	}
 	if len(a.scanResults) == 0 {
 		msg := "Результаты не найдены."
 		switch a.resultsState {
@@ -218,6 +322,12 @@ func (a *App) renderScanResultsView() {
 
 	if strings.EqualFold(strings.TrimSpace(a.resultsSubMode), "Security") {
 		a.resultsBody.Objects = []fyne.CanvasObject{a.buildSecurityDashboardView(filtered)}
+		a.resultsBody.Refresh()
+		a.clearResultsMainSplitRef()
+		return
+	}
+	if strings.EqualFold(strings.TrimSpace(a.resultsSubMode), "Inventory") {
+		a.resultsBody.Objects = []fyne.CanvasObject{a.buildInventoryDashboardView()}
 		a.resultsBody.Refresh()
 		a.clearResultsMainSplitRef()
 		return
@@ -289,7 +399,7 @@ func (a *App) buildTableView(data []scanner.Result) fyne.CanvasObject {
 			case 2:
 				l.SetText(nullDash(r.MAC))
 			case 3:
-				l.SetText(nullDash(r.DeviceType))
+				l.SetText(deviceTypeWithBadge(r.DeviceType))
 			case 4:
 				l.SetText(nullDash(r.DeviceVendor))
 			case 5:
@@ -342,35 +452,109 @@ func nullDash(s string) string {
 	return s
 }
 
-func (a *App) buildCardsView(data []scanner.Result) fyne.CanvasObject {
-	objs := make([]fyne.CanvasObject, 0, len(data))
-	for _, r := range data {
-		item := r
-		title := strings.TrimSpace(r.Hostname)
-		if title == "" {
-			title = r.IP
-		}
-		head := widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
-		sub := widget.NewLabel(fmt.Sprintf("%s · %s · %s", r.IP, nullDash(r.MAC), nullDash(r.DeviceType)))
-		sub.Wrapping = fyne.TextWrapWord
-		chipRow := a.buildPortChips(r)
-		card := container.NewVBox(
-			head,
-			sub,
-			widget.NewLabel(fmt.Sprintf("Производитель: %s", nullDash(r.DeviceVendor))),
-			widget.NewLabel(fmt.Sprintf("ОС (оценка): %s", osGuessLine(r))),
-			widget.NewLabel("Порты:"),
-			chipRow,
-			widget.NewButton("Открыть детали", func() {
-				a.selectHostForDetails(item)
-			}),
-			widget.NewSeparator(),
-		)
-		bg := canvas.NewRectangle(tableRowBgColor)
-		bg.CornerRadius = 4
-		objs = append(objs, container.NewMax(bg, container.NewPadded(card)))
+func deviceTypeWithBadge(deviceType string) string {
+	dt := strings.TrimSpace(deviceType)
+	if dt == "" {
+		return "-"
 	}
-	return container.NewVBox(objs...)
+	low := strings.ToLower(dt)
+	switch {
+	case strings.Contains(low, "router"), strings.Contains(low, "switch"):
+		return "[NET] " + dt
+	case strings.Contains(low, "access point"):
+		return "[AP] " + dt
+	case strings.Contains(low, "printer"):
+		return "[PRN] " + dt
+	case strings.Contains(low, "camera"):
+		return "[CAM] " + dt
+	case strings.Contains(low, "nas"):
+		return "[NAS] " + dt
+	case strings.Contains(low, "iot"):
+		return "[IOT] " + dt
+	case strings.Contains(low, "desktop"), strings.Contains(low, "laptop"):
+		return "[PC] " + dt
+	case strings.Contains(low, "server"):
+		return "[SRV] " + dt
+	case strings.Contains(low, "phone"), strings.Contains(low, "tablet"):
+		return "[MOB] " + dt
+	default:
+		return "[UNK] " + dt
+	}
+}
+
+func (a *App) buildCardsView(data []scanner.Result) fyne.CanvasObject {
+	visible := len(data)
+	if a.cardsVisibleCount > 0 && visible > a.cardsVisibleCount {
+		visible = a.cardsVisibleCount
+	}
+	a.lastRenderStats.VisibleCount = visible
+	viewData := data[:visible]
+	list := widget.NewList(
+		func() int {
+			return len(viewData)
+		},
+		func() fyne.CanvasObject {
+			title := widget.NewLabelWithStyle("", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+			sub := widget.NewLabel("")
+			sub.Wrapping = fyne.TextWrapWord
+			vendor := widget.NewLabel("")
+			os := widget.NewLabel("")
+			portsLabel := widget.NewLabel("Порты:")
+			chipsHolder := container.NewHBox(widget.NewLabel(""))
+			openBtn := widget.NewButton("Открыть детали", nil)
+			card := container.NewVBox(title, sub, vendor, os, portsLabel, chipsHolder, openBtn, widget.NewSeparator())
+			bg := canvas.NewRectangle(tableRowBgColor)
+			bg.CornerRadius = 4
+			return container.NewMax(bg, container.NewPadded(card))
+		},
+		func(id widget.ListItemID, obj fyne.CanvasObject) {
+			if id < 0 || id >= len(viewData) {
+				return
+			}
+			r := viewData[id]
+			itemBox := obj.(*fyne.Container).Objects[1].(*fyne.Container).Objects[0].(*fyne.Container)
+			title := itemBox.Objects[0].(*widget.Label)
+			sub := itemBox.Objects[1].(*widget.Label)
+			vendor := itemBox.Objects[2].(*widget.Label)
+			os := itemBox.Objects[3].(*widget.Label)
+			chipsHolder := itemBox.Objects[5].(*fyne.Container)
+			openBtn := itemBox.Objects[6].(*widget.Button)
+
+			rowTitle := strings.TrimSpace(r.Hostname)
+			if rowTitle == "" {
+				rowTitle = r.IP
+			}
+			title.SetText(rowTitle)
+			sub.SetText(fmt.Sprintf("%s · %s · %s", r.IP, nullDash(r.MAC), deviceTypeWithBadge(r.DeviceType)))
+			vendor.SetText(fmt.Sprintf("Производитель: %s", nullDash(r.DeviceVendor)))
+			os.SetText(fmt.Sprintf("ОС (оценка): %s", osGuessLine(r)))
+			chipsHolder.Objects = []fyne.CanvasObject{a.buildPortChips(r)}
+			chipsHolder.Refresh()
+			host := r
+			openBtn.OnTapped = func() {
+				a.selectHostForDetails(host)
+			}
+		},
+	)
+	list.OnSelected = func(id widget.ListItemID) {
+		if id < 0 || id >= len(viewData) {
+			return
+		}
+		a.selectHostForDetails(viewData[id])
+	}
+	if visible < len(data) {
+		remaining := len(data) - visible
+		loadMore := widget.NewButton(fmt.Sprintf("Показать еще (%d)", remaining), func() {
+			step := 200
+			if a.cardsVisibleCount <= 0 {
+				a.cardsVisibleCount = step
+			}
+			a.cardsVisibleCount += step
+			a.scheduleResultsRender(true)
+		})
+		return container.NewBorder(nil, loadMore, nil, nil, list)
+	}
+	return list
 }
 
 func (a *App) selectHostForDetails(r scanner.Result) {
@@ -378,6 +562,7 @@ func (a *App) selectHostForDetails(r scanner.Result) {
 	if ip == "" {
 		return
 	}
+	a.primeHostDetailsCache(r)
 	a.selectedHostIP = ip
 	a.renderScanResultsView()
 }
@@ -403,7 +588,30 @@ func (a *App) buildHostDetailsDrawer(data []scanner.Result) fyne.CanvasObject {
 	if !ok {
 		return widget.NewCard("Host Details", "", widget.NewLabel("Нет данных для отображения деталей."))
 	}
-	markdown := fmt.Sprintf(
+	markdown := a.hostDetailsMarkdown(r)
+	details := widget.NewRichTextFromMarkdown(markdown)
+	details.Wrapping = fyne.TextWrapWord
+	cols := 2
+	if a.currentLayoutProfile() == "compact" {
+		cols = 1
+	}
+	actions := a.buildHostQuickActions(r, cols)
+	a.prefetchHostDetailsNearby(data, strings.TrimSpace(r.IP))
+	return widget.NewCard("Host Details Drawer", "Выбранный хост и быстрые действия", container.NewVBox(details, actions))
+}
+
+func (a *App) hostDetailsMarkdown(r scanner.Result) string {
+	ip := strings.TrimSpace(r.IP)
+	if ip == "" {
+		return "### Host Details\n\n- Нет данных"
+	}
+	a.hostDetailsCacheMu.RLock()
+	if v, ok := a.hostDetailsCache[ip]; ok {
+		a.hostDetailsCacheMu.RUnlock()
+		return v
+	}
+	a.hostDetailsCacheMu.RUnlock()
+	md := fmt.Sprintf(
 		"### Host Details\n\n- Host: `%s`\n- IP: `%s`\n- MAC: `%s`\n- Type: `%s`\n- Vendor: `%s`\n- OS: `%s`\n- SNMP: `%t`\n- Open ports: `%d`",
 		nullDash(r.Hostname),
 		nullDash(r.IP),
@@ -414,14 +622,47 @@ func (a *App) buildHostDetailsDrawer(data []scanner.Result) fyne.CanvasObject {
 		r.SNMPEnabled,
 		countOpenPorts(r.Ports),
 	)
-	details := widget.NewRichTextFromMarkdown(markdown)
-	details.Wrapping = fyne.TextWrapWord
-	cols := 2
-	if a.currentLayoutProfile() == "compact" {
-		cols = 1
+	a.hostDetailsCacheMu.Lock()
+	if a.hostDetailsCache == nil {
+		a.hostDetailsCache = make(map[string]string)
 	}
-	actions := a.buildHostQuickActions(r, cols)
-	return widget.NewCard("Host Details Drawer", "Выбранный хост и быстрые действия", container.NewVBox(details, actions))
+	a.hostDetailsCache[ip] = md
+	a.hostDetailsCacheMu.Unlock()
+	return md
+}
+
+func (a *App) primeHostDetailsCache(r scanner.Result) {
+	_ = a.hostDetailsMarkdown(r)
+}
+
+func (a *App) prefetchHostDetailsNearby(data []scanner.Result, selectedIP string) {
+	if len(data) == 0 || strings.TrimSpace(selectedIP) == "" {
+		return
+	}
+	idx := -1
+	for i, r := range data {
+		if strings.TrimSpace(r.IP) == selectedIP {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return
+	}
+	start := idx - 3
+	if start < 0 {
+		start = 0
+	}
+	end := idx + 3
+	if end >= len(data) {
+		end = len(data) - 1
+	}
+	snapshot := append([]scanner.Result(nil), data[start:end+1]...)
+	go func(items []scanner.Result) {
+		for _, item := range items {
+			a.primeHostDetailsCache(item)
+		}
+	}(snapshot)
 }
 
 func (a *App) buildHostQuickActions(r scanner.Result, cols int) *fyne.Container {

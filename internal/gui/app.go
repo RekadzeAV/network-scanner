@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -28,13 +29,16 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"network-scanner/internal/audit"
+	"network-scanner/internal/builder"
 	"network-scanner/internal/devicecontrol"
 	"network-scanner/internal/display"
+	"network-scanner/internal/inventory"
 	"network-scanner/internal/logger"
 	"network-scanner/internal/nettools"
 	"network-scanner/internal/network"
 	"network-scanner/internal/risksignature"
 	"network-scanner/internal/scanner"
+	scand "network-scanner/internal/scanner/daemon"
 	"network-scanner/internal/snmpcollector"
 	"network-scanner/internal/topology"
 	"network-scanner/internal/wol"
@@ -66,7 +70,7 @@ type App struct {
 	myApp                       fyne.App
 	myWindow                    fyne.Window
 	scanResults                 []scanner.Result
-	networkScanner              *scanner.NetworkScanner
+	scanRunner                  *scand.Runner
 	networkEntry                *widget.Entry
 	portRangeEntry              *widget.Entry
 	timeoutEntry                *widget.Entry
@@ -78,6 +82,7 @@ type App struct {
 	scanVerboseInfoBtn          *widget.Button
 	autoProfileCheck            *widget.Check
 	autoProfileInfoBtn          *widget.Button
+	autoProfileHint             *widget.Label
 	autoProfileStateText        *canvas.Text
 	presetQuickBtn              *widget.Button
 	presetBalBtn                *widget.Button
@@ -108,6 +113,13 @@ type App struct {
 	resultsModeSel              *widget.RadioGroup
 	resultsSubMode              string
 	resultsSubModeSel           *widget.RadioGroup
+	inventoryDBEntry            *widget.Entry
+	inventoryAutoSaveCheck      *widget.Check
+	inventoryScanASelect        *widget.Select
+	inventoryScanBSelect        *widget.Select
+	inventoryRefreshBtn         *widget.Button
+	inventoryStatusLabel        *widget.Label
+	inventorySnapshots          []inventory.Snapshot
 	resultsSort                 string
 	resultsSortSel              *widget.Select
 	resultsFilterEnt            *widget.Entry
@@ -116,6 +128,7 @@ type App struct {
 	resultsPortStateSel         *widget.Select
 	resultsPortStateMode        string
 	filtersInfoLabel            *widget.Label
+	resultsPerfLabel            *widget.Label
 	resultsDiagnosticsGrid      *fyne.Container
 	resultsSortGrid             *fyne.Container
 	resultsCidrGrid             *fyne.Container
@@ -145,9 +158,15 @@ type App struct {
 	lastTopology                *topology.Topology
 	lastSNMPReport              *snmpcollector.CollectReport
 	lastTopoMetric              topologyBuildMetrics
+	topologyViewState           topologyMapState
 	topologyText                *widget.RichText
 	topologyControlsScroll      *container.Scroll
 	topologyScroll              *container.Scroll
+	topologySearchEntry         *widget.Entry
+	topologyTypeFilterSel       *widget.Select
+	topologyConfidenceFilterSel *widget.Select
+	topologyResetMapBtn         *widget.Button
+	topologyGraphStatus         *widget.Label
 	topologyStatus              *widget.Label
 	snmpStageLabel              *widget.Label
 	snmpProgress                *widget.ProgressBar
@@ -155,6 +174,8 @@ type App struct {
 	topologyImage               *canvas.Image
 	topologyImgBox              *fyne.Container
 	topologyImgScroll           *container.Scroll
+	topologyGraphBox            *fyne.Container
+	topologyGraphScroll         *container.Scroll
 	topologyMainSplit           *container.Split
 	topologySplitInitialized    bool
 	topologySplitPersistPrimed  bool
@@ -219,7 +240,22 @@ type App struct {
 	lastCanvasScale             float32
 	layoutProfile               string
 	pieChartCache               map[string]fyne.Resource
+	resultsRenderDebounce       time.Duration
+	resultsRenderTimerMu        sync.Mutex
+	resultsRenderTimer          *time.Timer
+	cardsVisibleCount           int
+	lastRenderStats             resultsRenderStats
+	analyticsCacheKey           string
+	analyticsCacheView          fyne.CanvasObject
+	hostDetailsCacheMu          sync.RWMutex
+	hostDetailsCache            map[string]string
+	scanResultsVersion          uint64
+	resultsPipelineCacheMu      sync.RWMutex
+	resultsPipelineCacheKey     string
+	resultsPipelineCacheData    []scanner.Result
 	operations                  *OperationsManager
+	services                    *AppServices
+	mainToolbar                 *fyne.Container
 }
 
 const (
@@ -236,6 +272,8 @@ const (
 	prefPreset                  = "scan.preset"
 	prefRecommendedBadge        = "scan.recommended_badge"
 	prefRecommendedBadgeClass   = "scan.recommended_badge_class"
+	prefInventoryDBPath         = "scan.inventory.db_path"
+	prefInventoryAutoSave       = "scan.inventory.auto_save"
 	prefViewMode                = "scan.results_view_mode"
 	prefResultsSubMode          = "scan.results_submode"
 	prefSortMode                = "scan.results_sort_mode"
@@ -358,6 +396,11 @@ func createAppIcon() fyne.Resource {
 
 // NewApp создает новый экземпляр GUI приложения
 func NewApp() *App {
+	// Явно устанавливаем scale для корректного отображения на Windows
+	// Это исправляет проблему смещения курсора и наложения элементов
+	// ДОЛЖНО быть вызвано ДО создания app.NewWithID
+	os.Setenv("FYNE_SCALE", "1")
+
 	myApp := app.NewWithID("network-scanner")
 
 	myWindow := myApp.NewWindow("Network Scanner - Сканер локальной сети")
@@ -368,9 +411,16 @@ func NewApp() *App {
 		myWindow.SetIcon(icon)
 	}
 
-	// Консервативный стартовый размер, пригодный для ноутбуков.
-	width := float32(minWindowWidth)
-	height := float32(700)
+	// Адаптивный стартовый размер: 85% от размера экрана
+	screenSize := myWindow.Canvas().Size()
+	width := float32(int(screenSize.Width * 0.85))
+	height := float32(int(screenSize.Height * 0.85))
+	if width < 1024 {
+		width = 1024
+	}
+	if height < 600 {
+		height = 600
+	}
 
 	myWindow.Resize(fyne.NewSize(width, height))
 	myWindow.CenterOnScreen()
@@ -380,12 +430,19 @@ func NewApp() *App {
 	myWindow.SetFixedSize(false) // Позволяем изменять размер, но в пределах экрана
 
 	app := &App{
-		myApp:         myApp,
-		myWindow:      myWindow,
-		layoutProfile: "normal",
-		pieChartCache: make(map[string]fyne.Resource),
-		operations:    NewOperationsManager(),
+		myApp:            myApp,
+		myWindow:         myWindow,
+		layoutProfile:    "normal",
+		pieChartCache:    make(map[string]fyne.Resource),
+		hostDetailsCache: make(map[string]string),
+		operations:       NewOperationsManager(),
 	}
+
+	// Инициализация сервисов через DI контейнер
+	container := builder.NewContainer(builder.Config{
+		LogLevel: "info",
+	})
+	app.services = NewAppServices(container)
 
 	app.initUI()
 	app.setupEventHandlers()
@@ -399,374 +456,34 @@ func NewApp() *App {
 
 // initUI инициализирует все элементы интерфейса
 func (a *App) initUI() {
-	// Поле ввода сети
-	networkLabel := widget.NewLabel("Сеть (CIDR, например 192.168.1.0/24):")
-	networkLabel.Wrapping = fyne.TextWrapWord
-	a.networkEntry = widget.NewEntry()
-	a.networkEntry.SetPlaceHolder("Оставьте пустым для автоматического определения")
-	a.portRangeEntry = widget.NewEntry()
-	a.portRangeEntry.SetPlaceHolder("1-65535")
-	a.portRangeEntry.SetText("1-65535")
-	a.scanTCPPortsCheck = widget.NewCheck("Сканировать TCP порты", func(v bool) {
-		a.setPortRangeControlsEnabled(v)
-		a.saveScanSettings()
-	})
-	a.portWellKnownBtn = widget.NewButton("Системные (Well-Known): 0–1023", nil)
-	a.portRegisteredBtn = widget.NewButton("Зарегистрированные: 1024–49151", nil)
-	a.portDynamicBtn = widget.NewButton("Динамические / частные: 49152–65535", nil)
-	a.timeoutEntry = widget.NewEntry()
-	a.timeoutEntry.SetText("2")
-	a.threadsEntry = widget.NewEntry()
-	a.threadsEntry.SetText("50")
-	a.scanUDPCheck = widget.NewCheck("Включить UDP сканирование", nil)
-	a.scanBannersCheck = widget.NewCheck("Собирать баннеры/версии служб (медленнее)", nil)
-	a.scanOSActiveCheck = widget.NewCheck("Активные эвристики определения ОС (может замедлить)", nil)
-	a.scanVerboseLogsCheck = widget.NewCheck("Детальные логи по портам (debug, шумно)", nil)
-	a.scanVerboseInfoBtn = widget.NewButton("Подробнее", nil)
-	a.autoProfileCheck = widget.NewCheck("Автопрофиль сканирования (рекомендуется)", nil)
-	a.autoProfileCheck.SetChecked(true)
-	a.autoProfileInfoBtn = widget.NewButton("Почему изменены параметры?", nil)
-	a.autoProfileStateText = canvas.NewText("", color.RGBA{R: 60, G: 170, B: 80, A: 255})
-	a.autoProfileStateText.TextSize = 13
-	autoProfileHint := widget.NewLabel(fmt.Sprintf(
-		"Для больших подсетей автопрофиль ограничивает нагрузку: от ~%d хостов снижает threads/диапазон портов (пороги: %d/%d/%d хостов).",
-		autoProfileHostWarn,
-		autoProfileHostLarge,
-		autoProfileHostXLarge,
-		autoProfileHostXXLarge,
-	))
-	autoProfileHint.Wrapping = fyne.TextWrapWord
-	// SetChecked после создания полей, которые читает saveScanSettings (колбэк срабатывает сразу).
-	a.scanTCPPortsCheck.SetChecked(true)
-	a.presetQuickBtn = widget.NewButton("Быстро", nil)
-	a.presetBalBtn = widget.NewButton("Баланс", nil)
-	a.presetDeepBtn = widget.NewButton("Глубоко", nil)
-	a.recommendedProfileBtn = widget.NewButton("Рекомендуемые настройки", nil)
-	a.recommendedProfileInfoBtn = widget.NewButton("Почему?", nil)
-	a.recommendedProfileBadge = canvas.NewText("Профиль: не выбран", color.RGBA{R: 110, G: 110, B: 110, A: 255})
-	a.recommendedProfileBadge.TextSize = 12
+	// Инициализация UI сканирования и результатов
+	a.initScanUI()
 
-	// Кнопка сканирования
-	a.scanButton = widget.NewButton("Запустить сканирование", nil)
-	a.scanButton.Importance = widget.HighImportance
-	a.stopButton = widget.NewButton("Стоп сканирование", nil)
-	a.stopButton.Disable()
+	// Создание вкладки сканирования
+	scanTabContent := a.buildScanTabContent()
 
-	// Кнопка сохранения
-	a.saveButton = widget.NewButton("Сохранить результаты", nil)
-	a.saveButton.Disable()
-
-	// Поля SNMP/топологии
-	a.snmpCommEntry = widget.NewEntry()
-	a.snmpCommEntry.SetText("public")
-	a.snmpTimeoutEnt = widget.NewEntry()
-	a.snmpTimeoutEnt.SetText("2")
-	a.buildTopoBtn = widget.NewButton("Построить топологию", nil)
-	a.buildTopoBtn.Disable()
-	a.stopTopoBtn = widget.NewButton("Стоп топологию", nil)
-	a.stopTopoBtn.Disable()
-	a.saveTopoBtn = widget.NewButton("Сохранить топологию", nil)
-	a.saveTopoBtn.Disable()
-	a.copyPerfBtn = widget.NewButton("Копировать отчет производительности", nil)
-	a.copyPerfBtn.Disable()
-	a.savePerfBtn = widget.NewButton("Сохранить отчет производительности", nil)
-	a.savePerfBtn.Disable()
-
-	// Статус
-	a.statusLabel = widget.NewLabel("Готов к сканированию")
-	a.statusLabel.Wrapping = fyne.TextWrapWord
-	a.resultsStateLabel = widget.NewLabel("Результаты еще не получены")
-	a.resultsStateLabel.Wrapping = fyne.TextWrapWord
-	a.autoProfileHeaderLabel = widget.NewLabel("")
-	a.autoProfileHeaderLabel.Wrapping = fyne.TextWrapWord
-	a.diagnosticsLabel = widget.NewLabel("Диагностика последнего запуска: n/a")
-	a.diagnosticsLabel.Wrapping = fyne.TextWrapWord
-	a.copyDiagnosticsBtn = widget.NewButton("Копировать диагностику", nil)
-	a.copyDiagnosticsBtn.Disable()
-	a.saveDiagnosticsBtn = widget.NewButton("Сохранить диагностику", nil)
-	a.saveDiagnosticsBtn.Disable()
-
-	// Метка этапа сканирования
-	a.stageLabel = widget.NewLabel("")
-	a.stageLabel.Wrapping = fyne.TextWrapWord
-	a.stageLabel.Hide()
-
-	// Прогресс-бар
-	a.progressBar = widget.NewProgressBar()
-	a.progressBar.Hide()
-
-	// Область результатов с прокруткой
-	a.resultsMode = "Таблица"
-	a.resultsSubMode = "Devices"
-	a.resultsSort = "IP"
-	a.maxPortChips = 24
-	a.showRawBanners = false
-	a.resultsState = resultsStateIdle
-	a.resultsBody = container.NewMax(widget.NewLabel("Результаты сканирования появятся здесь после запуска."))
-	a.resultsModeSel = widget.NewRadioGroup([]string{"Таблица", "Карточки"}, func(value string) {
-		if strings.TrimSpace(value) == "" {
-			return
-		}
-		a.resultsMode = value
-		a.saveResultsViewSettings()
-		a.renderScanResultsView()
-	})
-	a.resultsModeSel.Horizontal = true
-	a.resultsModeSel.SetSelected(a.resultsMode)
-	a.resultsSubModeSel = widget.NewRadioGroup([]string{"Devices", "Security"}, func(value string) {
-		if strings.TrimSpace(value) == "" {
-			return
-		}
-		a.resultsSubMode = value
-		a.saveResultsViewSettings()
-		a.renderScanResultsView()
-	})
-	a.resultsSubModeSel.Horizontal = true
-	a.resultsSubModeSel.SetSelected(a.resultsSubMode)
-	a.resultsSortSel = widget.NewSelect([]string{"IP", "HostName"}, func(value string) {
-		if strings.TrimSpace(value) == "" {
-			return
-		}
-		a.resultsSort = value
-		a.saveResultsViewSettings()
-		a.renderScanResultsView()
-	})
-	a.resultsSortSel.SetSelected(a.resultsSort)
-	a.resultsFilterEnt = widget.NewEntry()
-	a.resultsFilterEnt.SetPlaceHolder("Фильтр: HostName/IP/MAC/тип")
-	a.resultsFilterEnt.OnChanged = func(value string) {
-		a.resultsFilterQuery = strings.TrimSpace(value)
-		a.saveResultsViewSettings()
-		a.renderScanResultsView()
-	}
-	a.clearFilterBtn = widget.NewButton("Очистить", func() {
-		a.resultsFilterQuery = ""
-		a.resultsFilterEnt.SetText("")
-		if a.resultsCidrFilterEnt != nil {
-			a.resultsCidrFilterEnt.SetText("")
-		}
-		if a.resultsPortStateSel != nil {
-			a.resultsPortStateSel.SetSelected("Все")
-		}
-		a.resultsPortStateMode = "all"
-		a.saveResultsViewSettings()
-		a.renderScanResultsView()
-	})
-	a.resultsCidrFilterEnt = widget.NewEntry()
-	a.resultsCidrFilterEnt.SetPlaceHolder("CIDR фильтр (например 192.168.1.0/24)")
-	a.resultsCidrFilterEnt.OnChanged = func(_ string) {
-		a.saveResultsViewSettings()
-		a.renderScanResultsView()
-	}
-	a.resultsPortStateMode = "all"
-	a.resultsPortStateSel = widget.NewSelect([]string{"Все", "Есть открытые", "Есть закрытые", "Есть фильтруемые"}, func(value string) {
-		switch strings.TrimSpace(value) {
-		case "Есть открытые":
-			a.resultsPortStateMode = "has_open"
-		case "Есть закрытые":
-			a.resultsPortStateMode = "has_closed"
-		case "Есть фильтруемые":
-			a.resultsPortStateMode = "has_filtered"
-		default:
-			a.resultsPortStateMode = "all"
-		}
-		a.saveResultsViewSettings()
-		a.renderScanResultsView()
-	})
-	a.resultsPortStateSel.SetSelected("Все")
-	a.filtersInfoLabel = widget.NewLabel("Активных фильтров: 0")
-	a.filtersInfoLabel.Wrapping = fyne.TextTruncate
-	a.filterPresetSel = widget.NewSelect([]string{"1", "2", "3"}, nil)
-	a.filterPresetSel.SetSelected("1")
-	a.saveFilterPresetBtn = widget.NewButton("Сохранить пресет", func() {
-		a.saveFilterPreset(strings.TrimSpace(a.filterPresetSel.Selected))
-	})
-	a.applyFilterPresetBtn = widget.NewButton("Применить пресет", func() {
-		a.applyFilterPreset(strings.TrimSpace(a.filterPresetSel.Selected))
-	})
-	a.quickTypeChecks = map[string]*widget.Check{}
-	typeKeys := []string{"Network Device", "Computer", "Server", "Unknown"}
-	typeCheckRow := make([]fyne.CanvasObject, 0, len(typeKeys)+2)
-	typeCheckRow = append(typeCheckRow, widget.NewLabel("Быстрые фильтры:"))
-	for _, key := range typeKeys {
-		label := key
-		ch := widget.NewCheck(label, func(_ bool) {
-			a.saveResultsViewSettings()
-			a.renderScanResultsView()
-		})
-		a.quickTypeChecks[key] = ch
-		typeCheckRow = append(typeCheckRow, ch)
-	}
-	a.openPortsOnlyCheck = widget.NewCheck("Только с открытыми портами", func(v bool) {
-		a.onlyWithOpenPorts = v
-		a.saveResultsViewSettings()
-		a.renderScanResultsView()
-	})
-	typeCheckRow = append(typeCheckRow, a.openPortsOnlyCheck)
-	a.resetFiltersBtn = widget.NewButton("Сбросить фильтры", func() {
-		a.resultsFilterQuery = ""
-		a.resultsFilterEnt.SetText("")
-		a.onlyWithOpenPorts = false
-		a.openPortsOnlyCheck.SetChecked(false)
-		if a.resultsCidrFilterEnt != nil {
-			a.resultsCidrFilterEnt.SetText("")
-		}
-		a.resultsPortStateMode = "all"
-		if a.resultsPortStateSel != nil {
-			a.resultsPortStateSel.SetSelected("Все")
-		}
-		for _, ch := range a.quickTypeChecks {
-			ch.SetChecked(false)
-		}
-		a.saveResultsViewSettings()
-		a.renderScanResultsView()
-	})
-	a.chipLimitSel = widget.NewSelect([]string{"12", "24", "48"}, func(value string) {
-		v, err := strconv.Atoi(strings.TrimSpace(value))
-		if err != nil || v <= 0 {
-			return
-		}
-		a.maxPortChips = v
-		a.saveResultsViewSettings()
-		a.renderScanResultsView()
-	})
-	a.chipLimitSel.SetSelected(strconv.Itoa(a.maxPortChips))
-	a.showRawBannersCheck = widget.NewCheck("Показывать raw banner", func(v bool) {
-		a.showRawBanners = v
-		a.saveResultsViewSettings()
-		a.renderScanResultsView()
-	})
-
-	// Создаем прокручиваемый контейнер для результатов
-	// Это ключевое изменение - используем Scroll контейнер для прокрутки результатов
-	a.resultsScroll = container.NewScroll(a.resultsBody)
-	// Минимальная высота области результатов (базово 75 dp × 1,55; прокрутка внутри)
-	a.resultsScroll.SetMinSize(fyne.NewSize(0, float32(75*0.775)))
-
-	portClassHint := widget.NewLabel("Системные (Well-Known) 0–1023 — резерв под известные и системные службы; для части портов нужны права администратора. Примеры: 21 FTP, 22 SSH, 25 SMTP, 53 DNS, 80 HTTP, 443 HTTPS. " +
-		"Зарегистрированные (Registered) 1024–49151 — назначения IANA для приложений (например 1433 MSSQL, 3306 MySQL, 8080 HTTP-alt). " +
-		"Динамические/частные (Dynamic/Private) 49152–65535 — эфемерные и частные порты.")
-	portClassHint.Wrapping = fyne.TextWrapWord
-
-	// Верхняя панель сканирования
-	scanControlsContainer := container.NewVBox(
-		networkLabel,
-		a.networkEntry,
-		a.scanTCPPortsCheck,
-		widget.NewLabel("Диапазон TCP портов (например 1-65535 или 80,443):"),
-		a.portRangeEntry,
-		portClassHint,
-		container.NewVBox(
-			a.portWellKnownBtn,
-			a.portRegisteredBtn,
-			a.portDynamicBtn,
-		),
-		widget.NewLabel("Пресет:"),
-		container.NewGridWithColumns(
-			3,
-			a.presetQuickBtn,
-			a.presetBalBtn,
-			a.presetDeepBtn,
-		),
-		widget.NewLabel("Онбординг:"),
-		container.NewGridWithColumns(
-			2,
-			a.recommendedProfileBtn,
-			a.recommendedProfileInfoBtn,
-		),
-		a.recommendedProfileBadge,
-		container.NewGridWithColumns(
-			2,
-			widget.NewLabel("Таймаут (сек):"),
-			a.timeoutEntry,
-			widget.NewLabel("Потоки:"),
-			a.threadsEntry,
-		),
-		a.scanUDPCheck,
-		a.scanBannersCheck,
-		a.scanOSActiveCheck,
-		container.NewGridWithColumns(2, a.scanVerboseLogsCheck, a.scanVerboseInfoBtn),
-		container.NewGridWithColumns(2, a.autoProfileCheck, a.autoProfileInfoBtn),
-		a.autoProfileStateText,
-		autoProfileHint,
-		container.NewGridWithColumns(3, a.scanButton, a.stopButton, a.saveButton),
-		a.statusLabel,
-		a.stageLabel,
-		a.progressBar,
-	)
-
-	// Разделитель
-	separator := widget.NewSeparator()
-
-	// Заголовок результатов
-	resultsLabel := widget.NewLabel("Результаты сканирования:")
-	resultsLabel.TextStyle = fyne.TextStyle{Bold: true}
-
-	a.resultsDiagnosticsGrid = container.NewGridWithColumns(3, a.diagnosticsLabel, a.copyDiagnosticsBtn, a.saveDiagnosticsBtn)
-	a.resultsSortGrid = container.NewGridWithColumns(
-		5,
-		widget.NewLabel("Сортировка:"), a.resultsSortSel,
-		widget.NewLabel("Чипов портов:"), a.chipLimitSel,
-		a.showRawBannersCheck,
-	)
-	a.resultsCidrGrid = container.NewGridWithColumns(
-		4,
-		widget.NewLabel("CIDR:"),
-		a.resultsCidrFilterEnt,
-		widget.NewLabel("Состояние портов:"),
-		a.resultsPortStateSel,
-	)
-	a.resultsPresetGrid = container.NewGridWithColumns(
-		4,
-		widget.NewLabel("Пресет фильтров:"),
-		a.filterPresetSel,
-		a.saveFilterPresetBtn,
-		a.applyFilterPresetBtn,
-	)
-	// Контейнер с результатами (заголовок + прокручиваемая область)
-	resultsContainer := container.NewBorder(
-		container.NewVBox(
-			separator,
-			resultsLabel,
-			a.resultsStateLabel,
-			a.autoProfileHeaderLabel,
-			a.resultsDiagnosticsGrid,
-			container.NewGridWithColumns(2, widget.NewLabel("Подрежим:"), a.resultsSubModeSel),
-			container.NewGridWithColumns(2, widget.NewLabel("Режим отображения:"), a.resultsModeSel),
-			a.resultsSortGrid,
-			container.NewBorder(
-				nil, nil,
-				nil,
-				container.NewHBox(a.clearFilterBtn, a.filtersInfoLabel),
-				a.resultsFilterEnt,
-			),
-			a.resultsCidrGrid,
-			a.resultsPresetGrid,
-			container.NewHBox(typeCheckRow...),
-			container.NewHBox(a.resetFiltersBtn),
-		),
-		nil,
-		nil,
-		nil,
-		a.resultsScroll, // Прокручиваемый контейнер с результатами
-	)
-
-	a.scanControlsScroll = container.NewVScroll(scanControlsContainer)
-	a.scanControlsScroll.SetMinSize(fyne.NewSize(0, 220))
-	// Вкладка сканирования: верх/низ с перетаскиваемой границей (высота панелей настраивается вручную).
-	a.scanTabMainSplit = container.NewVSplit(a.scanControlsScroll, resultsContainer)
-	a.scanTabMainSplit.Offset = 0.38
-	scanTabContent := a.scanTabMainSplit
-
-	// Вкладка топологии: отдельный экран с настройками и превью
+	// Вкладка топологии
 	a.topologyText = widget.NewRichText()
 	a.topologyText.Wrapping = fyne.TextWrapWord
 	a.topologyText.ParseMarkdown("## Топология сети\n\nСначала выполните сканирование, затем нажмите **Построить топологию**.")
 	a.topologyScroll = container.NewScroll(a.topologyText)
-	a.topologyScroll.SetMinSize(fyne.NewSize(0, 350))
+	a.topologyScroll.SetMinSize(fyne.NewSize(0, 250))
+	a.topologyGraphStatus = widget.NewLabel("Интерактивная карта: нет данных")
+	a.topologyGraphStatus.Wrapping = fyne.TextWrapWord
+	a.topologySearchEntry = widget.NewEntry()
+	a.topologySearchEntry.SetPlaceHolder("Поиск узла (IP / hostname / MAC)")
+	a.topologyTypeFilterSel = widget.NewSelect([]string{"all", "router", "switch", "host", "unknown"}, nil)
+	a.topologyTypeFilterSel.SetSelected("all")
+	a.topologyConfidenceFilterSel = widget.NewSelect([]string{"all", "high", "medium", "low"}, nil)
+	a.topologyConfidenceFilterSel.SetSelected("all")
+	a.topologyResetMapBtn = widget.NewButton("Сброс карты", nil)
+	a.topologyGraphBox = container.NewWithoutLayout()
+	a.topologyGraphBox.Resize(fyne.NewSize(1200, 800))
+	a.topologyGraphScroll = container.NewScroll(a.topologyGraphBox)
+	a.topologyGraphScroll.SetMinSize(fyne.NewSize(0, 240))
 	a.topologyImage = canvas.NewImageFromResource(nil)
 	a.topologyImage.FillMode = canvas.ImageFillContain
-	a.topologyImage.SetMinSize(fyne.NewSize(0, 260))
+	a.topologyImage.SetMinSize(fyne.NewSize(0, 200))
 	a.topologyImgBox = container.NewMax(a.topologyImage)
 	a.topologyImgScroll = container.NewScroll(a.topologyImgBox)
 	a.zoomSelect = widget.NewSelect([]string{"Fit", "100%", "150%", "200%"}, nil)
@@ -792,14 +509,22 @@ func (a *App) initUI() {
 		container.NewHBox(a.copyPerfBtn, a.savePerfBtn),
 		container.NewHBox(widget.NewLabel("Масштаб превью:"), a.zoomSelect, a.refreshPreviewBtn),
 		a.openPreviewBtn,
+		widget.NewLabel("Интерактивная карта:"),
+		a.topologySearchEntry,
+		container.NewHBox(
+			widget.NewLabel("Тип:"), a.topologyTypeFilterSel,
+			widget.NewLabel("Confidence:"), a.topologyConfidenceFilterSel,
+			a.topologyResetMapBtn,
+		),
+		a.topologyGraphStatus,
 		a.snmpStageLabel,
 		a.snmpProgress,
 		a.topologyStatus,
 	)
 	a.topologyControlsScroll = container.NewVScroll(topologyControls)
-	a.topologyControlsScroll.SetMinSize(fyne.NewSize(0, 200))
-	a.topologyMainSplit = container.NewVSplit(a.topologyImgScroll, a.topologyScroll)
-	a.topologyMainSplit.Offset = 0.62
+	a.topologyControlsScroll.SetMinSize(fyne.NewSize(0, 160))
+	a.topologyMainSplit = container.NewVSplit(a.topologyGraphScroll, a.topologyScroll)
+	a.topologyMainSplit.Offset = 0.55
 	topologyTabContent := container.NewBorder(
 		a.topologyControlsScroll,
 		nil,
@@ -896,9 +621,9 @@ func (a *App) initUI() {
 	a.operationsRetryBtn.Disable()
 	a.operationsCancelBtn.Disable()
 	a.toolsOutputScroll = container.NewScroll(a.toolsOutput)
-	a.toolsOutputScroll.SetMinSize(fyne.NewSize(0, 380))
+	a.toolsOutputScroll.SetMinSize(fyne.NewSize(0, 280))
 	a.operationsOutputScroll = container.NewScroll(a.operationsOutput)
-	a.operationsOutputScroll.SetMinSize(fyne.NewSize(0, 150))
+	a.operationsOutputScroll.SetMinSize(fyne.NewSize(0, 120))
 	a.toolButtonsGrid = container.NewGridWithColumns(
 		5,
 		a.toolsPingBtn,
@@ -941,7 +666,7 @@ func (a *App) initUI() {
 		),
 		a.toolButtonsGrid,
 	))
-	a.toolsControlsScroll.SetMinSize(fyne.NewSize(0, 260))
+	a.toolsControlsScroll.SetMinSize(fyne.NewSize(0, 200))
 	a.operationsHeaderGrid = container.New(layout.NewGridLayoutWithColumns(2),
 		widget.NewLabel("Operations:"),
 		a.operationsSelect,
@@ -956,7 +681,7 @@ func (a *App) initUI() {
 		),
 	)
 	a.toolsTabMainSplit = container.NewVSplit(toolsUpper, a.toolsOutputScroll)
-	a.toolsTabMainSplit.Offset = 0.44
+	a.toolsTabMainSplit.Offset = 0.40
 	toolsTabContent := a.toolsTabMainSplit
 
 	a.mainTabs = container.NewAppTabs(
@@ -969,7 +694,42 @@ func (a *App) initUI() {
 			a.renderScanResultsView()
 		}
 	}
-	a.myWindow.SetContent(a.mainTabs)
+
+	// Тулбар с основными действиями — виден всегда, включая fullscreen режим.
+	// На Windows Fyne рендерит MainMenu в системной заголовочной панели,
+	// которая скрывается при переходе в fullscreen. Используем горизонтальный контейнер.
+	a.mainToolbar = container.NewHBox(
+		widget.NewSeparator(),
+		widget.NewButton("▶ Сканирование", func() {
+			a.startScan()
+		}),
+		widget.NewButton("⏹ Стоп", func() {
+			a.stopScan()
+		}),
+		widget.NewSeparator(),
+		widget.NewButton("💾 Сохранить", func() {
+			a.saveResults()
+		}),
+		widget.NewButton("🗺 Топология", func() {
+			a.buildTopology()
+		}),
+		widget.NewSeparator(),
+		widget.NewButton("↺ Сброс UI", func() {
+			a.resetUIPanelLayoutWithFeedback()
+		}),
+	)
+	a.mainToolbar.Hide()
+
+	// Обёртка: тулбар + табы
+	mainContent := container.NewBorder(
+		a.mainToolbar, // top
+		nil,           // bottom
+		nil,           // leading
+		nil,           // trailing
+		a.mainTabs,    // center
+	)
+
+	a.myWindow.SetContent(mainContent)
 	a.setPortRangeControlsEnabled(a.scanTCPPortsCheck.Checked)
 	a.refreshAutoProfileStateLabel()
 	a.startResultsLayoutWatcher()
@@ -1023,6 +783,16 @@ func (a *App) setupEventHandlers() {
 	}
 	a.threadsEntry.OnChanged = func(_ string) {
 		a.saveScanSettings()
+	}
+	if a.inventoryDBEntry != nil {
+		a.inventoryDBEntry.OnChanged = func(_ string) {
+			a.saveScanSettings()
+		}
+	}
+	if a.inventoryAutoSaveCheck != nil {
+		a.inventoryAutoSaveCheck.OnChanged = func(_ bool) {
+			a.saveScanSettings()
+		}
 	}
 	a.scanUDPCheck.OnChanged = func(_ bool) {
 		a.saveScanSettings()
@@ -1127,6 +897,39 @@ func (a *App) setupEventHandlers() {
 	}
 	a.zoomSelect.OnChanged = func(value string) {
 		a.applyTopologyZoom(value)
+	}
+	if a.topologySearchEntry != nil {
+		a.topologySearchEntry.OnChanged = func(v string) {
+			a.topologyViewState.query = strings.TrimSpace(v)
+			a.renderTopologyInteractiveMap(a.lastTopology)
+		}
+	}
+	if a.topologyTypeFilterSel != nil {
+		a.topologyTypeFilterSel.OnChanged = func(v string) {
+			a.topologyViewState.typeFilter = strings.TrimSpace(strings.ToLower(v))
+			a.renderTopologyInteractiveMap(a.lastTopology)
+		}
+	}
+	if a.topologyConfidenceFilterSel != nil {
+		a.topologyConfidenceFilterSel.OnChanged = func(v string) {
+			a.topologyViewState.confFilter = strings.TrimSpace(strings.ToLower(v))
+			a.renderTopologyInteractiveMap(a.lastTopology)
+		}
+	}
+	if a.topologyResetMapBtn != nil {
+		a.topologyResetMapBtn.OnTapped = func() {
+			a.topologyViewState = topologyMapState{}
+			if a.topologySearchEntry != nil {
+				a.topologySearchEntry.SetText("")
+			}
+			if a.topologyTypeFilterSel != nil {
+				a.topologyTypeFilterSel.SetSelected("all")
+			}
+			if a.topologyConfidenceFilterSel != nil {
+				a.topologyConfidenceFilterSel.SetSelected("all")
+			}
+			a.renderTopologyInteractiveMap(a.lastTopology)
+		}
 	}
 	if a.toolsHostEntry != nil {
 		a.toolsHostEntry.OnChanged = func(_ string) {
@@ -1454,6 +1257,16 @@ func (a *App) saveScanSettings() {
 	if a.recommendedProfileBadge != nil {
 		p.SetString(prefRecommendedBadge, strings.TrimSpace(a.recommendedProfileBadge.Text))
 	}
+	if a.inventoryDBEntry != nil {
+		p.SetString(prefInventoryDBPath, strings.TrimSpace(a.inventoryDBEntry.Text))
+	}
+	if a.inventoryAutoSaveCheck != nil {
+		if a.inventoryAutoSaveCheck.Checked {
+			p.SetString(prefInventoryAutoSave, "true")
+		} else {
+			p.SetString(prefInventoryAutoSave, "false")
+		}
+	}
 }
 
 func (a *App) setPortRangeControlsEnabled(enabled bool) {
@@ -1697,11 +1510,18 @@ func (a *App) loadScanSettings() {
 		a.resultsModeSel.SetSelected(viewMode)
 	}
 	subMode := strings.TrimSpace(p.String(prefResultsSubMode))
-	if subMode == "Devices" || subMode == "Security" {
+	if subMode == "Devices" || subMode == "Security" || subMode == "Inventory" {
 		a.resultsSubMode = subMode
 		if a.resultsSubModeSel != nil {
 			a.resultsSubModeSel.SetSelected(subMode)
 		}
+	}
+	if v := strings.TrimSpace(p.String(prefInventoryDBPath)); v != "" && a.inventoryDBEntry != nil {
+		a.inventoryDBEntry.SetText(v)
+	}
+	if a.inventoryAutoSaveCheck != nil {
+		autoSave := strings.TrimSpace(p.String(prefInventoryAutoSave))
+		a.inventoryAutoSaveCheck.SetChecked(autoSave == "" || strings.EqualFold(autoSave, "true"))
 	}
 	sortMode := strings.TrimSpace(p.String(prefSortMode))
 	if sortMode == "IP" || sortMode == "HostName" {
@@ -1806,6 +1626,7 @@ func (a *App) loadScanSettings() {
 	a.loadTopologySplitFromPrefs()
 	a.loadToolsTabSplitFromPrefs()
 	a.loadHostDetailsSplitFromPrefs()
+	a.refreshInventorySnapshots()
 	a.renderScanResultsView()
 }
 
@@ -2660,189 +2481,50 @@ func (a *App) startScan() {
 
 	a.applyScanRunStart(autoProfileNote)
 
-	// Создаем канал для передачи результатов из горутины
-	resultsChan := make(chan scanUpdate, 1)
-	progressChan := make(chan progressUpdate, 100) // Буферизованный канал для прогресса
 	scanUITimeout := estimateScanUITimeout(networkStr, strings.TrimSpace(a.portRangeEntry.Text), strings.TrimSpace(a.timeoutEntry.Text), strings.TrimSpace(a.threadsEntry.Text), a.scanTCPPortsCheck.Checked, a.scanUDPCheck.Checked)
 	logger.LogDebug("GUI таймаут сканирования: %v", scanUITimeout)
-
-	// Запускаем сканирование в отдельной горутине
-	go func() {
-		// Создаем сканер с параметрами из UI
-		timeoutSec := 2
-		if v, err := strconv.Atoi(strings.TrimSpace(a.timeoutEntry.Text)); err == nil && v > 0 {
-			timeoutSec = v
-		}
-		portRange := strings.TrimSpace(a.portRangeEntry.Text)
-		if portRange == "" {
-			portRange = "1-65535"
-		}
-		threads := 50
-		if v, err := strconv.Atoi(strings.TrimSpace(a.threadsEntry.Text)); err == nil && v > 0 {
-			threads = v
-		}
-		showClosed := false
-		scanUDP := a.scanUDPCheck.Checked
-		grabBanners := a.scanBannersCheck != nil && a.scanBannersCheck.Checked
-		osDetectActive := a.scanOSActiveCheck != nil && a.scanOSActiveCheck.Checked
-		verbosePortLogs := a.scanVerboseLogsCheck != nil && a.scanVerboseLogsCheck.Checked
-
-		logger.LogDebug("Создание сканера в GUI: сеть=%s, порты=%s, таймаут=%v, потоков=%d, showClosed=%v",
-			networkStr, portRange, time.Duration(timeoutSec)*time.Second, threads, showClosed)
-		ns := scanner.NewNetworkScanner(networkStr, time.Duration(timeoutSec)*time.Second, portRange, threads, showClosed)
-		ns.SetScanTCPPorts(a.scanTCPPortsCheck.Checked)
-		ns.SetScanUDP(scanUDP)
-		ns.SetGrabBanners(grabBanners)
-		ns.SetOSDetectActive(osDetectActive)
-		ns.SetVerbosePortLogs(verbosePortLogs)
-		a.networkScanner = ns
-
-		// Устанавливаем callback для прогресса
-		ns.SetProgressCallback(func(stage string, current int, total int, message string) {
-			// Вычисляем процент прогресса для текущего этапа (0-100%)
-			var percent float64
-			if total > 0 {
-				percent = float64(current) / float64(total)
-			} else {
-				percent = 0
-			}
-
-			// Отправляем обновление прогресса в канал
-			select {
-			case progressChan <- progressUpdate{
-				stage:   stage,
-				current: current,
-				total:   total,
-				message: message,
-				percent: percent,
-			}:
-			default:
-				// Пропускаем если канал переполнен (не критично)
-			}
-		})
-
-		// Запускаем сканирование
-		logger.LogDebug("Запуск метода Scan() в GUI")
-		scanMethodStartTime := time.Now()
-		ns.Scan()
-		scanMethodDuration := time.Since(scanMethodStartTime)
-		logger.LogDebug("Метод Scan() завершен в GUI за %v", scanMethodDuration)
-
-		// Получаем результаты
-		results := ns.GetResults()
-		logger.Log("Получено результатов сканирования в GUI: %d", len(results))
-		logger.LogDebug("Результаты сканирования получены из сканера")
-
-		// Закрываем канал прогресса
-		close(progressChan)
-		logger.LogDebug("Канал прогресса закрыт")
-
-		// Отправляем результаты и диагностику в канал
-		resultsChan <- scanUpdate{
-			results:     results,
-			diagnostics: ns.GetDiagnosticsSummary(),
-		}
-		totalDuration := time.Since(scanStartTime)
-		logger.Log("Сканирование в GUI завершено за %v, найдено устройств: %d", totalDuration, len(results))
-	}()
-
-	// Обрабатываем результаты и прогресс в отдельной горутине
-	go func() {
-		// Создаем тикер для периодического обновления UI
-		ticker := time.NewTicker(120 * time.Millisecond)
-		defer ticker.Stop()
-
-		timeout := time.NewTimer(scanUITimeout)
-		defer timeout.Stop()
-		stageStartedAt := map[string]time.Time{}
-		var latestProgress progressUpdate
-		hasPendingProgress := false
-
-		applyProgress := func(progress progressUpdate) {
-			etaText := ""
-			if progress.total > 0 && progress.current > 0 && progress.current < progress.total {
-				elapsed := time.Since(stageStartedAt[progress.stage])
-				if elapsed > 0 {
-					remainingItems := progress.total - progress.current
-					eta := time.Duration(float64(elapsed) * (float64(remainingItems) / float64(progress.current)))
-					if eta < 0 {
-						eta = 0
-					}
-					etaText = fmt.Sprintf(", ETA ~ %s", formatDurationMMSS(eta))
-				}
-			}
-			fyne.Do(func() {
-				stageName := ""
-				switch progress.stage {
-				case "ping":
-					stageName = "Этап 1: Проверка доступности хостов"
-				case "ports":
-					stageName = "Этап 2: Сканирование портов"
-				case "complete":
-					stageName = "Завершение"
-				default:
-					stageName = "Сканирование"
-				}
-				a.progressBar.SetValue(progress.percent)
-				if progress.total > 0 {
-					percentText := fmt.Sprintf("%.1f%%", progress.percent*100)
-					a.stageLabel.SetText(fmt.Sprintf("%s: %d/%d (%s%s)", stageName, progress.current, progress.total, percentText, etaText))
-				} else {
-					a.stageLabel.SetText(stageName)
-				}
-				a.statusLabel.SetText(progress.message)
-				a.progressBar.Refresh()
-				a.stageLabel.Refresh()
-				a.statusLabel.Refresh()
-			})
-		}
-
-		for {
-			select {
-			case progress, ok := <-progressChan:
-				if !ok {
-					// Канал прогресса закрыт, продолжаем ждать результаты
-					progressChan = nil
-					continue
-				}
-				if _, exists := stageStartedAt[progress.stage]; !exists {
-					stageStartedAt[progress.stage] = time.Now()
-				}
-				latestProgress = progress
-				hasPendingProgress = true
-				if progress.stage == "complete" {
-					applyProgress(progress)
-					hasPendingProgress = false
-				}
-
-			case update, ok := <-resultsChan:
-				if !ok {
-					return
-				}
-				if hasPendingProgress {
-					applyProgress(latestProgress)
-					hasPendingProgress = false
-				}
-				fyne.Do(func() {
-					a.applyScanCompletion(update)
-				})
-				return
-
-			case <-ticker.C:
-				// Применяем только последний snapshot прогресса с контролируемой частотой.
-				if hasPendingProgress {
-					applyProgress(latestProgress)
-					hasPendingProgress = false
-				}
-
-			case <-timeout.C:
-				fyne.Do(func() {
-					a.applyScanTimeout(scanUITimeout)
-				})
-				return
-			}
-		}
-	}()
+	timeoutSec := 2
+	if v, err := strconv.Atoi(strings.TrimSpace(a.timeoutEntry.Text)); err == nil && v > 0 {
+		timeoutSec = v
+	}
+	portRange := strings.TrimSpace(a.portRangeEntry.Text)
+	if portRange == "" {
+		portRange = "1-65535"
+	}
+	threads := 50
+	if v, err := strconv.Atoi(strings.TrimSpace(a.threadsEntry.Text)); err == nil && v > 0 {
+		threads = v
+	}
+	workerCfg := scand.Config{
+		NetworkCIDR:    networkStr,
+		Timeout:        time.Duration(timeoutSec) * time.Second,
+		PortRange:      portRange,
+		Threads:        threads,
+		ShowClosed:     false,
+		ScanTCPPorts:   a.scanTCPPortsCheck.Checked,
+		ScanUDP:        a.scanUDPCheck.Checked,
+		GrabBanners:    a.scanBannersCheck != nil && a.scanBannersCheck.Checked,
+		OSDetectActive: a.scanOSActiveCheck != nil && a.scanOSActiveCheck.Checked,
+		VerbosePortLog: a.scanVerboseLogsCheck != nil && a.scanVerboseLogsCheck.Checked,
+	}
+	runner := scand.NewRunner()
+	a.scanRunner = runner
+	if err := runner.Start(workerCfg); err != nil {
+		a.statusLabel.SetText("Не удалось запустить сканирование: " + err.Error())
+		a.resultsState = resultsStateStopped
+		a.stageLabel.Hide()
+		a.progressBar.Hide()
+		a.scanButton.Enable()
+		a.stopButton.Disable()
+		a.scanRunner = nil
+		a.renderScanResultsView()
+		a.statusLabel.Refresh()
+		a.stageLabel.Refresh()
+		a.progressBar.Refresh()
+		a.resultsStateLabel.Refresh()
+		return
+	}
+	a.observeScanRunner(runner, scanStartTime, scanUITimeout)
 }
 
 func autoScanProfile(networkStr string, portRange string, threads int) (string, int, string) {
@@ -2997,11 +2679,17 @@ func formatDurationMMSS(d time.Duration) string {
 }
 
 func (a *App) stopScan() {
-	if a.networkScanner == nil {
+	if a.scanRunner == nil {
 		return
 	}
+	// Скрываем тулбар при остановке
+	if a.mainToolbar != nil {
+		a.mainToolbar.Hide()
+	}
 	logger.Log("Пользователь инициировал остановку сканирования из GUI")
-	a.networkScanner.Stop()
+	if a.scanRunner != nil {
+		a.scanRunner.Stop()
+	}
 	a.statusLabel.SetText("Сканирование остановлено пользователем")
 	a.resultsState = resultsStateStopped
 	a.stageLabel.Hide()
@@ -3014,7 +2702,7 @@ func (a *App) stopScan() {
 	if a.saveDiagnosticsBtn != nil {
 		a.saveDiagnosticsBtn.Disable()
 	}
-	a.networkScanner = nil
+	a.scanRunner = nil
 	a.renderScanResultsView()
 	a.statusLabel.Refresh()
 	a.stageLabel.Refresh()
@@ -3299,6 +2987,10 @@ func (a *App) saveTopology() {
 		dialog.ShowInformation("Информация", "Сначала постройте топологию", a.myWindow)
 		return
 	}
+	if err := a.lastTopology.Validate(); err != nil {
+		dialog.ShowError(fmt.Errorf("топология не прошла валидацию перед сохранением: %v", err), a.myWindow)
+		return
+	}
 	dialog.ShowFileSave(func(writer fyne.URIWriteCloser, err error) {
 		if err != nil {
 			dialog.ShowError(err, a.myWindow)
@@ -3328,7 +3020,7 @@ func (a *App) saveTopology() {
 			dialog.ShowError(err, a.myWindow)
 			return
 		}
-		dialog.ShowInformation("Успех", "Топология сохранена", a.myWindow)
+		dialog.ShowInformation("Успех", fmt.Sprintf("Топология сохранена (узлов: %d, связей: %d)", len(a.lastTopology.Devices), len(a.lastTopology.Links)), a.myWindow)
 	}, a.myWindow)
 }
 
@@ -3576,6 +3268,9 @@ func (a *App) setupMainMenu() {
 	if a == nil || a.myWindow == nil {
 		return
 	}
+	// MainMenu оставлен для не-Windows платформ и контекстных меню.
+	// На Windows основной доступ к действиям теперь через тулбар,
+	// который виден в том числе в fullscreen режиме.
 	resetItem := fyne.NewMenuItem("Сбросить расположение панелей (Ctrl+Shift+L)", func() {
 		a.resetUIPanelLayoutWithFeedback()
 	})

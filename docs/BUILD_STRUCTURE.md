@@ -7,7 +7,7 @@
 ## Структура директорий
 
 ```
-build/release/
+build/
 └── YYYY-MM-DD-N[-debug]/
     ├── windows/
     │   ├── network-scanner.exe
