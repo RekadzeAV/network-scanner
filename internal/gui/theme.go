@@ -9,12 +9,19 @@ import (
 
 // ModernTheme представляет современную тему в стиле macOS Sierra/Windows 11
 type ModernTheme struct {
-	isDark bool
+	isDark      bool
+	lightAccent AccentColors
+	darkAccent  AccentColors
 }
 
 // NewModernTheme создает новую тему
 func NewModernTheme(isDark bool) *ModernTheme {
-	return &ModernTheme{isDark: isDark}
+	t := &ModernTheme{
+		isDark:      isDark,
+		lightAccent: DefaultAccentColorsLight(),
+		darkAccent:  DefaultAccentColorsDark(),
+	}
+	return t
 }
 
 // Color возвращает цвет для указанного имени
@@ -41,7 +48,7 @@ func (t *ModernTheme) lightColor(name fyne.ThemeColorName) color.Color {
 		return color.RGBA{R: 0xF5, G: 0xF5, B: 0xF7, A: 0xFF}
 	case theme.ColorNameButton:
 		// Синий цвет кнопок macOS Sierra
-		return color.RGBA{R: 0x00, G: 0x7A, B: 0xFF, A: 0xFF}
+		return t.lightAccent.Primary
 	case theme.ColorNameDisabledButton:
 		return color.RGBA{R: 0xC7, G: 0xC7, B: 0xCC, A: 0xFF}
 	case theme.ColorNameDisabled:
@@ -50,13 +57,13 @@ func (t *ModernTheme) lightColor(name fyne.ThemeColorName) color.Color {
 		return color.RGBA{R: 0xFF, G: 0x3B, B: 0x30, A: 0xFF}
 	case theme.ColorNameFocus:
 		// Синий цвет фокуса macOS
-		return color.RGBA{R: 0x00, G: 0x7A, B: 0xFF, A: 0xFF}
+		return t.lightAccent.Primary
 	case theme.ColorNameForeground:
 		// Темный текст
 		return color.RGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xFF}
 	case theme.ColorNameHover:
 		// Светло-синий при наведении
-		return color.RGBA{R: 0xE5, G: 0xF2, B: 0xFF, A: 0xFF}
+		return t.lightAccent.Hover
 	case theme.ColorNameInputBackground:
 		// Белый фон для полей ввода
 		return color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
@@ -71,15 +78,15 @@ func (t *ModernTheme) lightColor(name fyne.ThemeColorName) color.Color {
 		return color.RGBA{R: 0x8E, G: 0x8E, B: 0x93, A: 0xFF}
 	case theme.ColorNamePressed:
 		// Темно-синий при нажатии
-		return color.RGBA{R: 0x00, G: 0x5A, B: 0xCC, A: 0xFF}
+		return t.lightAccent.Pressed
 	case theme.ColorNamePrimary:
 		// Основной синий цвет macOS
-		return color.RGBA{R: 0x00, G: 0x7A, B: 0xFF, A: 0xFF}
+		return t.lightAccent.Primary
 	case theme.ColorNameScrollBar:
 		return color.RGBA{R: 0xC7, G: 0xC7, B: 0xCC, A: 0x80}
 	case theme.ColorNameSelection:
 		// Цвет выделения macOS
-		return color.RGBA{R: 0x00, G: 0x7A, B: 0xFF, A: 0x40}
+		return t.lightAccent.Selection
 	case theme.ColorNameSeparator:
 		return color.RGBA{R: 0xC7, G: 0xC7, B: 0xCC, A: 0xFF}
 	case theme.ColorNameShadow:
@@ -101,7 +108,7 @@ func (t *ModernTheme) darkColor(name fyne.ThemeColorName) color.Color {
 		return color.RGBA{R: 0x20, G: 0x20, B: 0x20, A: 0xFF}
 	case theme.ColorNameButton:
 		// Синий цвет кнопок Windows 11
-		return color.RGBA{R: 0x00, G: 0x78, B: 0xD4, A: 0xFF}
+		return t.darkAccent.Primary
 	case theme.ColorNameDisabledButton:
 		return color.RGBA{R: 0x3D, G: 0x3D, B: 0x3D, A: 0xFF}
 	case theme.ColorNameDisabled:
@@ -109,12 +116,12 @@ func (t *ModernTheme) darkColor(name fyne.ThemeColorName) color.Color {
 	case theme.ColorNameError:
 		return color.RGBA{R: 0xF1, G: 0x70, B: 0x70, A: 0xFF}
 	case theme.ColorNameFocus:
-		return color.RGBA{R: 0x00, G: 0x78, B: 0xD4, A: 0xFF}
+		return t.darkAccent.Primary
 	case theme.ColorNameForeground:
 		// Светлый текст
 		return color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
 	case theme.ColorNameHover:
-		return color.RGBA{R: 0x2D, G: 0x2D, B: 0x30, A: 0xFF}
+		return t.darkAccent.Hover
 	case theme.ColorNameInputBackground:
 		return color.RGBA{R: 0x1E, G: 0x1E, B: 0x1E, A: 0xFF}
 	case theme.ColorNameInputBorder:
@@ -126,13 +133,13 @@ func (t *ModernTheme) darkColor(name fyne.ThemeColorName) color.Color {
 	case theme.ColorNamePlaceHolder:
 		return color.RGBA{R: 0x6D, G: 0x6D, B: 0x6D, A: 0xFF}
 	case theme.ColorNamePressed:
-		return color.RGBA{R: 0x00, G: 0x5A, B: 0xA0, A: 0xFF}
+		return t.darkAccent.Pressed
 	case theme.ColorNamePrimary:
-		return color.RGBA{R: 0x00, G: 0x78, B: 0xD4, A: 0xFF}
+		return t.darkAccent.Primary
 	case theme.ColorNameScrollBar:
 		return color.RGBA{R: 0x3D, G: 0x3D, B: 0x3D, A: 0x80}
 	case theme.ColorNameSelection:
-		return color.RGBA{R: 0x00, G: 0x78, B: 0xD4, A: 0x40}
+		return t.darkAccent.Selection
 	case theme.ColorNameSeparator:
 		return color.RGBA{R: 0x3D, G: 0x3D, B: 0x3D, A: 0xFF}
 	case theme.ColorNameShadow:
@@ -191,4 +198,3 @@ func (t *ModernTheme) Size(name fyne.ThemeSizeName) float32 {
 		return theme.DefaultTheme().Size(name)
 	}
 }
-

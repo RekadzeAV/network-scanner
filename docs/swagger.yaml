@@ -1,0 +1,1083 @@
+swagger: "2.0"
+info:
+  title: Network Scanner API
+  description: REST API for network scanning, inventory management, alerting, and topology analysis.
+  version: 1.0.5
+  contact:
+    name: Network Scanner Team
+
+host: localhost:8080
+schemes:
+  - http
+  - https
+
+basePath: /api/v1
+
+consumes:
+  - application/json
+produces:
+  - application/json
+
+# ============================================================
+# SCHEMA: Common types
+# ============================================================
+
+definitions:
+  Error:
+    type: object
+    properties:
+      error:
+        type: string
+    example:
+      error: "invalid request body"
+
+  HealthResponse:
+    type: object
+    properties:
+      status:
+        type: string
+      timestamp:
+        type: integer
+        format: int64
+      version:
+        type: string
+    example:
+      status: ok
+      timestamp: 1711600000
+      version: "1.0.0"
+
+  ScanResult:
+    type: object
+    properties:
+      ip:
+        type: string
+      hostname:
+        type: string
+      mac:
+        type: string
+      vendor:
+        type: string
+      ports:
+        type: array
+        items:
+          $ref: '#/definitions/PortInfo'
+      os:
+        $ref: '#/definitions/OSInfo'
+      services:
+        type: array
+        items:
+          $ref: '#/definitions/ServiceInfo'
+      vulnerabilities:
+        type: array
+        items:
+          $ref: '#/definitions/Vulnerability'
+      tags:
+        type: object
+        additionalProperties:
+          type: string
+      scanTime:
+        type: integer
+        format: int64
+    example:
+      ip: "192.168.1.1"
+      hostname: "gateway.local"
+      mac: "AA:BB:CC:DD:EE:FF"
+      vendor: "Cisco Systems"
+      ports:
+        - port: 22
+          protocol: tcp
+          state: open
+          service: SSH
+          version: "OpenSSH 8.9"
+      os:
+        name: "Linux"
+        version: "Ubuntu 22.04"
+        family: "Linux"
+      scanTime: 1711600000
+
+  PortInfo:
+    type: object
+    properties:
+      port:
+        type: integer
+      protocol:
+        type: string
+        enum: [tcp, udp]
+      state:
+        type: string
+        enum: [open, closed, filtered]
+      service:
+        type: string
+      version:
+        type: string
+      banner:
+        type: string
+
+  OSInfo:
+    type: object
+    properties:
+      name:
+        type: string
+      version:
+        type: string
+      family:
+        type: string
+      confidence:
+        type: integer
+
+  ServiceInfo:
+    type: object
+    properties:
+      port:
+        type: integer
+      protocol:
+        type: string
+      name:
+        type: string
+      version:
+        type: string
+      cpe:
+        type: string
+
+  Vulnerability:
+    type: object
+    properties:
+      id:
+        type: string
+      severity:
+        type: string
+        enum: [critical, high, medium, low, info]
+      title:
+        type: string
+      description:
+        type: string
+      cve:
+        type: string
+      cvss:
+        type: number
+        format: float
+      port:
+        type: integer
+      protocol:
+        type: string
+      remediation:
+        type: string
+
+  Change:
+    type: object
+    properties:
+      ip:
+        type: string
+      field:
+        type: string
+      old_value:
+        type: string
+      new_value:
+        type: string
+
+  Alert:
+    type: object
+    properties:
+      id:
+        type: string
+      severity:
+        type: string
+        enum: [critical, high, medium, low, info]
+      rule_name:
+        type: string
+      message:
+        type: string
+      host:
+        type: string
+      timestamp:
+        type: integer
+        format: int64
+      acknowledged:
+        type: boolean
+
+  Snapshot:
+    type: object
+    properties:
+      id:
+        type: string
+      timestamp:
+        type: integer
+        format: int64
+      host_count:
+        type: integer
+      metadata:
+        type: object
+        additionalProperties:
+          type: string
+
+  SNMPDeviceSummary:
+    type: object
+    properties:
+      ip:
+        type: string
+      hostname:
+        type: string
+      connected:
+        type: boolean
+      sysName:
+        type: string
+      sysDescr:
+        type: string
+      sysLocation:
+        type: string
+      lldp_data:
+        type: object
+        additionalProperties: true
+      cdp_data:
+        type: object
+        additionalProperties: true
+      fdb_data:
+        type: array
+        items:
+          type: object
+      snmp_errors:
+        type: array
+        items:
+          type: string
+
+  TopologyNode:
+    type: object
+    properties:
+      id:
+        type: string
+      ip:
+        type: string
+      hostname:
+        type: string
+      mac:
+        type: string
+      device_type:
+        type: string
+      vendor:
+        type: string
+      os:
+        type: string
+      location:
+        type: string
+      is_gateway:
+        type: boolean
+      is_snmp:
+        type: boolean
+
+  TopologyEdge:
+    type: object
+    properties:
+      source:
+        type: string
+      target:
+        type: string
+      type:
+        type: string
+        enum: [lldp, cdp, fdb, routing, arp, physical]
+      source_port:
+        type: string
+      target_port:
+        type: string
+
+  TopologyStats:
+    type: object
+    properties:
+      total_nodes:
+        type: integer
+      total_edges:
+        type: integer
+      device_types:
+        type: object
+        additionalProperties:
+          type: integer
+      snmp_devices:
+        type: integer
+      gateway_count:
+        type: integer
+      switch_count:
+        type: integer
+      router_count:
+        type: integer
+      isolated_nodes:
+        type: integer
+
+  HistoryEntry:
+    type: object
+    properties:
+      id:
+        type: string
+      timestamp:
+        type: integer
+        format: int64
+      target:
+        type: string
+      host_count:
+        type: integer
+      status:
+        type: string
+
+# ============================================================
+# SCHEMA: Request/Response bodies
+# ============================================================
+
+  ScanRequest:
+    type: object
+    required: [network]
+    properties:
+      network:
+        type: string
+        description: "CIDR notation (e.g. 192.168.1.0/24) or IP range"
+      port_range:
+        type: string
+        description: "Port range specification (e.g. 1-1000, 22,80,443, 80,443-445,8080)"
+        default: "1-65535"
+      timeout:
+        type: integer
+        description: "Per-probe timeout in milliseconds"
+        default: 1000
+      threads:
+        type: integer
+        description: "Number of concurrent scan threads"
+        default: 25
+      scan_udp:
+        type: boolean
+        description: "Enable UDP port scanning"
+        default: false
+      grab_banners:
+        type: boolean
+        description: "Enable banner grabbing on open ports"
+        default: false
+      os_active:
+        type: boolean
+        description: "Enable active OS detection"
+        default: false
+      verbose_logs:
+        type: boolean
+        description: "Enable verbose scan progress logging"
+        default: false
+      security:
+        type: boolean
+        description: "Run security vulnerability checks"
+        default: false
+      topology:
+        type: boolean
+        description: "Build network topology from scan results"
+        default: false
+
+  ScanResponse:
+    type: object
+    properties:
+      id:
+        type: string
+      status:
+        type: string
+        enum: [accepted, running, completed, failed]
+      message:
+        type: string
+      results:
+        type: array
+        items:
+          $ref: '#/definitions/ScanResult'
+      started_at:
+        type: integer
+        format: int64
+      completed_at:
+        type: integer
+        format: int64
+
+  ScanStatus:
+    type: object
+    properties:
+      id:
+        type: string
+      status:
+        type: string
+        enum: [accepted, running, completed, failed]
+      message:
+        type: string
+      progress:
+        type: integer
+        minimum: 0
+        maximum: 100
+      results_count:
+        type: integer
+      started_at:
+        type: integer
+        format: int64
+      completed_at:
+        type: integer
+        format: int64
+
+  InventoryRequest:
+    type: object
+    required: [id, results]
+    properties:
+      id:
+        type: string
+        description: "Snapshot identifier"
+      results:
+        type: array
+        description: "Scan results to save"
+        items:
+          $ref: '#/definitions/ScanResult'
+      metadata:
+        type: object
+        description: "Optional metadata tags"
+        additionalProperties:
+          type: string
+
+  InventoryResponse:
+    type: object
+    properties:
+      id:
+        type: string
+      timestamp:
+        type: integer
+        format: int64
+      host_count:
+        type: integer
+      message:
+        type: string
+
+  InventoryDiffResponse:
+    type: object
+    properties:
+      scan_id_a:
+        type: string
+      scan_id_b:
+        type: string
+      new:
+        type: array
+        description: "Hosts present in B but not in A"
+        items:
+          $ref: '#/definitions/ScanResult'
+      missing:
+        type: array
+        description: "Hosts present in A but not in B"
+        items:
+          $ref: '#/definitions/ScanResult'
+      changed:
+        type: array
+        description: "Hosts present in both but with changed attributes"
+        items:
+          $ref: '#/definitions/Change'
+
+  SNMPCollectRequest:
+    type: object
+    properties:
+      device_ids:
+        type: array
+        description: "List of snapshot IDs to collect from. If empty, uses latest snapshot."
+        items:
+          type: string
+      community:
+        type: string
+        description: "SNMP community string"
+        default: "public"
+      timeout:
+        type: integer
+        description: "SNMP request timeout in seconds"
+        default: 2
+
+  SNMPCollectResponse:
+    type: object
+    properties:
+      total_targets:
+        type: integer
+      connected:
+        type: integer
+      partial:
+        type: integer
+      failed:
+        type: integer
+      snmp_devices:
+        type: integer
+      device_summaries:
+        type: array
+        items:
+          $ref: '#/definitions/SNMPDeviceSummary'
+      failures:
+        type: array
+        items:
+          type: string
+
+  TopologyBuildRequest:
+    type: object
+    properties:
+      snapshot_id:
+        type: string
+        description: "Snapshot ID to build topology from. If empty, uses latest."
+      snmp_enabled:
+        type: boolean
+        description: "Enable SNMP data collection for topology"
+        default: false
+      snmp_community:
+        type: string
+        description: "SNMP community string"
+        default: "public"
+      snmp_timeout:
+        type: integer
+        description: "SNMP timeout in seconds"
+        default: 2
+
+  TopologyBuildResponse:
+    type: object
+    properties:
+      nodes:
+        type: array
+        items:
+          $ref: '#/definitions/TopologyNode'
+      edges:
+        type: array
+        items:
+          $ref: '#/definitions/TopologyEdge'
+      stats:
+        $ref: '#/definitions/TopologyStats'
+
+  TopologyExportRequest:
+    type: object
+    properties:
+      snapshot_id:
+        type: string
+      format:
+        type: string
+        enum: [dot, json, csv, xml]
+
+  TopologyDOTRequest:
+    type: object
+    properties:
+      snapshot_id:
+        type: string
+
+  TopologyStatsRequest:
+    type: object
+    properties:
+      snapshot_id:
+        type: string
+
+  AlertsCheckRequest:
+    type: object
+    properties:
+      old_hosts:
+        type: array
+        items:
+          type: object
+      new_hosts:
+        type: array
+        items:
+          type: object
+
+  AlertTriggerRequest:
+    type: object
+    required: [scan_id_a, scan_id_b]
+    properties:
+      scan_id_a:
+        type: string
+      scan_id_b:
+        type: string
+
+# ============================================================
+# PATHS
+# ============================================================
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Returns the health status of the API server.
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        200:
+          description: Server is healthy
+          schema:
+            $ref: '#/definitions/HealthResponse'
+
+  /scan:
+    post:
+      summary: Start network scan
+      description: |
+        Initiates an asynchronous network scan with the specified parameters.
+        Returns immediately with a scan ID; use GET /scan/{id} to check progress.
+      operationId: startScan
+      tags:
+        - Scan
+      consumes:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          required: true
+          description: Scan configuration
+          schema:
+            $ref: '#/definitions/ScanRequest'
+      responses:
+        200:
+          description: Scan accepted and started
+          schema:
+            $ref: '#/definitions/ScanResponse'
+        400:
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/Error'
+        500:
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/Error'
+
+  /scan/{id}:
+    get:
+      summary: Get scan status
+      description: Returns the current status and results of a scan operation.
+      operationId: getScanStatus
+      tags:
+        - Scan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Scan ID
+      responses:
+        200:
+          description: Scan status retrieved
+          schema:
+            $ref: '#/definitions/ScanStatus'
+        404:
+          description: Scan not found
+          schema:
+            $ref: '#/definitions/Error'
+
+  /results:
+    get:
+      summary: Get scan results
+      description: Returns the results of the last completed scan.
+      operationId: getResults
+      tags:
+        - Scan
+      responses:
+        200:
+          description: Scan results
+          schema:
+            type: object
+            properties:
+              results:
+                type: array
+                items:
+                  $ref: '#/definitions/ScanResult'
+              total:
+                type: integer
+              timestamp:
+                type: integer
+                format: int64
+        404:
+          description: No scan results available
+          schema:
+            $ref: '#/definitions/Error'
+
+  /inventory:
+    get:
+      summary: List snapshots
+      description: Returns a list of all saved scan snapshots.
+      operationId: listInventory
+      tags:
+        - Inventory
+      responses:
+        200:
+          description: List of snapshots
+          schema:
+            type: object
+            properties:
+              snapshots:
+                type: array
+                items:
+                  $ref: '#/definitions/Snapshot'
+              total:
+                type: integer
+    post:
+      summary: Save scan snapshot
+      description: Saves scan results as a named snapshot for history and comparison.
+      operationId: saveInventory
+      tags:
+        - Inventory
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/InventoryRequest'
+      responses:
+        200:
+          description: Snapshot saved
+          schema:
+            $ref: '#/definitions/InventoryResponse'
+        400:
+          description: Invalid request (missing id or results)
+          schema:
+            $ref: '#/definitions/Error'
+
+  /inventory/{id}/diff:
+    get:
+      summary: Compare two snapshots
+      description: Compares two saved snapshots and returns differences (new, missing, changed hosts).
+      operationId: inventoryDiff
+      tags:
+        - Inventory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Snapshot ID (used as base for comparison)
+        - name: compare_id
+          in: query
+          required: true
+          type: string
+          description: Second snapshot ID to compare against
+      responses:
+        200:
+          description: Diff results
+          schema:
+            $ref: '#/definitions/InventoryDiffResponse'
+        400:
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/Error'
+        404:
+          description: Snapshot not found
+          schema:
+            $ref: '#/definitions/Error'
+
+  /history:
+    get:
+      summary: Get scan history
+      description: Returns a paginated list of past scan operations.
+      operationId: getHistory
+      tags:
+        - History
+      parameters:
+        - name: limit
+          in: query
+          type: integer
+          description: Maximum number of entries to return
+          default: 50
+      responses:
+        200:
+          description: Scan history
+          schema:
+            type: object
+            properties:
+              history:
+                type: array
+                items:
+                  $ref: '#/definitions/HistoryEntry'
+              count:
+                type: integer
+
+  /history/compare/{id_a}/{id_b}:
+    get:
+      summary: Compare two scans
+      description: Compares two historical scans by ID.
+      operationId: compareHistory
+      tags:
+        - History
+      parameters:
+        - name: id_a
+          in: path
+          required: true
+          type: string
+          description: First scan ID
+        - name: id_b
+          in: path
+          required: true
+          type: string
+          description: Second scan ID
+      responses:
+        200:
+          description: Comparison results
+          schema:
+            type: object
+            properties:
+              new:
+                type: array
+                items:
+                  $ref: '#/definitions/ScanResult'
+              missing:
+                type: array
+                items:
+                  $ref: '#/definitions/ScanResult'
+              changed:
+                type: array
+                items:
+                  $ref: '#/definitions/Change'
+        400:
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/Error'
+
+  /alerts:
+    get:
+      summary: Get alerts
+      description: Returns security alerts, optionally filtered by severity.
+      operationId: getAlerts
+      tags:
+        - Alerts
+      parameters:
+        - name: severity
+          in: query
+          type: string
+          enum: [critical, high, medium, low, info]
+          description: Filter by severity level
+      responses:
+        200:
+          description: List of alerts
+          schema:
+            type: object
+            properties:
+              alerts:
+                type: array
+                items:
+                  $ref: '#/definitions/Alert'
+              count:
+                type: integer
+              severity:
+                type: string
+        503:
+          description: Alerting not initialized
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      summary: Clear alerts
+      description: Clears all acknowledged or all alerts.
+      operationId: clearAlerts
+      tags:
+        - Alerts
+      parameters:
+        - name: acknowledged
+          in: query
+          type: boolean
+          description: Clear only acknowledged alerts (default: false)
+      responses:
+        200:
+          description: Alerts cleared
+          schema:
+            type: object
+            properties:
+              cleared:
+                type: integer
+        503:
+          description: Alerting not initialized
+
+  /alerts/check:
+    post:
+      summary: Check alerts
+      description: Compares old and new host lists to generate security alerts.
+      operationId: checkAlerts
+      tags:
+        - Alerts
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/AlertsCheckRequest'
+      responses:
+        200:
+          description: New alerts
+          schema:
+            type: object
+            properties:
+              alerts:
+                type: array
+                items:
+                  $ref: '#/definitions/Alert'
+              count:
+                type: integer
+        503:
+          description: Alerting not initialized
+
+  /alerts/trigger/{id_a}/{id_b}:
+    post:
+      summary: Trigger alert check between scans
+      description: Compares two scan snapshots and triggers alert rules.
+      operationId: triggerAlert
+      tags:
+        - Alerts
+      parameters:
+        - name: id_a
+          in: path
+          required: true
+          type: string
+          description: First scan ID (baseline)
+        - name: id_b
+          in: path
+          required: true
+          type: string
+          description: Second scan ID (current)
+      responses:
+        200:
+          description: Alert check completed
+          schema:
+            type: object
+            properties:
+              alerts:
+                type: array
+                items:
+                  $ref: '#/definitions/Alert'
+              count:
+                type: integer
+        503:
+          description: Alerting not initialized
+
+  /snmp/collect:
+    post:
+      summary: Collect SNMP data
+      description: |
+        Collects SNMP information (sysName, sysDescr, LLDP, CDP, FDB) from devices.
+        Can target specific snapshots or use the latest scan results.
+      operationId: collectSNMP
+      tags:
+        - SNMP
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/SNMPCollectRequest'
+      responses:
+        200:
+          description: SNMP collection results
+          schema:
+            $ref: '#/definitions/SNMPCollectResponse'
+        400:
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/Error'
+        500:
+          description: Collection failed
+          schema:
+            $ref: '#/definitions/Error'
+
+  /topology/build:
+    post:
+      summary: Build network topology
+      description: |
+        Builds a network topology graph from scan results.
+        Optionally collects SNMP data (LLDP/CDP/FDB) for switch/router mapping.
+      operationId: buildTopology
+      tags:
+        - Topology
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/TopologyBuildRequest'
+      responses:
+        200:
+          description: Topology graph
+          schema:
+            $ref: '#/definitions/TopologyBuildResponse'
+        400:
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/Error'
+
+  /topology/export/{format}:
+    post:
+      summary: Export topology
+      description: Exports the network topology in the specified format.
+      operationId: exportTopology
+      tags:
+        - Topology
+      parameters:
+        - name: format
+          in: path
+          required: true
+          type: string
+          enum: [dot, json, csv, xml]
+          description: Export format
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/TopologyExportRequest'
+      responses:
+        200:
+          description: Exported topology data
+          headers:
+            Content-Disposition:
+              type: string
+              description: attachment; filename=topology.{format}
+        400:
+          description: Invalid format or request
+          schema:
+            $ref: '#/definitions/Error'
+
+  /topology/dot:
+    post:
+      summary: Get topology in DOT format
+      description: Returns the network topology as a Graphviz DOT graph.
+      operationId: topologyDOT
+      tags:
+        - Topology
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/TopologyDOTRequest'
+      responses:
+        200:
+          description: DOT graph data
+          schema:
+            type: string
+            format: binary
+        400:
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/Error'
+
+  /topology/stats:
+    post:
+      summary: Get topology statistics
+      description: Returns statistics about the network topology (node counts, device types, etc.).
+      operationId: topologyStats
+      tags:
+        - Topology
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/TopologyStatsRequest'
+      responses:
+        200:
+          description: Topology statistics
+          schema:
+            $ref: '#/definitions/TopologyStats'
+        400:
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/Error'
+
+# ============================================================
+# TAGS
+# ============================================================
+
+tags:
+  - name: System
+    description: Server health and status
+  - name: Scan
+    description: Network scanning operations
+  - name: Inventory
+    description: Snapshot management and comparison
+  - name: History
+    description: Scan history and trends
+  - name: Alerts
+    description: Security alert management
+  - name: SNMP
+    description: SNMP data collection
+  - name: Topology
+    description: Network topology building and analysis

@@ -1,4 +1,4 @@
-﻿package alerting
+package alerting
 
 import (
 	"encoding/json"

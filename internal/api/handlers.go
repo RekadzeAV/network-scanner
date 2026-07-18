@@ -39,17 +39,15 @@ func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleDocs placeholder для swagger docs
+// handleDocs возвращает Swagger OpenAPI спецификацию в YAML формате.
+// Swagger-файл находится в docs/swagger.yaml и монтируется через embed.
 func (h *Handler) handleDocs(w http.ResponseWriter, r *http.Request) {
-	h.writeJSON(w, http.StatusOK, map[string]interface{}{
-		"docs": "Swagger documentation will be available here",
-		"endpoints": []string{
-			"POST /api/v1/scan - Запустить сканирование",
-			"GET /api/v1/scan/{id} - Статус сканирования",
-			"GET /api/v1/results - Получить результаты",
-			"GET /api/v1/inventory - Список снапшотов",
-			"POST /api/v1/inventory - Сохранить снапшот",
-			"GET /api/v1/inventory/{id}/diff - Сравнить снапшоты",
-		},
-	})
+	w.Header().Set("Content-Type", "text/x-yaml")
+	w.WriteHeader(http.StatusOK)
+	data, err := swaggerSpecBytes()
+	if err != nil {
+		h.writeError(w, http.StatusInternalServerError, "failed to load swagger spec")
+		return
+	}
+	_, _ = w.Write(data)
 }

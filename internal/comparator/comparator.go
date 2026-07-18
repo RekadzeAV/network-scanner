@@ -1,4 +1,4 @@
-﻿package comparator
+package comparator
 
 import (
 	"fmt"

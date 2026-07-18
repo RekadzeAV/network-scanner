@@ -2,8 +2,8 @@ package network
 
 import (
 	"fmt"
-	"net"
 	"math"
+	"net"
 	"strings"
 	"time"
 
@@ -121,6 +121,7 @@ func DetectLocalNetwork() (string, error) {
 }
 
 // ParseNetworkRange парсит диапазон сети (например, 192.168.1.0/24)
+// и возвращает список всех IP-адресов в подсети.
 func ParseNetworkRange(network string) ([]net.IP, error) {
 	baseIP, ipnet, err := net.ParseCIDR(strings.TrimSpace(network))
 	if err != nil {
@@ -210,7 +211,8 @@ func inc(ip net.IP) {
 	}
 }
 
-// IsPortOpen проверяет, открыт ли TCP порт
+// IsPortOpen проверяет, открыт ли TCP порт через dial-connection.
+// timeout — максимальное время ожидания соединения.
 func IsPortOpen(host string, port int, timeout time.Duration) bool {
 	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 
@@ -231,9 +233,9 @@ func IsPortOpen(host string, port int, timeout time.Duration) bool {
 	return true
 }
 
-// IsUDPPortOpen проверяет, открыт ли UDP порт
-// UDP сканирование сложнее TCP, так как UDP не устанавливает соединение
-// Метод: отправляем UDP пакет и проверяем ответ (ICMP порт недоступен = закрыт, ответ = открыт)
+// IsUDPPortOpen проверяет, открыт ли UDP порт.
+// Метод: отправляет пустой UDP пакет и проверяет ответ.
+// Таймаут означает "открыт/фильтрован" (UDP не имеет подтверждения).
 func IsUDPPortOpen(host string, port int, timeout time.Duration) bool {
 	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 
@@ -285,7 +287,8 @@ func GetServiceName(port int) string {
 	return portdb.LookupServiceName(port)
 }
 
-// ParsePortRange парсит диапазон портов
+// ParsePortRange парсит диапазон портов в формате "1-1000", "80,443,8080", "80,443-445".
+// Возвращает отсортированный список уникальных портов.
 func ParsePortRange(portRange string) ([]int, error) {
 	var ports []int
 

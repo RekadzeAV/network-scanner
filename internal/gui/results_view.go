@@ -696,7 +696,7 @@ func (a *App) buildHostQuickActions(r scanner.Result, cols int) *fyne.Container 
 				a.toolsHostEntry.SetText(strings.TrimSpace(r.IP))
 			}
 			a.mainTabs.SelectTabIndex(2)
-			a.runWhoisTool()
+			a.toolsCtrl.RunWhoisTool()
 		}),
 		widget.NewButton("Wake-on-LAN", func() {
 			if a.toolsWOLMacEntry != nil {

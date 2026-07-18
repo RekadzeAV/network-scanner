@@ -9,9 +9,7 @@ import (
 	"image/png"
 	"math"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,13 +23,13 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
-	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 
 	"network-scanner/internal/audit"
 	"network-scanner/internal/builder"
 	"network-scanner/internal/devicecontrol"
 	"network-scanner/internal/display"
+	"network-scanner/internal/gui/controller"
 	"network-scanner/internal/inventory"
 	"network-scanner/internal/logger"
 	"network-scanner/internal/nettools"
@@ -256,6 +254,18 @@ type App struct {
 	operations                  *OperationsManager
 	services                    *AppServices
 	mainToolbar                 *fyne.Container
+
+	// Controllers (H2 Refactoring)
+	scanCtrl    *controller.ScanController
+	resultsCtrl *controller.ResultsController
+	topoCtrl    *controller.TopologyController
+	toolsCtrl   *controller.ToolsController
+	settingsMgr *controller.SettingsManager
+
+	// Mobile Support (L3)
+	mobileLayout   *MobileLayout
+	touchGestures  *TouchGestures
+	isMobileDevice bool
 }
 
 const (
@@ -443,6 +453,102 @@ func NewApp() *App {
 		LogLevel: "info",
 	})
 	app.services = NewAppServices(container)
+
+	// Инициализация контроллеров (H2 Refactoring)
+	app.scanCtrl = controller.NewScanController(myApp, &controller.ScanUI{
+		NetworkEntry:         app.networkEntry,
+		PortRangeEntry:       app.portRangeEntry,
+		TimeoutEntry:         app.timeoutEntry,
+		ThreadsEntry:         app.threadsEntry,
+		ScanUDPCheck:         app.scanUDPCheck,
+		ScanBannersCheck:     app.scanBannersCheck,
+		ScanOSActiveCheck:    app.scanOSActiveCheck,
+		ScanVerboseLogsCheck: app.scanVerboseLogsCheck,
+		ScanTCPPortsCheck:    app.scanTCPPortsCheck,
+		AutoProfileCheck:     app.autoProfileCheck,
+		StatusLabel:          app.statusLabel,
+		RecommendedBadge:     app.recommendedProfileBadge,
+		PresetQuickBtn:       app.presetQuickBtn,
+		PresetBalBtn:         app.presetBalBtn,
+		PresetDeepBtn:        app.presetDeepBtn,
+		RecommendedBtn:       app.recommendedProfileBtn,
+		ScanButton:           app.scanButton,
+		StopButton:           app.stopButton,
+		StageLabel:           app.stageLabel,
+		ProgressBar:          app.progressBar,
+		ResultsStateLabel:    app.resultsStateLabel,
+		CopyDiagnosticsBtn:   app.copyDiagnosticsBtn,
+		SaveDiagnosticsBtn:   app.saveDiagnosticsBtn,
+		MainToolbar:          app.mainToolbar,
+		Window:               app.myWindow,
+	}, app)
+	app.resultsCtrl = controller.NewResultsController(myApp, &controller.ResultsUI{
+		ResultsModeSel:       app.resultsModeSel,
+		ResultsSubModeSel:    app.resultsSubModeSel,
+		ResultsSortSel:       app.resultsSortSel,
+		ResultsFilterEnt:     app.resultsFilterEnt,
+		ResultsCidrFilterEnt: app.resultsCidrFilterEnt,
+		ResultsPortStateSel:  app.resultsPortStateSel,
+		ChipLimitSel:         app.chipLimitSel,
+		ShowRawBannersCheck:  app.showRawBannersCheck,
+		OpenPortsOnlyCheck:   app.openPortsOnlyCheck,
+		QuickTypeChecks:      app.quickTypeChecks,
+		StatusLabel:          app.statusLabel,
+	})
+	app.topoCtrl = controller.NewTopologyController(myApp, &controller.TopologyUI{
+		SNMPCommEntry:     app.snmpCommEntry,
+		SNMPTimeoutEnt:    app.snmpTimeoutEnt,
+		BuildTopoBtn:      app.buildTopoBtn,
+		StopTopoBtn:       app.stopTopoBtn,
+		SaveTopoBtn:       app.saveTopoBtn,
+		CopyPerfBtn:       app.copyPerfBtn,
+		SavePerfBtn:       app.savePerfBtn,
+		TopoText:          app.topologyText,
+		TopoStatus:        app.topologyStatus,
+		SNMPStageLabel:    app.snmpStageLabel,
+		SNMPProgress:      app.snmpProgress,
+		TopoSearchEntry:   app.topologySearchEntry,
+		TopoTypeFilterSel: app.topologyTypeFilterSel,
+		TopoConfFilterSel: app.topologyConfidenceFilterSel,
+		TopoResetMapBtn:   app.topologyResetMapBtn,
+		TopoGraphStatus:   app.topologyGraphStatus,
+		TopoImage:         app.topologyImage,
+		ZoomSelect:        app.zoomSelect,
+		RefreshPreviewBtn: app.refreshPreviewBtn,
+		OpenPreviewBtn:    app.openPreviewBtn,
+	})
+	app.toolsCtrl = controller.NewToolsController(myApp, &controller.ToolsUI{
+		HostEntry:           app.toolsHostEntry,
+		PingCountEnt:        app.toolsPingCountEnt,
+		TimeoutEnt:          app.toolsTimeoutEnt,
+		TraceHopsEnt:        app.toolsTraceHopsEnt,
+		DNSResolverEnt:      app.toolsDNSResolverEnt,
+		WOLMacEntry:         app.toolsWOLMacEntry,
+		WOLBcastEntry:       app.toolsWOLBcastEntry,
+		WOLIfaceEntry:       app.toolsWOLIfaceEntry,
+		DeviceTargetEntry:   app.toolsDeviceTargetEntry,
+		DeviceVendorEntry:   app.toolsDeviceVendorEntry,
+		DeviceUserEntry:     app.toolsDeviceUserEntry,
+		DevicePassEntry:     app.toolsDevicePassEntry,
+		AuditMinSeveritySel: app.toolsAuditMinSeveritySel,
+		PingBtn:             app.toolsPingBtn,
+		TraceBtn:            app.toolsTraceBtn,
+		DNSBtn:              app.toolsDNSBtn,
+		WhoisBtn:            app.toolsWhoisBtn,
+		WiFiBtn:             app.toolsWiFiBtn,
+		AuditBtn:            app.toolsAuditBtn,
+		RiskBtn:             app.toolsRiskBtn,
+		WOLBtn:              app.toolsWOLBtn,
+		DeviceStatusBtn:     app.toolsDeviceStatusBtn,
+		DeviceRebootBtn:     app.toolsDeviceRebootBtn,
+		ToolsOutput:         app.toolsOutput,
+		OperationsOutput:    app.operationsOutput,
+		OperationsSelect:    app.operationsSelect,
+		OperationsRetryBtn:  app.operationsRetryBtn,
+		OperationsCancelBtn: app.operationsCancelBtn,
+		StatusLabel:         app.statusLabel,
+	})
+	app.settingsMgr = controller.NewSettingsManager(myApp)
 
 	app.initUI()
 	app.setupEventHandlers()
@@ -701,24 +807,24 @@ func (a *App) initUI() {
 	a.mainToolbar = container.NewHBox(
 		widget.NewSeparator(),
 		widget.NewButton("▶ Сканирование", func() {
-			a.startScan()
+			a.scanCtrl.StartScan(a.scanResults)
 		}),
 		widget.NewButton("⏹ Стоп", func() {
-			a.stopScan()
+			a.scanCtrl.StopScan()
 		}),
 		widget.NewSeparator(),
 		widget.NewButton("💾 Сохранить", func() {
 			a.saveResults()
 		}),
 		widget.NewButton("🗺 Топология", func() {
-			a.buildTopology()
+			a.topoCtrl.BuildTopology(a.scanResults, a.myWindow)
 		}),
 		widget.NewSeparator(),
 		widget.NewButton("↺ Сброс UI", func() {
-			a.resetUIPanelLayoutWithFeedback()
+			a.settingsMgr.ResetUIPanelLayoutWithFeedback(a.scanTabMainSplit, a.topologyMainSplit, a.toolsTabMainSplit, a.myWindow)
 		}),
 	)
-	a.mainToolbar.Hide()
+	a.mainToolbar.Show()
 
 	// Обёртка: тулбар + табы
 	mainContent := container.NewBorder(
@@ -739,23 +845,23 @@ func (a *App) initUI() {
 // setupEventHandlers настраивает обработчики событий
 func (a *App) setupEventHandlers() {
 	a.scanButton.OnTapped = func() {
-		a.startScan()
+		a.scanCtrl.StartScan(a.scanResults)
 	}
 	a.stopButton.OnTapped = func() {
-		a.stopScan()
+		a.scanCtrl.StopScan()
 	}
 	a.presetQuickBtn.OnTapped = func() {
-		a.applyScanPreset("quick")
+		a.scanCtrl.ApplyPreset("quick")
 	}
 	a.presetBalBtn.OnTapped = func() {
-		a.applyScanPreset("balanced")
+		a.scanCtrl.ApplyPreset("balanced")
 	}
 	a.presetDeepBtn.OnTapped = func() {
-		a.applyScanPreset("deep")
+		a.scanCtrl.ApplyPreset("deep")
 	}
 	if a.recommendedProfileBtn != nil {
 		a.recommendedProfileBtn.OnTapped = func() {
-			a.applyRecommendedScanProfile()
+			a.scanCtrl.ApplyRecommendedProfile(a.networkEntry.Text)
 		}
 	}
 	if a.recommendedProfileInfoBtn != nil {
@@ -865,38 +971,42 @@ func (a *App) setupEventHandlers() {
 		a.saveResults()
 	}
 	a.buildTopoBtn.OnTapped = func() {
-		a.buildTopology()
+		a.topoCtrl.BuildTopology(a.scanResults, a.myWindow)
 	}
 	a.stopTopoBtn.OnTapped = func() {
-		a.stopTopologyBuild()
+		a.topoCtrl.StopTopologyBuild()
 	}
 	a.saveTopoBtn.OnTapped = func() {
-		a.saveTopology()
+		a.topoCtrl.SaveTopology(a.lastTopology, a.myWindow)
 	}
 	a.copyPerfBtn.OnTapped = func() {
-		a.copyPerformanceReport()
+		a.topoCtrl.CopyPerformanceReport(a.myWindow)
 	}
 	if a.copyDiagnosticsBtn != nil {
 		a.copyDiagnosticsBtn.OnTapped = func() {
-			a.copyScanDiagnostics()
+			if a.diagnosticsLabel != nil {
+				a.scanCtrl.CopyScanDiagnostics(a.diagnosticsLabel.Text)
+			}
 		}
 	}
 	if a.saveDiagnosticsBtn != nil {
 		a.saveDiagnosticsBtn.OnTapped = func() {
-			a.saveScanDiagnostics()
+			if a.diagnosticsLabel != nil {
+				a.scanCtrl.SaveScanDiagnostics(a.diagnosticsLabel.Text)
+			}
 		}
 	}
 	a.savePerfBtn.OnTapped = func() {
-		a.savePerformanceReport()
+		a.topoCtrl.SavePerformanceReport(a.myWindow)
 	}
 	a.refreshPreviewBtn.OnTapped = func() {
-		a.refreshTopologyPreview()
+		a.topoCtrl.RefreshTopologyPreview(a.lastTopology, a.myWindow)
 	}
 	a.openPreviewBtn.OnTapped = func() {
-		a.openPreviewExternal()
+		a.topoCtrl.OpenPreviewExternal(a.previewPath, a.myWindow)
 	}
 	a.zoomSelect.OnChanged = func(value string) {
-		a.applyTopologyZoom(value)
+		a.topoCtrl.ApplyTopologyZoom(value, a.myWindow)
 	}
 	if a.topologySearchEntry != nil {
 		a.topologySearchEntry.OnChanged = func(v string) {
@@ -972,31 +1082,31 @@ func (a *App) setupEventHandlers() {
 		}
 	}
 	a.toolsPingBtn.OnTapped = func() {
-		a.runPingTool()
+		a.toolsCtrl.RunPingTool()
 	}
 	a.toolsTraceBtn.OnTapped = func() {
-		a.runTracerouteTool()
+		a.toolsCtrl.RunTracerouteTool()
 	}
 	a.toolsDNSBtn.OnTapped = func() {
-		a.runDNSTool()
+		a.toolsCtrl.RunDNSTool()
 	}
 	a.toolsWhoisBtn.OnTapped = func() {
-		a.runWhoisTool()
+		a.toolsCtrl.RunWhoisTool()
 	}
 	a.toolsWiFiBtn.OnTapped = func() {
-		a.runWiFiTool()
+		a.toolsCtrl.RunWiFiTool()
 	}
 	a.toolsWOLBtn.OnTapped = func() {
-		a.runWOLTool()
+		a.toolsCtrl.RunWOLTool()
 	}
 	a.toolsAuditBtn.OnTapped = func() {
-		a.runPortAuditTool()
+		a.toolsCtrl.RunPortAuditTool(a.scanResults)
 	}
 	a.toolsRiskBtn.OnTapped = func() {
-		a.runRiskSignaturesTool()
+		a.toolsCtrl.RunRiskSignaturesTool(a.scanResults)
 	}
 	a.toolsDeviceStatusBtn.OnTapped = func() {
-		a.runDeviceControlTool(devicecontrol.ActionStatus)
+		a.toolsCtrl.RunDeviceControlTool(devicecontrol.ActionStatus)
 	}
 	a.toolsDeviceRebootBtn.OnTapped = func() {
 		dialog.NewConfirm(
@@ -1036,120 +1146,6 @@ func (a *App) autoDetectNetwork() {
 			a.networkEntry.Refresh()
 		})
 	}()
-}
-
-func (a *App) applyScanPreset(mode string) {
-	switch mode {
-	case "quick":
-		// Быстрый обзор сети: минимальная глубина, максимальная скорость.
-		a.portRangeEntry.SetText("22,80,443,445,3389")
-		a.timeoutEntry.SetText("1")
-		a.threadsEntry.SetText("120")
-		a.scanUDPCheck.SetChecked(false)
-		a.scanBannersCheck.SetChecked(false)
-		a.scanOSActiveCheck.SetChecked(false)
-		a.statusLabel.SetText("Пресет: Быстро (обзор)")
-	case "deep":
-		// Глубокий анализ: больше портов и выше таймаут для точности.
-		a.portRangeEntry.SetText("1-2000")
-		a.timeoutEntry.SetText("3")
-		a.threadsEntry.SetText("40")
-		a.scanUDPCheck.SetChecked(true)
-		a.scanBannersCheck.SetChecked(true)
-		a.scanOSActiveCheck.SetChecked(true)
-		a.statusLabel.SetText("Пресет: Глубоко (детальный анализ)")
-	default:
-		// Баланс между скоростью и полнотой.
-		a.portRangeEntry.SetText("1-1000")
-		a.timeoutEntry.SetText("2")
-		a.threadsEntry.SetText("50")
-		a.scanUDPCheck.SetChecked(false)
-		a.scanBannersCheck.SetChecked(false)
-		a.scanOSActiveCheck.SetChecked(false)
-		a.statusLabel.SetText("Пресет: Баланс")
-	}
-	a.myApp.Preferences().SetString(prefPreset, mode)
-	a.saveScanSettings()
-	a.portRangeEntry.Refresh()
-	a.timeoutEntry.Refresh()
-	a.threadsEntry.Refresh()
-	a.scanUDPCheck.Refresh()
-	a.statusLabel.Refresh()
-}
-
-func (a *App) applyRecommendedScanProfile() {
-	// Safe-by-default profile for everyday scans.
-	// Settings are adapted to estimated subnet size.
-	networkStr := ""
-	if a.networkEntry != nil {
-		networkStr = strings.TrimSpace(a.networkEntry.Text)
-	}
-	hosts := 0
-	if networkStr != "" {
-		if h, err := network.EstimateHostCount(networkStr); err == nil && h > 0 {
-			hosts = h
-		}
-	}
-
-	profileName := "стандарт"
-	switch {
-	case hosts >= autoProfileHostXXLarge:
-		// Very large subnet: keep probes narrow and concurrency conservative.
-		a.portRangeEntry.SetText("22,80,443,445,3389")
-		a.timeoutEntry.SetText("1")
-		a.threadsEntry.SetText("40")
-		profileName = "бережный для очень крупной подсети"
-	case hosts >= autoProfileHostXLarge:
-		// Large subnet: common service discovery without heavy sweep.
-		a.portRangeEntry.SetText("1-1024")
-		a.timeoutEntry.SetText("2")
-		a.threadsEntry.SetText("60")
-		profileName = "бережный для крупной подсети"
-	case hosts >= autoProfileHostLarge:
-		// Medium-large subnet: include common remote-admin port.
-		a.portRangeEntry.SetText("1-1024,3389")
-		a.timeoutEntry.SetText("2")
-		a.threadsEntry.SetText("80")
-		profileName = "сбалансированный для средней подсети"
-	default:
-		// Small subnet: slightly deeper sweep with acceptable runtime.
-		a.portRangeEntry.SetText("1-2048,3389")
-		a.timeoutEntry.SetText("2")
-		a.threadsEntry.SetText("100")
-		profileName = "углубленный для небольшой подсети"
-	}
-
-	a.scanUDPCheck.SetChecked(false)
-	a.scanBannersCheck.SetChecked(false)
-	a.scanOSActiveCheck.SetChecked(false)
-	if a.scanVerboseLogsCheck != nil {
-		a.scanVerboseLogsCheck.SetChecked(false)
-	}
-	if a.autoProfileCheck != nil {
-		a.autoProfileCheck.SetChecked(true)
-		a.refreshAutoProfileStateLabel()
-	}
-	if hosts > 0 {
-		a.statusLabel.SetText(fmt.Sprintf("Применен рекомендованный профиль (%s), оценка подсети: ~%d хостов", profileName, hosts))
-	} else {
-		a.statusLabel.SetText(fmt.Sprintf("Применен рекомендованный профиль (%s)", profileName))
-	}
-	badgeClass := a.recommendedBadgeClassForHosts(hosts)
-	if a.recommendedProfileBadge != nil {
-		a.recommendedProfileBadge.Text = a.recommendedBadgeText(profileName, badgeClass)
-		a.recommendedProfileBadge.Color = color.RGBA{R: 55, G: 130, B: 200, A: 255}
-		a.recommendedProfileBadge.Refresh()
-	}
-	if a.myApp != nil {
-		a.myApp.Preferences().SetString(prefPreset, "recommended")
-		a.myApp.Preferences().SetString(prefRecommendedBadgeClass, badgeClass)
-	}
-	a.saveScanSettings()
-	a.portRangeEntry.Refresh()
-	a.timeoutEntry.Refresh()
-	a.threadsEntry.Refresh()
-	a.scanUDPCheck.Refresh()
-	a.statusLabel.Refresh()
 }
 
 func (a *App) recommendedBadgeClassForHosts(hosts int) string {
@@ -2014,62 +2010,6 @@ func (a *App) refreshOperationActionsState() {
 	}
 }
 
-func (a *App) runWhoisTool() {
-	host, ok := a.withToolHost()
-	if !ok {
-		return
-	}
-	timeoutSec := 60
-	if a.toolsTimeoutEnt != nil {
-		if v, err := strconv.Atoi(strings.TrimSpace(a.toolsTimeoutEnt.Text)); err == nil && v > 0 {
-			timeoutSec = v
-		}
-	}
-	if timeoutSec <= 0 {
-		timeoutSec = 60
-	}
-	timeout := time.Duration(timeoutSec) * time.Second
-	a.runToolOperation("Whois", "Выполняется `whois`...", func(ctx context.Context) (string, error) {
-		res, err := nettools.RunWhois(ctx, host, timeout)
-		if err != nil {
-			return fmt.Sprintf("### Whois\n\nОшибка: `%s`", nettools.HumanizeToolError(err)), err
-		}
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("### Whois: `%s`\n\n", host))
-		sb.WriteString(fmt.Sprintf("- Timeout: `%ds`\n\n", timeoutSec))
-		sb.WriteString("```text\n")
-		sb.WriteString(res)
-		sb.WriteString("\n```")
-		return sb.String(), nil
-	})
-}
-
-func (a *App) runWiFiTool() {
-	timeoutSec := 30
-	if a.toolsTimeoutEnt != nil {
-		if v, err := strconv.Atoi(strings.TrimSpace(a.toolsTimeoutEnt.Text)); err == nil && v > 0 {
-			timeoutSec = v
-		}
-	}
-	if timeoutSec <= 0 {
-		timeoutSec = 30
-	}
-	timeout := time.Duration(timeoutSec) * time.Second
-	a.runToolOperation("Wi-Fi", "Чтение Wi-Fi информации...", func(ctx context.Context) (string, error) {
-		res, err := nettools.GetWiFiInfo(ctx, timeout)
-		if err != nil {
-			return fmt.Sprintf("### Wi-Fi\n\nОшибка: `%s`", nettools.HumanizeToolError(err)), err
-		}
-		var sb strings.Builder
-		sb.WriteString("### Wi-Fi\n\n")
-		sb.WriteString(fmt.Sprintf("- Timeout: `%ds`\n\n", timeoutSec))
-		sb.WriteString("```text\n")
-		sb.WriteString(res)
-		sb.WriteString("\n```")
-		return sb.String(), nil
-	})
-}
-
 func (a *App) runPortAuditTool() {
 	a.runToolOperation("Port Audit", "Выполняется аудит портов...", func(ctx context.Context) (string, error) {
 		findings := audit.EvaluateOpenPorts(a.scanResults)
@@ -2389,265 +2329,6 @@ func (a *App) runWOLTool() {
 	})
 }
 
-// startScan запускает процесс сканирования
-func (a *App) startScan() {
-	scanStartTime := time.Now()
-	logger.Log("Запуск сканирования из GUI")
-	logger.LogDebug("Пользователь нажал кнопку 'Запустить сканирование'")
-
-	// Определяем сеть
-	networkStr := a.networkEntry.Text
-	if networkStr == "" {
-		logger.Log("Автоматическое определение сети...")
-		logger.LogDebug("Поле сети пустое, начинаем автоматическое определение")
-		detectStartTime := time.Now()
-		var err error
-		networkStr, err = network.DetectLocalNetwork()
-		detectDuration := time.Since(detectStartTime)
-		if err != nil {
-			logger.LogError(err, "Определение сети в GUI")
-			logger.LogDebug("Автоматическое определение сети завершилось ошибкой за %v", detectDuration)
-			dialog.ShowError(fmt.Errorf("не удалось определить сеть: %v", err), a.myWindow)
-			return
-		}
-		a.networkEntry.SetText(networkStr)
-		logger.Log("Определена сеть: %s (определение заняло %v)", networkStr, detectDuration)
-		logger.LogDebug("Автоматическое определение сети завершено успешно")
-	} else {
-		logger.Log("Использована указанная сеть: %s", networkStr)
-		logger.LogDebug("Сеть указана пользователем в поле ввода")
-	}
-	if hosts, err := network.EstimateHostCount(networkStr); err == nil && hosts >= largeSubnetWarnHostGUI && !a.confirmLargeScanBypass {
-		dialog.NewConfirm(
-			"Предупреждение о крупной подсети",
-			fmt.Sprintf("Подсеть %s содержит примерно %d хостов.\nСканирование может занять продолжительное время и повлиять на отзывчивость интерфейса.\n\nПродолжить?", networkStr, hosts),
-			func(ok bool) {
-				if !ok {
-					a.statusLabel.SetText("Сканирование отменено пользователем")
-					return
-				}
-				a.confirmLargeScanBypass = true
-				a.startScan()
-			},
-			a.myWindow,
-		).Show()
-		return
-	}
-	a.confirmLargeScanBypass = false
-	if a.threadsEntry != nil {
-		threads := 50
-		if v, err := strconv.Atoi(strings.TrimSpace(a.threadsEntry.Text)); err == nil && v > 0 {
-			threads = v
-		}
-		if threads < 1 {
-			threads = 1
-			a.threadsEntry.SetText("1")
-			a.statusLabel.SetText("Параметр threads скорректирован до 1")
-		}
-		if threads > maxScanThreadsGUI {
-			threads = maxScanThreadsGUI
-			a.threadsEntry.SetText(strconv.Itoa(maxScanThreadsGUI))
-			a.statusLabel.SetText(fmt.Sprintf("Параметр threads скорректирован до %d", maxScanThreadsGUI))
-		}
-	}
-	autoProfileEnabled := true
-	autoProfileNote := ""
-	if a.autoProfileCheck != nil {
-		autoProfileEnabled = a.autoProfileCheck.Checked
-	}
-	if autoProfileEnabled {
-		portRange := ""
-		if a.portRangeEntry != nil {
-			portRange = strings.TrimSpace(a.portRangeEntry.Text)
-		}
-		threadsForProfile := 50
-		if a.threadsEntry != nil {
-			if v, err := strconv.Atoi(strings.TrimSpace(a.threadsEntry.Text)); err == nil && v > 0 {
-				threadsForProfile = v
-			}
-		}
-		profilePortRange, profileThreads, profileNote := autoScanProfile(networkStr, portRange, threadsForProfile)
-		if profilePortRange != "" && a.portRangeEntry != nil && profilePortRange != strings.TrimSpace(a.portRangeEntry.Text) {
-			a.portRangeEntry.SetText(profilePortRange)
-		}
-		if a.threadsEntry != nil && profileThreads > 0 && profileThreads != threadsForProfile {
-			a.threadsEntry.SetText(strconv.Itoa(profileThreads))
-		}
-		if strings.TrimSpace(profileNote) != "" {
-			a.statusLabel.SetText(profileNote)
-			autoProfileNote = profileNote
-		}
-	}
-
-	a.applyScanRunStart(autoProfileNote)
-
-	scanUITimeout := estimateScanUITimeout(networkStr, strings.TrimSpace(a.portRangeEntry.Text), strings.TrimSpace(a.timeoutEntry.Text), strings.TrimSpace(a.threadsEntry.Text), a.scanTCPPortsCheck.Checked, a.scanUDPCheck.Checked)
-	logger.LogDebug("GUI таймаут сканирования: %v", scanUITimeout)
-	timeoutSec := 2
-	if v, err := strconv.Atoi(strings.TrimSpace(a.timeoutEntry.Text)); err == nil && v > 0 {
-		timeoutSec = v
-	}
-	portRange := strings.TrimSpace(a.portRangeEntry.Text)
-	if portRange == "" {
-		portRange = "1-65535"
-	}
-	threads := 50
-	if v, err := strconv.Atoi(strings.TrimSpace(a.threadsEntry.Text)); err == nil && v > 0 {
-		threads = v
-	}
-	workerCfg := scand.Config{
-		NetworkCIDR:    networkStr,
-		Timeout:        time.Duration(timeoutSec) * time.Second,
-		PortRange:      portRange,
-		Threads:        threads,
-		ShowClosed:     false,
-		ScanTCPPorts:   a.scanTCPPortsCheck.Checked,
-		ScanUDP:        a.scanUDPCheck.Checked,
-		GrabBanners:    a.scanBannersCheck != nil && a.scanBannersCheck.Checked,
-		OSDetectActive: a.scanOSActiveCheck != nil && a.scanOSActiveCheck.Checked,
-		VerbosePortLog: a.scanVerboseLogsCheck != nil && a.scanVerboseLogsCheck.Checked,
-	}
-	runner := scand.NewRunner()
-	a.scanRunner = runner
-	if err := runner.Start(workerCfg); err != nil {
-		a.statusLabel.SetText("Не удалось запустить сканирование: " + err.Error())
-		a.resultsState = resultsStateStopped
-		a.stageLabel.Hide()
-		a.progressBar.Hide()
-		a.scanButton.Enable()
-		a.stopButton.Disable()
-		a.scanRunner = nil
-		a.renderScanResultsView()
-		a.statusLabel.Refresh()
-		a.stageLabel.Refresh()
-		a.progressBar.Refresh()
-		a.resultsStateLabel.Refresh()
-		return
-	}
-	a.observeScanRunner(runner, scanStartTime, scanUITimeout)
-}
-
-func autoScanProfile(networkStr string, portRange string, threads int) (string, int, string) {
-	portRange = strings.TrimSpace(portRange)
-	if threads < 1 {
-		threads = 1
-	}
-	hosts, err := network.EstimateHostCount(strings.TrimSpace(networkStr))
-	if err != nil || hosts < autoProfileHostWarn {
-		return portRange, threads, ""
-	}
-
-	portCount := 0
-	if portRange != "" {
-		if ports, perr := network.ParsePortRange(portRange); perr == nil {
-			portCount = len(ports)
-		}
-	}
-
-	newPortRange := portRange
-	newThreads := threads
-	msg := ""
-
-	switch {
-	case hosts >= autoProfileHostXXLarge:
-		if portCount > 512 {
-			newPortRange = "1-512"
-		}
-		if newThreads > 24 {
-			newThreads = 24
-		}
-	case hosts >= autoProfileHostXLarge:
-		if portCount > 1024 {
-			newPortRange = "1-1024"
-		}
-		if newThreads > 40 {
-			newThreads = 40
-		}
-	case hosts >= autoProfileHostLarge:
-		if portCount > 2000 {
-			newPortRange = "1-2000"
-		}
-		if newThreads > 64 {
-			newThreads = 64
-		}
-	default:
-		if portCount > 10000 {
-			newPortRange = "1-4000"
-		}
-		if newThreads > 96 {
-			newThreads = 96
-		}
-	}
-
-	if newPortRange != portRange || newThreads != threads {
-		parts := make([]string, 0, 2)
-		if newPortRange != portRange {
-			parts = append(parts, fmt.Sprintf("ports: %s -> %s", portRange, newPortRange))
-		}
-		if newThreads != threads {
-			parts = append(parts, fmt.Sprintf("threads: %d -> %d", threads, newThreads))
-		}
-		msg = fmt.Sprintf("Автопрофиль: подсеть ~%d хостов, %s", hosts, strings.Join(parts, ", "))
-	}
-	return newPortRange, newThreads, msg
-}
-
-func estimateScanUITimeout(networkStr, portRange, timeoutText, threadsText string, scanTCP, scanUDP bool) time.Duration {
-	base := 300 * time.Second
-
-	timeoutSec := 2
-	if v, err := strconv.Atoi(strings.TrimSpace(timeoutText)); err == nil && v > 0 {
-		timeoutSec = v
-	}
-	threads := 50
-	if v, err := strconv.Atoi(strings.TrimSpace(threadsText)); err == nil && v > 0 {
-		threads = v
-	}
-	if threads < 1 {
-		threads = 1
-	}
-
-	hosts := 256
-	if h, err := network.EstimateHostCount(strings.TrimSpace(networkStr)); err == nil && h > 0 {
-		hosts = h
-	}
-
-	ports := 0
-	if scanTCP {
-		effectiveRange := strings.TrimSpace(portRange)
-		if effectiveRange == "" {
-			effectiveRange = "1-65535"
-		}
-		if parsed, err := network.ParsePortRange(effectiveRange); err == nil {
-			ports = len(parsed)
-		}
-	}
-	if scanUDP {
-		// Текущий набор UDP-портов в scanner.go
-		ports += 9
-	}
-	if ports == 0 {
-		ports = 1
-	}
-
-	workUnits := hosts * ports
-	estimatedSec := (workUnits * timeoutSec) / threads
-	estimated := time.Duration(estimatedSec) * time.Second
-
-	// Корректируем на высокую параллельность и ранний выход, плюс даем запас.
-	estimated = estimated / 4
-	estimated += 90 * time.Second
-
-	if estimated < base {
-		return base
-	}
-	maxTimeout := 45 * time.Minute
-	if estimated > maxTimeout {
-		return maxTimeout
-	}
-	return estimated
-}
-
 func partialSNMPKeysFromReport(report *snmpcollector.CollectReport) map[string]struct{} {
 	if report == nil {
 		return nil
@@ -2678,38 +2359,8 @@ func formatDurationMMSS(d time.Duration) string {
 	return fmt.Sprintf("%02d:%02d", min, sec)
 }
 
-func (a *App) stopScan() {
-	if a.scanRunner == nil {
-		return
-	}
-	// Скрываем тулбар при остановке
-	if a.mainToolbar != nil {
-		a.mainToolbar.Hide()
-	}
-	logger.Log("Пользователь инициировал остановку сканирования из GUI")
-	if a.scanRunner != nil {
-		a.scanRunner.Stop()
-	}
-	a.statusLabel.SetText("Сканирование остановлено пользователем")
-	a.resultsState = resultsStateStopped
-	a.stageLabel.Hide()
-	a.progressBar.Hide()
-	a.scanButton.Enable()
-	a.stopButton.Disable()
-	if a.copyDiagnosticsBtn != nil {
-		a.copyDiagnosticsBtn.Disable()
-	}
-	if a.saveDiagnosticsBtn != nil {
-		a.saveDiagnosticsBtn.Disable()
-	}
-	a.scanRunner = nil
-	a.renderScanResultsView()
-	a.statusLabel.Refresh()
-	a.stageLabel.Refresh()
-	a.progressBar.Refresh()
-	a.resultsStateLabel.Refresh()
-}
-
+// stopScan — migrated to scanCtrl.StopScan
+// startScan — migrated to scanCtrl.StartScan
 func (a *App) resultsForSave() ([]scanner.Result, string) {
 	if len(a.scanResults) == 0 {
 		return nil, "Нет результатов для сохранения"
@@ -2752,109 +2403,9 @@ func (a *App) saveResults() {
 	}, a.myWindow)
 }
 
-func (a *App) buildTopology() {
-	if len(a.scanResults) == 0 {
-		dialog.ShowInformation("Информация", "Сначала выполните сканирование", a.myWindow)
-		return
-	}
-	topologyStartedAt := time.Now()
-	a.applyTopologyRunStart()
-
-	timeoutSec := 2
-	if strings.TrimSpace(a.snmpTimeoutEnt.Text) != "" {
-		if v, err := strconv.Atoi(strings.TrimSpace(a.snmpTimeoutEnt.Text)); err == nil && v > 0 {
-			timeoutSec = v
-		}
-	}
-	communities := splitCommaValues(a.snmpCommEntry.Text)
-	snmpStartedAt := time.Now()
-	ctx, cancel := context.WithCancel(context.Background())
-	a.topologyCancel = cancel
-
-	go func() {
-		snmpPhaseStartedAt := time.Now()
-		snmpData, report, err := snmpcollector.CollectWithReportProgressContext(ctx, a.scanResults, communities, timeoutSec, func(current int, total int, ip string, message string) {
-			etaText := ""
-			progressValue := 0.0
-			if total > 0 && current > 0 && current < total {
-				elapsed := time.Since(snmpStartedAt)
-				remainingItems := total - current
-				eta := time.Duration(float64(elapsed) * (float64(remainingItems) / float64(current)))
-				etaText = fmt.Sprintf(", ETA ~ %s", formatDurationMMSS(eta))
-			}
-			if total > 0 {
-				progressValue = float64(current) / float64(total)
-				if progressValue > 1 {
-					progressValue = 1
-				}
-			}
-			status := fmt.Sprintf("SNMP: %d/%d (%s)%s", current, total, message, etaText)
-			if strings.TrimSpace(ip) != "" {
-				status = fmt.Sprintf("%s, %s", status, ip)
-			}
-			fyne.Do(func() {
-				a.applyTopologyProgress(status, progressValue)
-			})
-		})
-		if err != nil {
-			fyne.Do(func() {
-				if err == context.Canceled {
-					a.applyTopologyCanceled()
-					return
-				}
-				dialog.ShowError(fmt.Errorf("ошибка SNMP опроса: %v", err), a.myWindow)
-				a.applyTopologyFailure("snmp")
-			})
-			return
-		}
-		snmpDuration := time.Since(snmpPhaseStartedAt)
-		buildPhaseStartedAt := time.Now()
-		topo, err := topology.BuildTopologyWithOptions(a.scanResults, snmpData, topology.BuildOptions{
-			PartialSNMPKeys: partialSNMPKeysFromReport(report),
-		})
-		if err != nil {
-			fyne.Do(func() {
-				dialog.ShowError(fmt.Errorf("ошибка построения топологии: %v", err), a.myWindow)
-				a.applyTopologyFailure("build")
-			})
-			return
-		}
-		buildDuration := time.Since(buildPhaseStartedAt)
-		metrics := topologyBuildMetrics{
-			snmpDuration:  snmpDuration,
-			buildDuration: buildDuration,
-			totalDuration: time.Since(topologyStartedAt),
-		}
-		a.renderTopologyImagePreview(topo)
-		fyne.Do(func() {
-			a.applyTopologySuccess(
-				topologySuccessStatus(topo, report),
-				formatTopologyPreview(topo, report, metrics),
-				topo,
-				report,
-				metrics,
-			)
-		})
-	}()
-}
-
-func (a *App) stopTopologyBuild() {
-	if a.topologyCancel == nil {
-		return
-	}
-	a.topologyCancel()
-}
-
-func (a *App) copyPerformanceReport() {
-	reportText := a.buildPerformanceReportText()
-	if strings.TrimSpace(reportText) == "" {
-		dialog.ShowInformation("Информация", "Отчет производительности пока недоступен", a.myWindow)
-		return
-	}
-	a.myWindow.Clipboard().SetContent(reportText)
-	dialog.ShowInformation("Готово", "Отчет производительности скопирован в буфер обмена", a.myWindow)
-}
-
+// buildTopology — migrated to topoCtrl.BuildTopology
+// stopTopologyBuild — migrated to topoCtrl.StopTopologyBuild
+// copyPerformanceReport — migrated to topoCtrl.CopyPerformanceReport
 func (a *App) copyScanDiagnostics() {
 	if a == nil || a.diagnosticsLabel == nil {
 		return
@@ -2938,292 +2489,13 @@ func (a *App) buildPerformanceReportText() string {
 	return sb.String()
 }
 
-func (a *App) savePerformanceReport() {
-	reportText := a.buildPerformanceReportText()
-	if strings.TrimSpace(reportText) == "" {
-		dialog.ShowInformation("Информация", "Отчет производительности пока недоступен", a.myWindow)
-		return
-	}
-
-	defaultFileName := fmt.Sprintf("topology-performance-%s.txt", time.Now().Format("2006-01-02-150405"))
-	saveDialog := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
-		if err != nil {
-			dialog.ShowError(err, a.myWindow)
-			return
-		}
-		if writer == nil {
-			return
-		}
-		targetPath := writer.URI().Path()
-		normalizedPath := targetPath
-		if strings.ToLower(filepath.Ext(normalizedPath)) != ".txt" {
-			normalizedPath += ".txt"
-		}
-
-		// Если расширение корректное, записываем через предоставленный writer.
-		// Иначе создаем файл с добавленным .txt.
-		if normalizedPath == targetPath {
-			defer writer.Close()
-			if _, writeErr := writer.Write([]byte(reportText)); writeErr != nil {
-				dialog.ShowError(fmt.Errorf("ошибка при сохранении отчета: %v", writeErr), a.myWindow)
-				return
-			}
-		} else {
-			_ = writer.Close()
-			if writeErr := os.WriteFile(normalizedPath, []byte(reportText), 0644); writeErr != nil {
-				dialog.ShowError(fmt.Errorf("ошибка при сохранении отчета: %v", writeErr), a.myWindow)
-				return
-			}
-		}
-		dialog.ShowInformation("Успех", fmt.Sprintf("Отчет производительности сохранен:\n%s", normalizedPath), a.myWindow)
-	}, a.myWindow)
-	saveDialog.SetFileName(defaultFileName)
-	saveDialog.SetFilter(storage.NewExtensionFileFilter([]string{".txt"}))
-	saveDialog.Show()
-}
-
-func (a *App) saveTopology() {
-	if a.lastTopology == nil {
-		dialog.ShowInformation("Информация", "Сначала постройте топологию", a.myWindow)
-		return
-	}
-	if err := a.lastTopology.Validate(); err != nil {
-		dialog.ShowError(fmt.Errorf("топология не прошла валидацию перед сохранением: %v", err), a.myWindow)
-		return
-	}
-	dialog.ShowFileSave(func(writer fyne.URIWriteCloser, err error) {
-		if err != nil {
-			dialog.ShowError(err, a.myWindow)
-			return
-		}
-		if writer == nil {
-			return
-		}
-		path := writer.URI().Path()
-		_ = writer.Close()
-
-		ext := strings.ToLower(filepath.Ext(path))
-		switch ext {
-		case ".json":
-			err = a.lastTopology.SaveJSON(path)
-		case ".graphml", ".xml":
-			err = a.lastTopology.SaveGraphML(path)
-		case ".png":
-			err = a.lastTopology.RenderWithGraphviz("png", path)
-		case ".svg":
-			err = a.lastTopology.RenderWithGraphviz("svg", path)
-		default:
-			err = fmt.Errorf("поддерживаемые форматы: .json, .graphml, .png, .svg")
-		}
-
-		if err != nil {
-			dialog.ShowError(err, a.myWindow)
-			return
-		}
-		dialog.ShowInformation("Успех", fmt.Sprintf("Топология сохранена (узлов: %d, связей: %d)", len(a.lastTopology.Devices), len(a.lastTopology.Links)), a.myWindow)
-	}, a.myWindow)
-}
-
-func splitCommaValues(raw string) []string {
-	parts := strings.Split(raw, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	if len(out) == 0 {
-		return []string{"public"}
-	}
-	return out
-}
-
-func formatTopologyPreview(topo *topology.Topology, report *snmpcollector.CollectReport, metrics topologyBuildMetrics) string {
-	if topo == nil {
-		return "## Топология сети\n\nНет данных для отображения."
-	}
-	var sb strings.Builder
-	sb.WriteString("## Топология сети\n\n")
-	if metrics.totalDuration > 0 {
-		sb.WriteString("### Время этапов\n\n")
-		if metrics.snmpDuration > 0 {
-			sb.WriteString(fmt.Sprintf("- SNMP сбор: `%s`\n", metrics.snmpDuration.Round(time.Millisecond).String()))
-		}
-		if metrics.buildDuration > 0 {
-			sb.WriteString(fmt.Sprintf("- Построение графа: `%s`\n", metrics.buildDuration.Round(time.Millisecond).String()))
-		}
-		sb.WriteString(fmt.Sprintf("- Общее время: `%s`\n\n", metrics.totalDuration.Round(time.Millisecond).String()))
-	}
-	if report != nil {
-		sb.WriteString("### SNMP отчет\n\n")
-		sb.WriteString(fmt.Sprintf("- Целей для SNMP: %d\n", report.TotalSNMPTargets))
-		sb.WriteString(fmt.Sprintf("- Успешных подключений: %d\n", report.Connected))
-		sb.WriteString(fmt.Sprintf("- Частичных опросов: %d\n", report.Partial))
-		sb.WriteString(fmt.Sprintf("- Полных отказов: %d\n\n", report.Failed))
-	}
-	sb.WriteString(fmt.Sprintf("**Устройств:** %d\n\n", len(topo.Devices)))
-	sb.WriteString(fmt.Sprintf("**Связей:** %d\n\n", len(topo.Links)))
-	sb.WriteString("### Связи\n\n")
-	if len(topo.Links) == 0 {
-		sb.WriteString("- Связи не найдены.\n")
-		return sb.String()
-	}
-	for _, link := range topo.Links {
-		sourceType := strings.TrimSpace(string(link.SourceType))
-		confidence := strings.TrimSpace(string(link.Confidence))
-		extra := ""
-		if sourceType != "" || confidence != "" {
-			extra = fmt.Sprintf(" [%s/%s]", sourceType, confidence)
-		}
-		sb.WriteString(fmt.Sprintf("- `%s (%s)` <-> `%s (%s)`%s\n",
-			topoDisplayName(link.Source), topoPortName(link.SourcePort), topoDisplayName(link.Target), topoPortName(link.TargetPort), extra))
-	}
-	return sb.String()
-}
-
-func (a *App) renderTopologyImagePreview(topo *topology.Topology) {
-	if topo == nil {
-		return
-	}
-	tmp, err := os.CreateTemp("", "network-topology-preview-*.png")
-	if err != nil {
-		fyne.Do(func() {
-			a.topologyStatus.SetText("Не удалось создать временный файл для превью")
-			a.topologyStatus.Refresh()
-		})
-		return
-	}
-	previewPath := tmp.Name()
-	_ = tmp.Close()
-
-	if err = topo.RenderWithGraphviz("png", previewPath); err != nil {
-		_ = os.Remove(previewPath)
-		fyne.Do(func() {
-			a.topologyStatus.SetText("Графическое превью недоступно (установите Graphviz/dot)")
-			a.topologyStatus.Refresh()
-		})
-		return
-	}
-
-	fyne.Do(func() {
-		// Удаляем предыдущее изображение превью, если оно было.
-		if a.previewPath != "" && a.previewPath != previewPath {
-			_ = os.Remove(a.previewPath)
-		}
-		a.previewPath = previewPath
-		img := canvas.NewImageFromFile(previewPath)
-		img.FillMode = canvas.ImageFillContain
-		img.SetMinSize(fyne.NewSize(0, 260))
-		a.topologyImage = img
-		a.applyTopologyZoom(a.zoomSelect.Selected)
-		a.topologyImgBox.Objects = []fyne.CanvasObject{a.topologyImage}
-		a.topologyImgBox.Refresh()
-	})
-}
-
-func (a *App) refreshTopologyPreview() {
-	if a.lastTopology == nil {
-		dialog.ShowInformation("Информация", "Сначала постройте топологию", a.myWindow)
-		return
-	}
-	a.topologyStatus.SetText("Обновление графического превью...")
-	a.topologyStatus.Refresh()
-	go func() {
-		a.renderTopologyImagePreview(a.lastTopology)
-		fyne.Do(func() {
-			a.topologyStatus.SetText(fmt.Sprintf("Топология построена: устройств %d, связей %d", len(a.lastTopology.Devices), len(a.lastTopology.Links)))
-			a.topologyStatus.Refresh()
-		})
-	}()
-}
-
-func (a *App) applyTopologyZoom(mode string) {
-	if a.topologyImage == nil {
-		return
-	}
-	canvasSize := fyne.NewSize(1200, 700)
-	if a.myWindow != nil && a.myWindow.Canvas() != nil {
-		if s := a.myWindow.Canvas().Size(); s.Width > 0 && s.Height > 0 {
-			canvasSize = s
-		}
-	}
-	baseWidth := float32(math.Max(900, float64(canvasSize.Width*0.7)))
-	baseHeight := float32(math.Max(500, float64(canvasSize.Height*0.62)))
-	switch mode {
-	case "200%":
-		a.topologyImage.FillMode = canvas.ImageFillOriginal
-		a.topologyImage.SetMinSize(fyne.NewSize(baseWidth*2.0, baseHeight*2.0))
-	case "150%":
-		a.topologyImage.FillMode = canvas.ImageFillOriginal
-		a.topologyImage.SetMinSize(fyne.NewSize(baseWidth*1.5, baseHeight*1.5))
-	case "100%":
-		a.topologyImage.FillMode = canvas.ImageFillOriginal
-		a.topologyImage.SetMinSize(fyne.NewSize(baseWidth, baseHeight))
-	default:
-		a.topologyImage.FillMode = canvas.ImageFillContain
-		a.topologyImage.SetMinSize(fyne.NewSize(0, 260))
-	}
-	a.topologyImage.Refresh()
-	a.topologyImgBox.Refresh()
-	a.topologyImgScroll.Refresh()
-}
-
-func (a *App) openPreviewExternal() {
-	if strings.TrimSpace(a.previewPath) == "" {
-		dialog.ShowInformation("Информация", "Сначала постройте превью топологии", a.myWindow)
-		return
-	}
-
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		cmd = exec.Command("cmd", "/C", "start", "", a.previewPath)
-	case "darwin":
-		cmd = exec.Command("open", a.previewPath)
-	default:
-		cmd = exec.Command("xdg-open", a.previewPath)
-	}
-	if err := cmd.Start(); err != nil {
-		dialog.ShowError(fmt.Errorf("не удалось открыть файл: %v", err), a.myWindow)
-		return
-	}
-}
-
-func topoDisplayName(d *topology.Device) string {
-	if d == nil {
-		return "unknown"
-	}
-	if d.Hostname != "" {
-		return d.Hostname
-	}
-	if d.IP != "" {
-		return d.IP
-	}
-	if d.MAC != "" {
-		return d.MAC
-	}
-	return "unknown"
-}
-
-func topoPortName(p *topology.Port) string {
-	if p == nil {
-		return "-"
-	}
-	if p.Name != "" {
-		return p.Name
-	}
-	if p.Index > 0 {
-		return fmt.Sprintf("if%d", p.Index)
-	}
-	return "-"
-}
-
+// savePerformanceReport — migrated to topoCtrl.SavePerformanceReport
+// saveTopology — migrated to topoCtrl.SaveTopology
 func (a *App) resetUIPanelLayoutWithFeedback() {
 	if a == nil {
 		return
 	}
-	a.resetUIPanelLayout()
+	a.settingsMgr.ResetUIPanelLayout(a.scanTabMainSplit, a.topologyMainSplit, a.toolsTabMainSplit)
 	if a.myWindow != nil {
 		dialog.ShowInformation("Вид", layoutResetInfoMessage, a.myWindow)
 	}
@@ -3233,12 +2505,7 @@ func (a *App) resetUIPanelLayout() {
 	if a == nil || a.myApp == nil {
 		return
 	}
-	p := a.myApp.Preferences()
-	p.RemoveValue(prefScanTabSplitOffset)
-	p.RemoveValue(prefTopologyMainSplitOffset)
-	p.RemoveValue(prefToolsTabSplitOffset)
-	p.RemoveValue(prefHostDetailsSplitOffsetV)
-	p.RemoveValue(prefHostDetailsSplitOffsetH)
+	a.settingsMgr.ClearSplitPreferences()
 
 	a.rememberedHostDetailsSplitV = 0
 	a.rememberedHostDetailsSplitH = 0
@@ -3252,14 +2519,14 @@ func (a *App) resetUIPanelLayout() {
 	}
 	if a.myWindow != nil {
 		fyne.Do(func() {
-			a.applyDefaultSplitOffsetsForProfile(prof)
+			a.settingsMgr.ApplyDefaultSplitOffsetsForProfile(prof)
 			a.renderScanResultsView()
 			if a.myWindow.Content() != nil {
 				a.myWindow.Content().Refresh()
 			}
 		})
 	} else {
-		a.applyDefaultSplitOffsetsForProfile(prof)
+		a.settingsMgr.ApplyDefaultSplitOffsetsForProfile(prof)
 		a.renderScanResultsView()
 	}
 }
@@ -3268,14 +2535,53 @@ func (a *App) setupMainMenu() {
 	if a == nil || a.myWindow == nil {
 		return
 	}
-	// MainMenu оставлен для не-Windows платформ и контекстных меню.
-	// На Windows основной доступ к действиям теперь через тулбар,
-	// который виден в том числе в fullscreen режиме.
+	// Загружаем сохраненную тему
+	themeMode := a.loadTheme()
+	a.applyTheme(themeMode)
+
+	// Элементы меню "Вид"
 	resetItem := fyne.NewMenuItem("Сбросить расположение панелей (Ctrl+Shift+L)", func() {
-		a.resetUIPanelLayoutWithFeedback()
+		a.settingsMgr.ResetUIPanelLayoutWithFeedback(a.scanTabMainSplit, a.topologyMainSplit, a.toolsTabMainSplit, a.myWindow)
 	})
 	viewMenu := fyne.NewMenu("Вид", resetItem)
-	a.myWindow.SetMainMenu(fyne.NewMainMenu(viewMenu))
+
+	// Элементы меню "Тема"
+	themeItems := []string{"Светлая", "Тёмная", "Системная"}
+	themeMenu := fyne.NewMenu("Тема")
+	for _, item := range themeItems {
+		mode := ThemeMode(item)
+		menuItem := fyne.NewMenuItem(item, func() {
+			a.applyTheme(mode)
+			a.saveTheme(mode)
+			if a.statusLabel != nil {
+				a.statusLabel.SetText("Тема изменена: " + item)
+			}
+		})
+		// Отмечаем текущую тему
+		if string(mode) == string(themeMode) {
+			menuItem.Checked = true
+		}
+		themeMenu.Items = append(themeMenu.Items, menuItem)
+	}
+
+	// Элементы меню "Акцентный цвет"
+	accentMenu := fyne.NewMenu("Акцент")
+	currentPreset := a.loadAccentPreset()
+	for name := range PresetThemes {
+		menuItem := fyne.NewMenuItem(name, func(n string) func() {
+			return func() {
+				a.applyAccentPreset(n)
+			}
+		}(name))
+		if name == currentPreset {
+			menuItem.Checked = true
+		}
+		accentMenu.Items = append(accentMenu.Items, menuItem)
+	}
+
+	// Создаем главное меню
+	mainMenu := fyne.NewMainMenu(viewMenu, themeMenu, accentMenu)
+	a.myWindow.SetMainMenu(mainMenu)
 }
 
 func (a *App) setupLayoutResetShortcut() {
@@ -3291,7 +2597,7 @@ func (a *App) setupLayoutResetShortcut() {
 		Modifier: fyne.KeyModifierControl | fyne.KeyModifierShift,
 	}
 	c.AddShortcut(sc, func(fyne.Shortcut) {
-		a.resetUIPanelLayoutWithFeedback()
+		a.settingsMgr.ResetUIPanelLayoutWithFeedback(a.scanTabMainSplit, a.topologyMainSplit, a.toolsTabMainSplit, a.myWindow)
 	})
 }
 
@@ -3305,4 +2611,161 @@ func (a *App) Run() {
 		}
 	})
 	a.myWindow.ShowAndRun()
+}
+
+// ScanActions реализует интерфейс для контроллера сканирования
+func (a *App) ApplyScanRunStart(autoProfileNote string) {
+	// Реализация остается в App для доступа к internal state
+}
+
+func (a *App) ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeout time.Duration) {
+	go func() {
+		defer func() {
+			if rec := recover(); rec != nil {
+				fyne.Do(func() {
+					if a.statusLabel != nil {
+						a.statusLabel.SetText(fmt.Sprintf("Критическая ошибка сканирования: %v", rec))
+					}
+				})
+			}
+		}()
+
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-time.After(timeout):
+				fyne.Do(func() {
+					if a.statusLabel != nil {
+						a.statusLabel.SetText("Таймаут сканирования")
+					}
+					if a.resultsStateLabel != nil {
+						a.resultsStateLabel.SetText(resultsStateTimeout)
+					}
+					if a.stageLabel != nil {
+						a.stageLabel.Hide()
+					}
+					if a.progressBar != nil {
+						a.progressBar.Hide()
+					}
+					if a.scanButton != nil {
+						a.scanButton.Enable()
+					}
+					if a.stopButton != nil {
+						a.stopButton.Disable()
+					}
+					a.renderScanResultsView()
+				})
+				return
+			case ev, ok := <-runner.Events():
+				if !ok {
+					return
+				}
+				switch ev.Kind {
+				case scand.EventProgress:
+					fyne.Do(func() {
+						if a.stageLabel != nil {
+							a.stageLabel.Show()
+							a.stageLabel.SetText(ev.Stage + ": " + ev.Message)
+						}
+						if a.progressBar != nil {
+							a.progressBar.Show()
+							a.progressBar.SetValue(ev.Percent * 100)
+						}
+						if a.statusLabel != nil {
+							a.statusLabel.SetText(ev.Message)
+						}
+					})
+				case scand.EventDone:
+					fyne.Do(func() {
+						if a.statusLabel != nil {
+							a.statusLabel.SetText(fmt.Sprintf("Сканирование завершено за %v. Найдено устройств: %d", time.Since(startTime), len(ev.Results)))
+						}
+						if a.resultsStateLabel != nil {
+							a.resultsStateLabel.SetText(resultsStateDone)
+						}
+						if a.stageLabel != nil {
+							a.stageLabel.Hide()
+						}
+						if a.progressBar != nil {
+							a.progressBar.Hide()
+						}
+						if a.scanButton != nil {
+							a.scanButton.Enable()
+						}
+						if a.stopButton != nil {
+							a.stopButton.Disable()
+						}
+						// Обновляем результаты
+						a.scanResults = ev.Results
+						a.renderScanResultsView()
+					})
+					return
+				case scand.EventError:
+					fyne.Do(func() {
+						if a.statusLabel != nil {
+							a.statusLabel.SetText("Ошибка сканирования: " + ev.Message)
+						}
+						if a.resultsStateLabel != nil {
+							a.resultsStateLabel.SetText(resultsStateStopped)
+						}
+						if a.stageLabel != nil {
+							a.stageLabel.Hide()
+						}
+						if a.progressBar != nil {
+							a.progressBar.Hide()
+						}
+						if a.scanButton != nil {
+							a.scanButton.Enable()
+						}
+						if a.stopButton != nil {
+							a.stopButton.Disable()
+						}
+					})
+					return
+				case scand.EventStopped:
+					fyne.Do(func() {
+						if a.statusLabel != nil {
+							a.statusLabel.SetText(ev.Message)
+						}
+						if a.resultsStateLabel != nil {
+							a.resultsStateLabel.SetText(resultsStateStopped)
+						}
+						if a.stageLabel != nil {
+							a.stageLabel.Hide()
+						}
+						if a.progressBar != nil {
+							a.progressBar.Hide()
+						}
+						if a.scanButton != nil {
+							a.scanButton.Enable()
+						}
+						if a.stopButton != nil {
+							a.stopButton.Disable()
+						}
+						a.renderScanResultsView()
+					})
+					return
+				}
+			case <-ticker.C:
+				// Проверяем, не остановлен ли runner
+				if !runner.IsRunning() {
+					return
+				}
+			}
+		}
+	}()
+}
+
+func (a *App) RenderScanResultsView() {
+	a.renderScanResultsView()
+}
+
+func (a *App) ConfirmLargeScanBypass() bool {
+	return a.confirmLargeScanBypass
+}
+
+func (a *App) SetConfirmLargeScanBypass(val bool) {
+	a.confirmLargeScanBypass = val
 }

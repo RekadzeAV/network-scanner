@@ -86,3 +86,30 @@ func TestNewScannerService_DefaultLevel(t *testing.T) {
 		t.Fatal("NewService returned nil for empty level")
 	}
 }
+
+func TestScannerService_Stop_Interface(t *testing.T) {
+	svc := NewService("debug")
+
+	// Stop не должен паниковать
+	svc.Stop()
+}
+
+func TestScannerService_Scan_AllOptions(t *testing.T) {
+	svc := NewService("debug")
+	ctx := context.Background()
+
+	cfg := contracts.ScanConfig{
+		NetworkCIDR: "192.0.2.0/24",
+		PortRange:   "22,80,443",
+		Timeout:     100 * time.Millisecond,
+		Threads:     5,
+		ScanUDP:     true,
+		GrabBanners: true,
+		OSActive:    true,
+		VerboseLogs: true,
+	}
+
+	_, err := svc.Scan(ctx, cfg, nil)
+	// Ошибка или успех — главное не паника
+	_ = err
+}

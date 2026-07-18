@@ -66,7 +66,7 @@ func (a *App) renderTopologyInteractiveMap(topo *topology.Topology) {
 	height := float32(math.Max(780, float64(520+len(keys)*34)))
 	cx := width / 2
 	cy := height / 2
-	radius := float32(math.Min(float64(width), float64(height))*0.35)
+	radius := float32(math.Min(float64(width), float64(height)) * 0.35)
 	if radius < 200 {
 		radius = 200
 	}
@@ -320,4 +320,34 @@ func (a *App) selectHostByTopologyDevice(d *topology.Device) {
 	}
 	a.selectedHostIP = ip
 	a.renderScanResultsView()
+}
+
+// topoDisplayName и topoPortName — вспомогательные функции для отображения
+func topoDisplayName(d *topology.Device) string {
+	if d == nil {
+		return "unknown"
+	}
+	if d.Hostname != "" {
+		return d.Hostname
+	}
+	if d.IP != "" {
+		return d.IP
+	}
+	if d.MAC != "" {
+		return d.MAC
+	}
+	return "unknown"
+}
+
+func topoPortName(p *topology.Port) string {
+	if p == nil {
+		return "-"
+	}
+	if p.Name != "" {
+		return p.Name
+	}
+	if p.Index > 0 {
+		return fmt.Sprintf("if%d", p.Index)
+	}
+	return "-"
 }

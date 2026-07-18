@@ -15,11 +15,11 @@ type XMLPresenter struct{}
 // xmlReport represents the full report structure for XML.
 type xmlReport struct {
 	XMLName     xml.Name  `xml:"nmaprun"`
-	StartTime   string    `xml:"scaninfo,attr"`
-	GeneratedAt string    `xml:"scaninfo,attr"`
+	StartTime   string    `xml:"start,attr"`
+	GeneratedAt string    `xml:"generated,attr"`
 	Hosts       []xmlHost `xml:"host"`
-	TotalHosts  int       `xml:"stats,attr"`
-	OpenPorts   int       `xml:"stats,attr"`
+	TotalHosts  int       `xml:"hosts,attr"`
+	OpenPorts   int       `xml:"openports,attr"`
 }
 
 // xmlHost represents a single host in XML.
@@ -28,7 +28,7 @@ type xmlHost struct {
 	Ports      []xmlPort     `xml:"ports>port"`
 	Hostnames  []xmlHostname `xml:"hostnames>hostname"`
 	OS         []xmlOS       `xml:"os"`
-	DeviceType string        `xml:"hostsummary>usagetype,attr,omitempty"`
+	DeviceType string        `xml:"usagetype,attr,omitempty"`
 }
 
 // xmlAddress represents an IP or MAC address.

@@ -9,6 +9,7 @@ on:
 env:
   GO_VERSION: "1.23"
   GO_MODULE: "network-scanner"
+  COVERAGE_THRESHOLD: 85
 
 jobs:
   test:
@@ -26,8 +27,17 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Run unit tests
-        run: go test -v -coverprofile=coverage.out ./...
+      - name: Run unit tests with coverage
+        run: go test -v -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Check coverage threshold
+        run: |
+          TOTAL=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+          echo "Total coverage: ${TOTAL}%"
+          if (( $(echo "$TOTAL < ${{ env.COVERAGE_THRESHOLD }}" | bc -l) )); then
+            echo "ERROR: Coverage ${TOTAL}% is below threshold ${{ env.COVERAGE_THRESHOLD }}%"
+            exit 1
+          fi
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -55,15 +65,15 @@ jobs:
 
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     needs: [test, lint]
     strategy:
       matrix:
-        os: [linux, windows, darwin]
-        arch: [amd64, arm64]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        arch: [amd64]
         exclude:
-          - os: windows
-            arch: arm64
+          - os: windows-latest
+            arch: amd64
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -75,10 +85,12 @@ jobs:
 
       - name: Build binary
         run: |
-          GOOS="${{ matrix.os }}" GOARCH="${{ matrix.arch }}" go build -o release-build/network-scanner-${{ matrix.os }}-${{ matrix.arch }} -ldflags="-X main.Version=dev -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=$(git rev-parse --short HEAD)" ./cmd/network-scanner/
+          GOOS="${{ runner.os == 'Windows' && 'windows' || runner.os == 'macOS' && 'darwin' || 'linux' }}" \
+          GOARCH="${{ matrix.arch }}" \
+          go build -o release-build/network-scanner-${{ runner.os }}-${{ matrix.arch }} -ldflags="-X main.Version=dev -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=$(git rev-parse --short HEAD)" ./cmd/network-scanner/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: network-scanner-${{ matrix.os }}-${{ matrix.arch }}
+          name: network-scanner-${{ runner.os }}-${{ matrix.arch }}
           path: release-build/network-scanner-${{ matrix.os }}-${{ matrix.arch }}

@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: go test -v -coverprofile=coverage.out ./...
+
+      - name: Build binaries
+        env:
+          CGO_ENABLED: 0
+        run: |
+          mkdir -p release-build/release/
+          
+          # Linux
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o release-build/release/network-scanner-linux-amd64 ./cmd/network-scanner/
+          GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o release-build/release/network-scanner-linux-arm64 ./cmd/network-scanner/
+          
+          # Windows
+          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o release-build/release/network-scanner-windows-amd64.exe ./cmd/network-scanner/
+          
+          # macOS
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o release-build/release/network-scanner-darwin-amd64 ./cmd/network-scanner/
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w -X main.Version=${{ github.ref_name }}" -o release-build/release/network-scanner-darwin-arm64 ./cmd/network-scanner/
+
+      - name: Create checksums
+        run: |
+          cd release-build/release/
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release-build/release/*
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

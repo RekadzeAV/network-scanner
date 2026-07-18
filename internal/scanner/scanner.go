@@ -122,7 +122,8 @@ import (
 //
 //内部的 results слайс защищен sync.RWMutex.
 
-// Result содержит результаты сканирования одного хоста
+// Result содержит результаты сканирования одного хоста.
+// Включает IP, MAC, hostname, открытые порты, тип устройства и эвристику ОС.
 type Result struct {
 	IP                string
 	MAC               string
@@ -138,7 +139,8 @@ type Result struct {
 	GuessOSReason     string // краткое обоснование эвристики
 }
 
-// PortInfo содержит информацию о порте
+// PortInfo содержит информацию о сканированном порте.
+// State: "open", "closed", "filtered". Service определяется по порту.
 type PortInfo struct {
 	Port     int
 	State    string // "open", "closed", "filtered"
@@ -148,10 +150,13 @@ type PortInfo struct {
 	Version  string // краткая версия/сигнатура службы (опционально)
 }
 
-// ProgressCallback функция для передачи прогресса сканирования
+// ProgressCallback функция для передачи прогресса сканирования.
+// Вызывается на этапах: "ping", "ports", "complete".
 type ProgressCallback func(stage string, current int, total int, message string)
 
-// NetworkScanner выполняет сканирование сети
+// NetworkScanner выполняет сканирование сети с поддержкой TCP/UDP портов,
+// определения MAC-адресов, hostname и типа устройства.
+// Потокобезопасен для вызовов SetScanUDP, GetResults, Stop.
 type NetworkScanner struct {
 	network          string
 	timeout          time.Duration
@@ -239,7 +244,12 @@ const (
 	pcapBufferSize = 1024
 )
 
-// NewNetworkScanner создает новый сканер
+// NewNetworkScanner создает новый сканер с дефолтными зависимостями.
+// networkCIDR — диапазон в формате CIDR (например "192.168.1.0/24").
+// timeout — таймаут для каждого probe.
+// portRange — диапазон портов (например "1-1024" или "22,80,443").
+// threads — количество параллельных потоков сканирования.
+// showClosed — включать закрытые порты в результаты.
 func NewNetworkScanner(networkCIDR string, timeout time.Duration, portRange string, threads int, showClosed bool) *NetworkScanner {
 	return NewScanner(
 		networkCIDR,
@@ -253,7 +263,8 @@ func NewNetworkScanner(networkCIDR string, timeout time.Duration, portRange stri
 	)
 }
 
-// NewScanner создает сканер с явным внедрением зависимостей.
+// NewScanner создает сканер с явным внедрением зависимостей (DI).
+// Позволяет подменять NetworkProber, PortScanner и ResultPresenter для тестирования.
 func NewScanner(
 	networkCIDR string,
 	timeout time.Duration,
@@ -287,22 +298,26 @@ func NewScanner(
 	}
 }
 
-// SetProgressCallback устанавливает callback для передачи прогресса
+// SetProgressCallback устанавливает callback для передачи прогресса сканирования.
+// Вызывается на этапах: "ping", "ports", "complete" с текущим/общим количеством.
 func (ns *NetworkScanner) SetProgressCallback(callback ProgressCallback) {
 	ns.progressCallback = callback
 }
 
-// SetScanUDP включает или выключает UDP сканирование
+// SetScanUDP включает или выключает UDP сканирование.
+// Вызывать ДО Scan(). По умолчанию UDP отключено.
 func (ns *NetworkScanner) SetScanUDP(enable bool) {
 	ns.scanUDP = enable
 }
 
-// SetScanTCPPorts включает или отключает перебор TCP-портов (при false выполняется только обнаружение хостов и сбор MAC/имени).
+// SetScanTCPPorts включает или отключает перебор TCP-портов.
+// При false выполняется только обнаружение хостов и сбор MAC/имени.
 func (ns *NetworkScanner) SetScanTCPPorts(enable bool) {
 	ns.scanTCPPorts = enable
 }
 
 // SetGrabBanners включает чтение баннеров с открытых портов (21,22,25,80,…).
+// Замедляет сканирование, но даёт информацию о версиях служб.
 func (ns *NetworkScanner) SetGrabBanners(enable bool) {
 	ns.grabBanners = enable
 }
@@ -317,7 +332,9 @@ func (ns *NetworkScanner) SetVerbosePortLogs(enable bool) {
 	ns.verbosePortLogs = enable
 }
 
-// Scan запускает сканирование сети
+// Scan запускает сканирование сети.
+// Выполняет: 1) Ping discovery 2) Port scanning 3) MAC/hostname 4) Device type detection.
+// Потокобезопасен: можно вызывать Stop() во время выполнения.
 func (ns *NetworkScanner) Scan() {
 	scanStartTime := time.Now()
 	atomic.StoreInt64(&ns.tcpCancelBefore, 0)
@@ -552,7 +569,8 @@ func (ns *NetworkScanner) Scan() {
 	}
 }
 
-// GetDiagnosticsSummary returns condensed diagnostics for the last scan run.
+// GetDiagnosticsSummary возвращает сводку диагностики последнего сканирования.
+// Включает времена этапов, статистику TCP/UDP probes и отмен.
 func (ns *NetworkScanner) GetDiagnosticsSummary() string {
 	pingDuration := time.Duration(atomic.LoadInt64(&ns.lastPingNs))
 	portscanDuration := time.Duration(atomic.LoadInt64(&ns.lastPortscanNs))
@@ -574,7 +592,8 @@ func (ns *NetworkScanner) GetDiagnosticsSummary() string {
 	)
 }
 
-// isHostAlive проверяет, доступен ли хост
+// isHostAlive проверяет, доступен ли хост через probe по commonPorts (80,443,22,135,139,445).
+// Использует параллельные dial-connections с таймаутом.
 func (ns *NetworkScanner) isHostAlive(ip string) bool {
 	if ns.networkProber != nil {
 		if contextAwareProber, ok := ns.networkProber.(ContextNetworkProber); ok {
@@ -699,7 +718,8 @@ func (ns *NetworkScanner) checkARP(ip string) bool {
 	return false
 }
 
-// scanHost сканирует один хост
+// scanHost сканирует один хост: порты, MAC, hostname, тип устройства.
+// Вызывается для каждого найденного alive-хоста параллельно.
 func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 	ipStr := ip.String()
 	logger.LogDebug("Сканирование хоста: %s, портов: %d", ipStr, len(ports))
@@ -997,7 +1017,8 @@ func (ns *NetworkScanner) portThreadsForHost(portCount int) int {
 	return perHost
 }
 
-// scanHostUDP сканирует известные UDP порты для указанного хоста
+// scanHostUDP сканирует известные UDP порты для указанного хоста.
+// Порты: 53(DNS), 67(DHCP), 68(DHCP), 69(TFTP), 123(NTP), 161(SNMP), 162(SNMPTRAP), 514(SYSLOG), 1194(OpenVPN).
 func (ns *NetworkScanner) scanHostUDP(ipStr string, result *Result) {
 	logger.LogDebug("Начинаю UDP сканирование для хоста %s", ipStr)
 	defer logger.LogDebug("UDP сканирование для хоста %s завершено", ipStr)
@@ -1457,13 +1478,15 @@ func (ns *NetworkScanner) detectDeviceType(result Result) string {
 	})
 }
 
-// Stop останавливает сканирование
+// Stop отменяет текущее сканирование.
+// Можно вызывать из другой горуны во время выполнения Scan().
 func (ns *NetworkScanner) Stop() {
 	ns.cancel()
 	ns.wg.Wait()
 }
 
-// GetResults возвращает результаты сканирования
+// GetResults возвращает результаты сканирования.
+// Потокобезопасен: можно вызывать во время и после Scan().
 func (ns *NetworkScanner) GetResults() []Result {
 	ns.mu.RLock()
 	defer ns.mu.RUnlock()

@@ -15,6 +15,7 @@ import (
 	"network-scanner/internal/scanner"
 )
 
+// DeviceType определяет тип сетевого устройства.
 type DeviceType string
 
 const (
@@ -26,6 +27,7 @@ const (
 
 var ErrGraphvizNotInstalled = errors.New("graphviz dot not installed")
 
+// Port представляет сетевой порт устройства с информацией о соседях.
 type Port struct {
 	Index            int
 	Name             string
@@ -35,6 +37,7 @@ type Port struct {
 	ConnectedDevices []*Device
 }
 
+// Device представляет сетевое устройство с SNMP-данными и портами.
 type Device struct {
 	IP            string
 	MAC           string
@@ -47,6 +50,7 @@ type Device struct {
 	LldpNeighbors []*LldpNeighbor
 }
 
+// Link представляет связь между двумя устройствами с типом источника и уверенностью.
 type Link struct {
 	Source     *Device
 	SourcePort *Port
@@ -57,15 +61,19 @@ type Link struct {
 	Evidence   string
 }
 
+// Topology представляет граф сети: устройства и связи между ними.
 type Topology struct {
 	Devices map[string]*Device
 	Links   []Link
 }
 
+// BuildOptions содержит опции для построения топологии.
 type BuildOptions struct {
+	// PartialSNMPKeys — ключи устройств с частичными SNMP-данными (для снижения уверенности).
 	PartialSNMPKeys map[string]struct{}
 }
 
+// LinkSourceType определяет источник связи между устройствами.
 type LinkSourceType string
 
 const (
@@ -74,6 +82,7 @@ const (
 	LinkSourceInferred LinkSourceType = "inferred"
 )
 
+// LinkConfidence определяет уровень уверенности в связи.
 type LinkConfidence string
 
 const (
@@ -82,6 +91,7 @@ const (
 	LinkConfidenceLow    LinkConfidence = "low"
 )
 
+// LldpNeighbor представляет соседа, обнаруженного через LLDP.
 type LldpNeighbor struct {
 	LocalIfIndex    int
 	RemoteChassisID string
@@ -90,10 +100,13 @@ type LldpNeighbor struct {
 	RemoteSysName   string
 }
 
+// BuildTopology строит граф сети из результатов сканирования и SNMP-данных.
+// Использует LLDP, FDB/MAC-таблицы и эвристики для определения связей.
 func BuildTopology(results []scanner.Result, snmpData map[string]*Device) (*Topology, error) {
 	return BuildTopologyWithOptions(results, snmpData, BuildOptions{})
 }
 
+// BuildTopologyWithOptions строит граф сети с опциями (например, частичные SNMP-данные).
 func BuildTopologyWithOptions(results []scanner.Result, snmpData map[string]*Device, opts BuildOptions) (*Topology, error) {
 	t := &Topology{
 		Devices: make(map[string]*Device),
@@ -291,6 +304,7 @@ func deviceKeys(d *Device) []string {
 	return out
 }
 
+// ToDOT экспортирует топологию в формат DOT (Graphviz).
 func (t *Topology) ToDOT(w io.Writer) error {
 	if t == nil {
 		return fmt.Errorf("topology is nil")
@@ -315,6 +329,7 @@ func (t *Topology) ToDOT(w io.Writer) error {
 	return nil
 }
 
+// SaveJSON сохраняет топологию в JSON-файл с валидацией.
 func (t *Topology) SaveJSON(filename string) error {
 	if err := t.Validate(); err != nil {
 		return fmt.Errorf("topology validation failed: %w", err)
@@ -326,6 +341,7 @@ func (t *Topology) SaveJSON(filename string) error {
 	return os.WriteFile(filename, data, 0644)
 }
 
+// SaveGraphML сохраняет топологию в GraphML-файл (XML-формат для Gephi и др.).
 func (t *Topology) SaveGraphML(filename string) error {
 	if err := t.Validate(); err != nil {
 		return fmt.Errorf("topology validation failed: %w", err)
@@ -408,6 +424,7 @@ func (t *Topology) SaveGraphML(filename string) error {
 	return os.WriteFile(filename, append([]byte(xml.Header), raw...), 0644)
 }
 
+// Validate валидирует топологию: проверяет целостность устройств и связей.
 func (t *Topology) Validate() error {
 	if t == nil {
 		return fmt.Errorf("topology is nil")
@@ -448,6 +465,7 @@ func (t *Topology) Validate() error {
 	return nil
 }
 
+// RenderWithGraphviz рендерит топологию в PNG/SVG через Graphviz dot.
 func (t *Topology) RenderWithGraphviz(outputFormat, outputFile string) error {
 	dotPath, err := exec.LookPath("dot")
 	if err != nil {

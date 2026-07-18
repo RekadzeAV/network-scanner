@@ -90,5 +90,7 @@ func (s *scannerServiceImpl) Scan(ctx context.Context, cfg contracts.ScanConfig,
 }
 
 func (s *scannerServiceImpl) Stop() {
-	// Реализация остановки (может потребовать глобального состояния)
+	// TODO: Реализовать остановку активного сканирования
+	// В текущей реализации сканирование запускается в новой горутине
+	// и не может быть остановлено извне без сохранения reference на NetworkScanner
 }

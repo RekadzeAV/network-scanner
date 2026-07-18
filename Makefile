@@ -4,7 +4,8 @@ SHELL := /bin/sh
 
 build:
 	mkdir -p build
-	go build -o build/network-scanner ./cmd/network-scanner
+	go build -ldflags="-s -w" -o build/network-scanner ./cmd/network-scanner
+	go build -ldflags="-s -w -H windowsgui" -o build/network-scanner-gui ./cmd/gui
 
 test:
 	go test ./...
@@ -32,7 +33,8 @@ check-env:
 	@echo "Environment check complete."
 
 lint:
-	gofmt -w $$(rg --files -g '*.go')
+	@golangci-lint run ./... || (echo "WARNING: golangci-lint not installed or found issues" && exit 0)
+	@govulncheck ./... || (echo "WARNING: govulncheck not installed" && exit 0)
 
 lint-tools:
 	@echo "Running golangci-lint..."
