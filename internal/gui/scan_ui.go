@@ -3,6 +3,7 @@ package gui
 import (
 	"fmt"
 	"image/color"
+	"network-scanner/internal/logger"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,20 +17,35 @@ import (
 
 // initScanUI инициализирует UI сканирования
 func (a *App) initScanUI() {
+	logger.LogDebug("[initScanUI] Начало")
+	defer func() {
+		if rec := recover(); rec != nil {
+			logger.LogError(fmt.Errorf("PANIC в initScanUI: %v", rec), "initScanUI")
+		}
+	}()
 	// Поле ввода сети
+	logger.LogDebug("[initScanUI] Создаю networkEntry")
 	networkLabel := widget.NewLabel("Сеть (CIDR, например 192.168.1.0/24):")
 	networkLabel.Wrapping = fyne.TextWrapWord
 	a.networkEntry = widget.NewEntry()
 	a.networkEntry.SetPlaceHolder("Оставьте пустым для автоматического определения")
+	logger.LogDebug("[initScanUI] Создаю portRangeEntry")
 	a.portRangeEntry = widget.NewEntry()
 	a.portRangeEntry.SetPlaceHolder("1-65535")
 	a.portRangeEntry.SetText("1-65535")
+	logger.LogDebug("[initScanUI] Создаю scanTCPPortsCheck")
 	a.scanTCPPortsCheck = widget.NewCheck("Сканировать TCP порты", func(v bool) {
-		a.setPortRangeControlsEnabled(v)
-		a.saveScanSettings()
+		if a != nil {
+			logger.LogDebug("[scanTCPPortsCheck callback] v=%v", v)
+			a.setPortRangeControlsEnabled(v)
+			a.saveScanSettings()
+		}
 	})
+	logger.LogDebug("[initScanUI] Создаю portWellKnownBtn")
 	a.portWellKnownBtn = widget.NewButton("Системные (Well-Known): 0–1023", nil)
+	logger.LogDebug("[initScanUI] Создаю portRegisteredBtn")
 	a.portRegisteredBtn = widget.NewButton("Зарегистрированные: 1024–49151", nil)
+	logger.LogDebug("[initScanUI] Создаю portDynamicBtn")
 	a.portDynamicBtn = widget.NewButton("Динамические / частные: 49152–65535", nil)
 	a.timeoutEntry = widget.NewEntry()
 	a.timeoutEntry.SetText("2")
@@ -55,8 +71,12 @@ func (a *App) initScanUI() {
 	a.autoProfileHint.Wrapping = fyne.TextWrapWord
 	// SetChecked после создания полей, которые читает saveScanSettings (колбэк срабатывает сразу).
 	a.scanTCPPortsCheck.SetChecked(true)
+	logger.LogDebug("[initScanUI] SetChecked true на scanTCPPortsCheck")
+	logger.LogDebug("[initScanUI] Создаю presetQuickBtn")
 	a.presetQuickBtn = widget.NewButton("Быстро", nil)
+	logger.LogDebug("[initScanUI] Создаю presetBalBtn")
 	a.presetBalBtn = widget.NewButton("Баланс", nil)
+	logger.LogDebug("[initScanUI] Создаю presetDeepBtn")
 	a.presetDeepBtn = widget.NewButton("Глубоко", nil)
 	a.recommendedProfileBtn = widget.NewButton("Рекомендуемые настройки", nil)
 	a.recommendedProfileInfoBtn = widget.NewButton("Почему?", nil)
@@ -115,6 +135,11 @@ func (a *App) initScanUI() {
 
 // buildScanControlsContainer создаёт контейнер с настройками сканирования
 func (a *App) buildScanControlsContainer() *container.Scroll {
+	defer func() {
+		if rec := recover(); rec != nil {
+			logger.LogError(fmt.Errorf("PANIC в buildScanControlsContainer: %v", rec), "buildScanControlsContainer")
+		}
+	}()
 	portClassHint := widget.NewLabel("Системные (Well-Known) 0–1023 — резерв под известные и системные службы; для части портов нужны права администратора. Примеры: 21 FTP, 22 SSH, 25 SMTP, 53 DNS, 80 HTTP, 443 HTTPS. " +
 		"Зарегистрированные (Registered) 1024–49151 — назначения IANA для приложений (например 1433 MSSQL, 3306 MySQL, 8080 HTTP-alt). " +
 		"Динамические/частные (Dynamic/Private) 49152–65535 — эфемерные и частные порты.")
@@ -404,14 +429,19 @@ func (a *App) buildResultsContainer() *fyne.Container {
 
 // buildScanTabContent создаёт содержимое вкладки сканирования
 func (a *App) buildScanTabContent() fyne.CanvasObject {
+	logger.LogDebug("[buildScanTabContent] Начало, defer установлен")
+	logger.LogDebug("[buildScanTabContent] Вызываю buildScanControlsContainer")
 	scanControlsScroll := a.buildScanControlsContainer()
-	scanControlsScroll.SetMinSize(fyne.NewSize(0, 180))
-
+	logger.LogDebug("[buildScanTabContent] buildScanControlsContainer завершена")
+	logger.LogDebug("[buildScanTabContent] Вызываю buildResultsContainer")
 	resultsContainer := a.buildResultsContainer()
-
+	logger.LogDebug("[buildScanTabContent] buildResultsContainer завершена")
+	logger.LogDebug("[buildScanTabContent] Создаю scanTabMainSplit")
 	// Вкладка сканирования: верх/низ с перетаскиваемой границей
 	a.scanTabMainSplit = container.NewVSplit(scanControlsScroll, resultsContainer)
+	logger.LogDebug("[buildScanTabContent] scanTabMainSplit создан")
 	a.scanTabMainSplit.Offset = 0.35
+	logger.LogDebug("[buildScanTabContent] offset установлен")
 
 	return a.scanTabMainSplit
 }

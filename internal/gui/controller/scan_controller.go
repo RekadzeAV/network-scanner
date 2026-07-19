@@ -303,6 +303,13 @@ func (c *ScanController) RefreshPresetUI() {
 
 // StartScan запускает сканирование сети
 func (c *ScanController) StartScan(results []scanner.Result) {
+	logger.LogDebug("[StartScan] Начало, results len=%d", len(results))
+	defer func() {
+		if rec := recover(); rec != nil {
+			logger.LogError(fmt.Errorf("PANIC в StartScan: %v", rec), "StartScan")
+		}
+	}()
+
 	c.results = make([]interface{}, len(results))
 	for i, r := range results {
 		c.results[i] = r
@@ -313,6 +320,7 @@ func (c *ScanController) StartScan(results []scanner.Result) {
 
 	// Определяем сеть
 	networkStr := c.ui.NetworkEntry.Text
+	logger.LogDebug("[StartScan] networkEntry.Text='%s'", networkStr)
 	if networkStr == "" {
 		logger.Log("Автоматическое определение сети...")
 		logger.LogDebug("Поле сети пустое, начинаем автоматическое определение")
@@ -333,6 +341,10 @@ func (c *ScanController) StartScan(results []scanner.Result) {
 		logger.Log("Использована указанная сеть: %s", networkStr)
 		logger.LogDebug("Сеть указана пользователем в поле ввода")
 	}
+	if c.actions == nil {
+		logger.LogError(fmt.Errorf("actions nil — сканирование отменено"), "StartScan")
+		return
+	}
 	if hosts, err := network.EstimateHostCount(networkStr); err == nil && hosts >= largeSubnetWarnHostGUI && !c.actions.ConfirmLargeScanBypass() {
 		dialog.NewConfirm(
 			"Предупреждение о крупной подсети",
@@ -350,6 +362,7 @@ func (c *ScanController) StartScan(results []scanner.Result) {
 		return
 	}
 	c.actions.SetConfirmLargeScanBypass(false)
+	logger.LogDebug("[StartScan] Проверка threads")
 	if c.ui.ThreadsEntry != nil {
 		threads := 50
 		if v, err := strconv.Atoi(strings.TrimSpace(c.ui.ThreadsEntry.Text)); err == nil && v > 0 {
@@ -366,6 +379,7 @@ func (c *ScanController) StartScan(results []scanner.Result) {
 			c.ui.StatusLabel.SetText(fmt.Sprintf("Параметр threads скорректирован до %d", maxScanThreadsGUI))
 		}
 	}
+	logger.LogDebug("[StartScan] Применение autoProfile")
 	autoProfileEnabled := true
 	autoProfileNote := ""
 	if c.ui.AutoProfileCheck != nil {
@@ -394,11 +408,12 @@ func (c *ScanController) StartScan(results []scanner.Result) {
 			autoProfileNote = profileNote
 		}
 	}
-
+	logger.LogDebug("[StartScan] Вызов ApplyScanRunStart")
 	c.actions.ApplyScanRunStart(autoProfileNote)
-
+	logger.LogDebug("[StartScan] Вычисление таймаута")
 	scanUITimeout := estimateScanUITimeout(networkStr, strings.TrimSpace(c.ui.PortRangeEntry.Text), strings.TrimSpace(c.ui.TimeoutEntry.Text), strings.TrimSpace(c.ui.ThreadsEntry.Text), c.ui.ScanTCPPortsCheck.Checked, c.ui.ScanUDPCheck.Checked)
 	logger.LogDebug("GUI таймаут сканирования: %v", scanUITimeout)
+	logger.LogDebug("[StartScan] Создание workerCfg")
 	timeoutSec := 2
 	if v, err := strconv.Atoi(strings.TrimSpace(c.ui.TimeoutEntry.Text)); err == nil && v > 0 {
 		timeoutSec = v
@@ -423,8 +438,10 @@ func (c *ScanController) StartScan(results []scanner.Result) {
 		OSDetectActive: c.ui.ScanOSActiveCheck != nil && c.ui.ScanOSActiveCheck.Checked,
 		VerbosePortLog: c.ui.ScanVerboseLogsCheck != nil && c.ui.ScanVerboseLogsCheck.Checked,
 	}
+	logger.LogDebug("[StartScan] Создание runner")
 	runner := scand.NewRunner()
 	c.runner = runner
+	logger.LogDebug("[StartScan] Запуск runner.Start")
 	if err := runner.Start(workerCfg); err != nil {
 		c.ui.StatusLabel.SetText("Не удалось запустить сканирование: " + err.Error())
 		c.ui.ResultsStateLabel.SetText(resultsStateStopped)

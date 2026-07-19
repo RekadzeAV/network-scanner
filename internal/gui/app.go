@@ -454,103 +454,8 @@ func NewApp() *App {
 	})
 	app.services = NewAppServices(container)
 
-	// Инициализация контроллеров (H2 Refactoring)
-	app.scanCtrl = controller.NewScanController(myApp, &controller.ScanUI{
-		NetworkEntry:         app.networkEntry,
-		PortRangeEntry:       app.portRangeEntry,
-		TimeoutEntry:         app.timeoutEntry,
-		ThreadsEntry:         app.threadsEntry,
-		ScanUDPCheck:         app.scanUDPCheck,
-		ScanBannersCheck:     app.scanBannersCheck,
-		ScanOSActiveCheck:    app.scanOSActiveCheck,
-		ScanVerboseLogsCheck: app.scanVerboseLogsCheck,
-		ScanTCPPortsCheck:    app.scanTCPPortsCheck,
-		AutoProfileCheck:     app.autoProfileCheck,
-		StatusLabel:          app.statusLabel,
-		RecommendedBadge:     app.recommendedProfileBadge,
-		PresetQuickBtn:       app.presetQuickBtn,
-		PresetBalBtn:         app.presetBalBtn,
-		PresetDeepBtn:        app.presetDeepBtn,
-		RecommendedBtn:       app.recommendedProfileBtn,
-		ScanButton:           app.scanButton,
-		StopButton:           app.stopButton,
-		StageLabel:           app.stageLabel,
-		ProgressBar:          app.progressBar,
-		ResultsStateLabel:    app.resultsStateLabel,
-		CopyDiagnosticsBtn:   app.copyDiagnosticsBtn,
-		SaveDiagnosticsBtn:   app.saveDiagnosticsBtn,
-		MainToolbar:          app.mainToolbar,
-		Window:               app.myWindow,
-	}, app)
-	app.resultsCtrl = controller.NewResultsController(myApp, &controller.ResultsUI{
-		ResultsModeSel:       app.resultsModeSel,
-		ResultsSubModeSel:    app.resultsSubModeSel,
-		ResultsSortSel:       app.resultsSortSel,
-		ResultsFilterEnt:     app.resultsFilterEnt,
-		ResultsCidrFilterEnt: app.resultsCidrFilterEnt,
-		ResultsPortStateSel:  app.resultsPortStateSel,
-		ChipLimitSel:         app.chipLimitSel,
-		ShowRawBannersCheck:  app.showRawBannersCheck,
-		OpenPortsOnlyCheck:   app.openPortsOnlyCheck,
-		QuickTypeChecks:      app.quickTypeChecks,
-		StatusLabel:          app.statusLabel,
-	})
-	app.topoCtrl = controller.NewTopologyController(myApp, &controller.TopologyUI{
-		SNMPCommEntry:     app.snmpCommEntry,
-		SNMPTimeoutEnt:    app.snmpTimeoutEnt,
-		BuildTopoBtn:      app.buildTopoBtn,
-		StopTopoBtn:       app.stopTopoBtn,
-		SaveTopoBtn:       app.saveTopoBtn,
-		CopyPerfBtn:       app.copyPerfBtn,
-		SavePerfBtn:       app.savePerfBtn,
-		TopoText:          app.topologyText,
-		TopoStatus:        app.topologyStatus,
-		SNMPStageLabel:    app.snmpStageLabel,
-		SNMPProgress:      app.snmpProgress,
-		TopoSearchEntry:   app.topologySearchEntry,
-		TopoTypeFilterSel: app.topologyTypeFilterSel,
-		TopoConfFilterSel: app.topologyConfidenceFilterSel,
-		TopoResetMapBtn:   app.topologyResetMapBtn,
-		TopoGraphStatus:   app.topologyGraphStatus,
-		TopoImage:         app.topologyImage,
-		ZoomSelect:        app.zoomSelect,
-		RefreshPreviewBtn: app.refreshPreviewBtn,
-		OpenPreviewBtn:    app.openPreviewBtn,
-	})
-	app.toolsCtrl = controller.NewToolsController(myApp, &controller.ToolsUI{
-		HostEntry:           app.toolsHostEntry,
-		PingCountEnt:        app.toolsPingCountEnt,
-		TimeoutEnt:          app.toolsTimeoutEnt,
-		TraceHopsEnt:        app.toolsTraceHopsEnt,
-		DNSResolverEnt:      app.toolsDNSResolverEnt,
-		WOLMacEntry:         app.toolsWOLMacEntry,
-		WOLBcastEntry:       app.toolsWOLBcastEntry,
-		WOLIfaceEntry:       app.toolsWOLIfaceEntry,
-		DeviceTargetEntry:   app.toolsDeviceTargetEntry,
-		DeviceVendorEntry:   app.toolsDeviceVendorEntry,
-		DeviceUserEntry:     app.toolsDeviceUserEntry,
-		DevicePassEntry:     app.toolsDevicePassEntry,
-		AuditMinSeveritySel: app.toolsAuditMinSeveritySel,
-		PingBtn:             app.toolsPingBtn,
-		TraceBtn:            app.toolsTraceBtn,
-		DNSBtn:              app.toolsDNSBtn,
-		WhoisBtn:            app.toolsWhoisBtn,
-		WiFiBtn:             app.toolsWiFiBtn,
-		AuditBtn:            app.toolsAuditBtn,
-		RiskBtn:             app.toolsRiskBtn,
-		WOLBtn:              app.toolsWOLBtn,
-		DeviceStatusBtn:     app.toolsDeviceStatusBtn,
-		DeviceRebootBtn:     app.toolsDeviceRebootBtn,
-		ToolsOutput:         app.toolsOutput,
-		OperationsOutput:    app.operationsOutput,
-		OperationsSelect:    app.operationsSelect,
-		OperationsRetryBtn:  app.operationsRetryBtn,
-		OperationsCancelBtn: app.operationsCancelBtn,
-		StatusLabel:         app.statusLabel,
-	})
-	app.settingsMgr = controller.NewSettingsManager(myApp)
-
 	app.initUI()
+	app.initControllers() // ← Инициализация ПОСЛЕ создания UI
 	app.setupEventHandlers()
 	app.loadScanSettings()
 	app.autoDetectNetwork()
@@ -558,6 +463,104 @@ func NewApp() *App {
 	logger.Log("GUI приложение инициализировано")
 
 	return app
+}
+
+// initControllers инициализирует контроллеры после создания UI виджетов
+func (a *App) initControllers() {
+	a.scanCtrl = controller.NewScanController(a.myApp, &controller.ScanUI{
+		NetworkEntry:         a.networkEntry,
+		PortRangeEntry:       a.portRangeEntry,
+		TimeoutEntry:         a.timeoutEntry,
+		ThreadsEntry:         a.threadsEntry,
+		ScanUDPCheck:         a.scanUDPCheck,
+		ScanBannersCheck:     a.scanBannersCheck,
+		ScanOSActiveCheck:    a.scanOSActiveCheck,
+		ScanVerboseLogsCheck: a.scanVerboseLogsCheck,
+		ScanTCPPortsCheck:    a.scanTCPPortsCheck,
+		AutoProfileCheck:     a.autoProfileCheck,
+		StatusLabel:          a.statusLabel,
+		RecommendedBadge:     a.recommendedProfileBadge,
+		PresetQuickBtn:       a.presetQuickBtn,
+		PresetBalBtn:         a.presetBalBtn,
+		PresetDeepBtn:        a.presetDeepBtn,
+		RecommendedBtn:       a.recommendedProfileBtn,
+		ScanButton:           a.scanButton,
+		StopButton:           a.stopButton,
+		StageLabel:           a.stageLabel,
+		ProgressBar:          a.progressBar,
+		ResultsStateLabel:    a.resultsStateLabel,
+		CopyDiagnosticsBtn:   a.copyDiagnosticsBtn,
+		SaveDiagnosticsBtn:   a.saveDiagnosticsBtn,
+		MainToolbar:          a.mainToolbar,
+		Window:               a.myWindow,
+	}, a)
+	a.resultsCtrl = controller.NewResultsController(a.myApp, &controller.ResultsUI{
+		ResultsModeSel:       a.resultsModeSel,
+		ResultsSubModeSel:    a.resultsSubModeSel,
+		ResultsSortSel:       a.resultsSortSel,
+		ResultsFilterEnt:     a.resultsFilterEnt,
+		ResultsCidrFilterEnt: a.resultsCidrFilterEnt,
+		ResultsPortStateSel:  a.resultsPortStateSel,
+		ChipLimitSel:         a.chipLimitSel,
+		ShowRawBannersCheck:  a.showRawBannersCheck,
+		OpenPortsOnlyCheck:   a.openPortsOnlyCheck,
+		QuickTypeChecks:      a.quickTypeChecks,
+		StatusLabel:          a.statusLabel,
+	})
+	a.topoCtrl = controller.NewTopologyController(a.myApp, &controller.TopologyUI{
+		SNMPCommEntry:     a.snmpCommEntry,
+		SNMPTimeoutEnt:    a.snmpTimeoutEnt,
+		BuildTopoBtn:      a.buildTopoBtn,
+		StopTopoBtn:       a.stopTopoBtn,
+		SaveTopoBtn:       a.saveTopoBtn,
+		CopyPerfBtn:       a.copyPerfBtn,
+		SavePerfBtn:       a.savePerfBtn,
+		TopoText:          a.topologyText,
+		TopoStatus:        a.topologyStatus,
+		SNMPStageLabel:    a.snmpStageLabel,
+		SNMPProgress:      a.snmpProgress,
+		TopoSearchEntry:   a.topologySearchEntry,
+		TopoTypeFilterSel: a.topologyTypeFilterSel,
+		TopoConfFilterSel: a.topologyConfidenceFilterSel,
+		TopoResetMapBtn:   a.topologyResetMapBtn,
+		TopoGraphStatus:   a.topologyGraphStatus,
+		TopoImage:         a.topologyImage,
+		ZoomSelect:        a.zoomSelect,
+		RefreshPreviewBtn: a.refreshPreviewBtn,
+		OpenPreviewBtn:    a.openPreviewBtn,
+	})
+	a.toolsCtrl = controller.NewToolsController(a.myApp, &controller.ToolsUI{
+		HostEntry:           a.toolsHostEntry,
+		PingCountEnt:        a.toolsPingCountEnt,
+		TimeoutEnt:          a.toolsTimeoutEnt,
+		TraceHopsEnt:        a.toolsTraceHopsEnt,
+		DNSResolverEnt:      a.toolsDNSResolverEnt,
+		WOLMacEntry:         a.toolsWOLMacEntry,
+		WOLBcastEntry:       a.toolsWOLBcastEntry,
+		WOLIfaceEntry:       a.toolsWOLIfaceEntry,
+		DeviceTargetEntry:   a.toolsDeviceTargetEntry,
+		DeviceVendorEntry:   a.toolsDeviceVendorEntry,
+		DeviceUserEntry:     a.toolsDeviceUserEntry,
+		DevicePassEntry:     a.toolsDevicePassEntry,
+		AuditMinSeveritySel: a.toolsAuditMinSeveritySel,
+		PingBtn:             a.toolsPingBtn,
+		TraceBtn:            a.toolsTraceBtn,
+		DNSBtn:              a.toolsDNSBtn,
+		WhoisBtn:            a.toolsWhoisBtn,
+		WiFiBtn:             a.toolsWiFiBtn,
+		AuditBtn:            a.toolsAuditBtn,
+		RiskBtn:             a.toolsRiskBtn,
+		WOLBtn:              a.toolsWOLBtn,
+		DeviceStatusBtn:     a.toolsDeviceStatusBtn,
+		DeviceRebootBtn:     a.toolsDeviceRebootBtn,
+		ToolsOutput:         a.toolsOutput,
+		OperationsOutput:    a.operationsOutput,
+		OperationsSelect:    a.operationsSelect,
+		OperationsRetryBtn:  a.operationsRetryBtn,
+		OperationsCancelBtn: a.operationsCancelBtn,
+		StatusLabel:         a.statusLabel,
+	})
+	a.settingsMgr = controller.NewSettingsManager(a.myApp)
 }
 
 // initUI инициализирует все элементы интерфейса
@@ -801,27 +804,33 @@ func (a *App) initUI() {
 		}
 	}
 
-	// Тулбар с основными действиями — виден всегда, включая fullscreen режим.
-	// На Windows Fyne рендерит MainMenu в системной заголовочной панели,
-	// которая скрывается при переходе в fullscreen. Используем горизонтальный контейнер.
+	// Тулбар с основными действиями
 	a.mainToolbar = container.NewHBox(
 		widget.NewSeparator(),
 		widget.NewButton("▶ Сканирование", func() {
-			a.scanCtrl.StartScan(a.scanResults)
+			if a.scanCtrl != nil {
+				a.scanCtrl.StartScan(a.scanResults)
+			}
 		}),
 		widget.NewButton("⏹ Стоп", func() {
-			a.scanCtrl.StopScan()
+			if a.scanCtrl != nil {
+				a.scanCtrl.StopScan()
+			}
 		}),
 		widget.NewSeparator(),
 		widget.NewButton("💾 Сохранить", func() {
 			a.saveResults()
 		}),
 		widget.NewButton("🗺 Топология", func() {
-			a.topoCtrl.BuildTopology(a.scanResults, a.myWindow)
+			if a.topoCtrl != nil {
+				a.topoCtrl.BuildTopology(a.scanResults, a.myWindow)
+			}
 		}),
 		widget.NewSeparator(),
 		widget.NewButton("↺ Сброс UI", func() {
-			a.settingsMgr.ResetUIPanelLayoutWithFeedback(a.scanTabMainSplit, a.topologyMainSplit, a.toolsTabMainSplit, a.myWindow)
+			if a.settingsMgr != nil {
+				a.settingsMgr.ResetUIPanelLayoutWithFeedback(a.scanTabMainSplit, a.topologyMainSplit, a.toolsTabMainSplit, a.myWindow)
+			}
 		}),
 	)
 	a.mainToolbar.Show()
