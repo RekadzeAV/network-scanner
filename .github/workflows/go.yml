@@ -127,3 +127,55 @@ jobs:
           grep -E "^Benchmark|^PASS|^ok" "$f" | head -20
           echo ""
         done
+
+  d-track-smoke:
+    runs-on: ubuntu-latest
+    name: D-Track Smoke Tests
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: D4 — Feature Flags Smoke
+      run: |
+        echo "Testing feature flags system..."
+        go test -v -cover ./internal/features/... -run "DefaultFlags|StatusReport|Concurrency"
+
+    - name: D1 — Topology Deduplication Smoke
+      run: |
+        echo "Testing topology deduplication..."
+        go test -v -cover ./internal/topology/... -run "Dedup|Explain|Replace|SourceType"
+
+    - name: D1 — Text Export Smoke
+      run: |
+        echo "Testing text export fallback..."
+        go test -v -cover ./internal/topology/... -run "Text|SaveAsText"
+
+    - name: D1 — Topology Validation Smoke
+      run: |
+        echo "Testing topology validation..."
+        go test -v -cover ./internal/topology/... -run "Validate"
+
+    - name: D-Track Summary
+      run: |
+        echo "=== D-Track Smoke Summary ==="
+        echo "✅ Feature Flags (D4): OK"
+        echo "✅ Topology Deduplication (D1): OK"
+        echo "✅ Text Export Fallback (D1): OK"
+        echo "✅ Topology Validation (D1): OK"
+        echo ""
+        echo "All D-Track smoke tests passed."

@@ -1,0 +1,33 @@
+[Unit]
+Description=Network Scanner - Network Discovery Service
+Documentation=https://github.com/network-scanner/network-scanner
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/network-scanner scan --snmp --topology --security
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=network-scanner
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/network-scanner /var/log/network-scanner
+PrivateTmp=true
+
+# User/Group
+User=root
+Group=root
+
+# Environment
+Environment=GOLOG_FORMAT=json
+Environment=NETWORK_SCANNER_LOG_LEVEL=info
+
+[Install]
+WantedBy=multi-user.target

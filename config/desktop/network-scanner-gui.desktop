@@ -1,0 +1,19 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Network Scanner
+GenericName=Network Scanner
+Comment=Advanced network discovery and security analysis tool
+Exec=/usr/local/bin/network-scanner-gui %U
+Icon=network-scanner
+Terminal=false
+Categories=Network;System;Security;Utility;
+Keywords=network;scanner;security;snmp;topology;
+MimeType=x-scheme-handler/network;
+
+# Startup notification
+StartupNotify=true
+
+# Desktop file metadata
+X-KDE-SubstituteUID=false
+X-GNOME-FullName=Network Scanner GUI

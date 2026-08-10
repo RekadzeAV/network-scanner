@@ -312,7 +312,16 @@ func (t *Topology) ToDOT(w io.Writer) error {
 	_, _ = fmt.Fprintln(w, "graph network {")
 	_, _ = fmt.Fprintln(w, `  rankdir="LR";`)
 	_, _ = fmt.Fprintln(w, `  node [shape=box, style="rounded,filled", fillcolor="#eef4ff"];`)
-	for _, d := range t.Devices {
+
+	// Сортируем узлы для детерминированного вывода.
+	nodeIDs := make([]string, 0, len(t.Devices))
+	for id := range t.Devices {
+		nodeIDs = append(nodeIDs, id)
+	}
+	sort.Strings(nodeIDs)
+
+	for _, id := range nodeIDs {
+		d := t.Devices[id]
 		label := deviceDisplayName(d)
 		_, _ = fmt.Fprintf(w, "  %q [label=%q];\n", nodeID(d), label)
 	}
@@ -424,6 +433,86 @@ func (t *Topology) SaveGraphML(filename string) error {
 	return os.WriteFile(filename, append([]byte(xml.Header), raw...), 0644)
 }
 
+// SaveGraphMLToBytes marshals topology to GraphML XML bytes (without file write).
+func (t *Topology) SaveGraphMLToBytes() ([]byte, error) {
+	type Key struct {
+		ID       string `xml:"id,attr"`
+		For      string `xml:"for,attr"`
+		AttrName string `xml:"attr.name,attr,omitempty"`
+		AttrType string `xml:"attr.type,attr,omitempty"`
+	}
+	type Data struct {
+		Key   string `xml:"key,attr"`
+		Value string `xml:",chardata"`
+	}
+	type Node struct {
+		ID   string `xml:"id,attr"`
+		Data []Data `xml:"data"`
+	}
+	type Edge struct {
+		ID     string `xml:"id,attr"`
+		Source string `xml:"source,attr"`
+		Target string `xml:"target,attr"`
+		Data   []Data `xml:"data"`
+	}
+	type Graph struct {
+		XMLName xml.Name `xml:"graph"`
+		ID      string   `xml:"id,attr"`
+		EdgeDef string   `xml:"edgedefault,attr"`
+		Nodes   []Node   `xml:"node"`
+		Edges   []Edge   `xml:"edge"`
+	}
+	type GraphML struct {
+		XMLName xml.Name `xml:"graphml"`
+		Xmlns   string   `xml:"xmlns,attr"`
+		Keys    []Key    `xml:"key"`
+		Graph   Graph    `xml:"graph"`
+	}
+
+	g := Graph{ID: "network", EdgeDef: "undirected"}
+	for _, d := range t.Devices {
+		g.Nodes = append(g.Nodes, Node{
+			ID: nodeID(d),
+			Data: []Data{
+				{Key: "label", Value: deviceDisplayName(d)},
+				{Key: "type", Value: string(d.Type)},
+			},
+		})
+	}
+	for i, l := range t.Links {
+		g.Edges = append(g.Edges, Edge{
+			ID:     fmt.Sprintf("e%d", i+1),
+			Source: nodeID(l.Source),
+			Target: nodeID(l.Target),
+			Data: []Data{
+				{Key: "src_port", Value: portLabel(l.SourcePort)},
+				{Key: "dst_port", Value: portLabel(l.TargetPort)},
+				{Key: "source_type", Value: string(l.SourceType)},
+				{Key: "confidence", Value: string(l.Confidence)},
+				{Key: "evidence", Value: strings.TrimSpace(l.Evidence)},
+			},
+		})
+	}
+	keys := []Key{
+		{ID: "label", For: "node", AttrName: "label", AttrType: "string"},
+		{ID: "type", For: "node", AttrName: "type", AttrType: "string"},
+		{ID: "src_port", For: "edge", AttrName: "src_port", AttrType: "string"},
+		{ID: "dst_port", For: "edge", AttrName: "dst_port", AttrType: "string"},
+		{ID: "source_type", For: "edge", AttrName: "source_type", AttrType: "string"},
+		{ID: "confidence", For: "edge", AttrName: "confidence", AttrType: "string"},
+		{ID: "evidence", For: "edge", AttrName: "evidence", AttrType: "string"},
+	}
+	raw, err := xml.MarshalIndent(GraphML{
+		Xmlns: "http://graphml.graphdrawing.org/xmlns",
+		Keys:  keys,
+		Graph: g,
+	}, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal graphml: %w", err)
+	}
+	return append([]byte(xml.Header), raw...), nil
+}
+
 // Validate валидирует топологию: проверяет целостность устройств и связей.
 func (t *Topology) Validate() error {
 	if t == nil {
@@ -489,6 +578,275 @@ func (t *Topology) RenderWithGraphviz(outputFormat, outputFile string) error {
 	return nil
 }
 
+// SaveAsText экспортирует топологию в человекочитаемый текстовый формат.
+// Используется как fallback, когда Graphviz недоступен.
+func (t *Topology) SaveAsText(filename string) error {
+	if err := t.Validate(); err != nil {
+		return fmt.Errorf("topology validation failed: %w", err)
+	}
+
+	f, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("create text file: %w", err)
+	}
+	defer f.Close()
+
+	return t.WriteText(f)
+}
+
+// WriteText записывает топологию в текстовом формате в заданный writer.
+func (t *Topology) WriteText(w io.Writer) error {
+	if t == nil {
+		return fmt.Errorf("topology is nil")
+	}
+
+	fmt.Fprintln(w, "═", strings.Repeat("═", 60))
+	fmt.Fprintln(w, "  Network Topology Report")
+	fmt.Fprintln(w, "═", strings.Repeat("═", 60))
+	fmt.Fprintln(w)
+
+	// Секция устройств
+	fmt.Fprintln(w, "── DEVICES ──", strings.Repeat("─", 50))
+	for key, d := range t.Devices {
+		fmt.Fprintf(w, "\n  [%s]\n", key)
+		fmt.Fprintf(w, "    IP:          %s\n", d.IP)
+		fmt.Fprintf(w, "    MAC:         %s\n", d.MAC)
+		fmt.Fprintf(w, "    Hostname:    %s\n", d.Hostname)
+		fmt.Fprintf(w, "    Type:        %s\n", d.Type)
+		fmt.Fprintf(w, "    SNMP:        %v\n", d.SNMPEnabled)
+
+		if len(d.Ports) > 0 {
+			fmt.Fprintln(w, "    Ports:")
+			for _, p := range d.Ports {
+				label := portLabel(&p)
+				fmt.Fprintf(w, "      - %s", label)
+				if p.Neighbor != nil {
+					fmt.Fprintf(w, " → %s", deviceDisplayName(p.Neighbor))
+				}
+				if p.NeighborPort != "" {
+					fmt.Fprintf(w, " (port: %s)", p.NeighborPort)
+				}
+				fmt.Fprintln(w)
+			}
+		}
+
+		if len(d.LldpNeighbors) > 0 {
+			fmt.Fprintln(w, "    LLDP Neighbors:")
+			for _, n := range d.LldpNeighbors {
+				fmt.Fprintf(w, "      - if%d → chassis=%s port=%s sys=%s\n",
+					n.LocalIfIndex,
+					n.RemoteChassisID,
+					n.RemotePortID,
+					n.RemoteSysName,
+				)
+			}
+		}
+
+		if len(d.MacTable) > 0 {
+			fmt.Fprintln(w, "    MAC Table:")
+			for mac, ifIdx := range d.MacTable {
+				fmt.Fprintf(w, "      - if%d → %s\n", ifIdx, mac)
+			}
+		}
+	}
+
+	// Секция связей
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "── LINKS ──", strings.Repeat("─", 50))
+	for i, l := range t.Links {
+		srcName := deviceDisplayName(l.Source)
+		dstName := deviceDisplayName(l.Target)
+		srcPort := portLabel(l.SourcePort)
+		dstPort := portLabel(l.TargetPort)
+
+		fmt.Fprintf(w, "\n  [%d] %s", i+1, strings.Repeat("─", 45))
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "      %s", srcName)
+		if srcPort != "" {
+			fmt.Fprintf(w, " (%s)", srcPort)
+		}
+		fmt.Fprint(w, "  ──►  ")
+		fmt.Fprint(w, dstName)
+		if dstPort != "" {
+			fmt.Fprintf(w, " (%s)", dstPort)
+		}
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "      Source: %s | Confidence: %s\n", l.SourceType, l.Confidence)
+		if l.Evidence != "" {
+			fmt.Fprintf(w, "      Evidence: %s\n", l.Evidence)
+		}
+	}
+
+	// Статистика
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "── SUMMARY ──", strings.Repeat("─", 50))
+	fmt.Fprintf(w, "  Devices: %d\n", len(t.Devices))
+	fmt.Fprintf(w, "  Links:   %d\n", len(t.Links))
+
+	sourceCounts := make(map[LinkSourceType]int)
+	confCounts := make(map[LinkConfidence]int)
+	for _, l := range t.Links {
+		sourceCounts[l.SourceType]++
+		confCounts[l.Confidence]++
+	}
+	fmt.Fprintln(w, "  By source:")
+	for st, count := range sourceCounts {
+		fmt.Fprintf(w, "    %s: %d\n", st, count)
+	}
+	fmt.Fprintln(w, "  By confidence:")
+	for c, count := range confCounts {
+		fmt.Fprintf(w, "    %s: %d\n", c, count)
+	}
+
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "═", strings.Repeat("═", 60))
+	return nil
+}
+
+// linkDedupRule описывает решение, принятое при дедупликации связи.
+type linkDedupRule struct {
+	action    string // "created", "replaced", "skipped", "kept"
+	reason    string
+	oldSource LinkSourceType
+	newSource LinkSourceType
+	oldConf   LinkConfidence
+	newConf   LinkConfidence
+}
+
+// dedupDecision хранит результат дедупликации для отладки/аналитики.
+type dedupDecision struct {
+	LinksCount int             `json:"links_count"`
+	Decisions  []linkDedupRule `json:"decisions,omitempty"`
+}
+
+// DedupReport возвращает отчёт о дедупликации связей.
+func (t *Topology) DedupReport() string {
+	if t == nil {
+		return "Topology Deduplication Report:\n  (nil topology)\n"
+	}
+	report := "Topology Deduplication Report:\n"
+	report += "  Total devices: " + strconv.Itoa(len(t.Devices)) + "\n"
+	report += "  Total links: " + strconv.Itoa(len(t.Links)) + "\n"
+
+	sourceCounts := make(map[LinkSourceType]int)
+	confCounts := make(map[LinkConfidence]int)
+	for _, l := range t.Links {
+		sourceCounts[l.SourceType]++
+		confCounts[l.Confidence]++
+	}
+
+	report += "  By source type:\n"
+	for st, count := range sourceCounts {
+		report += "    " + string(st) + ": " + strconv.Itoa(count) + "\n"
+	}
+	report += "  By confidence:\n"
+	for c, count := range confCounts {
+		report += "    " + string(c) + ": " + strconv.Itoa(count) + "\n"
+	}
+
+	// Группировка по парам устройств
+	devicePairs := make(map[string]int)
+	for _, l := range t.Links {
+		pairKey := linkKey(nodeID(l.Source), "", nodeID(l.Target), "")
+		devicePairs[pairKey]++
+	}
+	multiLinkPairs := 0
+	for _, count := range devicePairs {
+		if count > 1 {
+			multiLinkPairs++
+		}
+	}
+	if multiLinkPairs > 0 {
+		report += "  Device pairs with multiple links: " + strconv.Itoa(multiLinkPairs) + "\n"
+	}
+
+	return report
+}
+
+// ExplainLink возвращает человеко-readable объяснение почему связь была построена.
+func (t *Topology) ExplainLink(index int) (string, bool) {
+	if index < 0 || index >= len(t.Links) {
+		return "", false
+	}
+	l := t.Links[index]
+	srcName := deviceDisplayName(l.Source)
+	dstName := deviceDisplayName(l.Target)
+
+	explain := "Связь #" + strconv.Itoa(index+1) + ":\n"
+	explain += "  Источник: " + srcName + " (" + l.Source.IP + ")"
+	if l.Source.MAC != "" {
+		explain += " [" + l.Source.MAC + "]"
+	}
+	explain += "\n  Целевое: " + dstName + " (" + l.Target.IP + ")"
+	if l.Target.MAC != "" {
+		explain += " [" + l.Target.MAC + "]"
+	}
+	explain += "\n  Источник связи: " + string(l.SourceType)
+	explain += "\n  Уверенность: " + string(l.Confidence)
+
+	switch l.SourceType {
+	case LinkSourceLLDP:
+		explain += "\n  Механизм: обнаружен через LLDP neighbor discovery"
+		if l.Evidence != "" {
+			explain += "\n  Подробности: " + l.Evidence
+		}
+	case LinkSourceFDB:
+		explain += "\n  Механизм: выведен из MAC-таблицы (FDB/CAM)"
+		if l.Evidence != "" {
+			explain += "\n  Подробности: " + l.Evidence
+		}
+	case LinkSourceInferred:
+		explain += "\n  Механизм: связь выведена эвристически (общая подсеть/открытые порты)"
+		if l.Evidence != "" {
+			explain += "\n  Подробности: " + l.Evidence
+		}
+	}
+
+	if l.SourcePort != nil && portLabel(l.SourcePort) != "" {
+		explain += "\n  Порт источника: " + portLabel(l.SourcePort)
+	}
+	if l.TargetPort != nil && portLabel(l.TargetPort) != "" {
+		explain += "\n  Порт целевого: " + portLabel(l.TargetPort)
+	}
+
+	return explain, true
+}
+
+// explainLLDPSource описывает почему связь была построена через LLDP.
+func explainLLDPSource(src *Device, dst *Device, portName, evidence string) string {
+	msg := "LLDP: " + deviceDisplayName(src)
+	if portName != "" {
+		msg += " → " + deviceDisplayName(dst) + " (порт " + portName + ")"
+	} else {
+		msg += " → " + deviceDisplayName(dst)
+	}
+	if evidence != "" {
+		msg += " | " + evidence
+	}
+	return msg
+}
+
+// explainFDBSource описывает почему связь была построена через FDB.
+func explainFDBSource(src *Device, dst *Device, mac, evidence string) string {
+	msg := "FDB/MAC-таблица: " + deviceDisplayName(src)
+	msg += " → " + deviceDisplayName(dst) + " (MAC " + mac + ")"
+	if evidence != "" {
+		msg += " | " + evidence
+	}
+	return msg
+}
+
+// explainInferredSource описывает почему связь была выведена эвристически.
+func explainInferredSource(src *Device, dst *Device, reason string) string {
+	msg := "Эвристика: " + deviceDisplayName(src) + " → " + deviceDisplayName(dst)
+	if reason != "" {
+		msg += " (" + reason + ")"
+	}
+	return msg
+}
+
+// addLinkWithDedup добавляет связь с расширенной дедупликацией и explain-логикой.
+// Приоритеты source_type: LLDP > FDB > Inferred (для той же пары устройств).
 func addLink(
 	dedup map[string]int,
 	byEndpoint map[string]int,
@@ -514,37 +872,67 @@ func addLink(
 		nodeID(dst), portLabel(dstPort),
 	)
 	endpointKey := linkKey(nodeID(src), "", nodeID(dst), "")
+
+	// Расширенный ключ для дедупликации по паре устройств (без портов).
+	// Позволяет сравнивать source_type для одной пары устройств.
+	endpointKeyFull := linkKey(
+		nodeID(src), portLabel(srcPort),
+		nodeID(dst), portLabel(dstPort),
+	)
+
+	// 1. Проверка точного совпадения (те же устройства + те же порты).
 	if existingIndex, ok := dedup[key]; ok {
 		existing := t.Links[existingIndex]
-		if confidenceRank(confidence) <= confidenceRank(existing.Confidence) {
-			return
-		}
-		t.Links[existingIndex] = Link{
-			Source:     src,
-			SourcePort: srcPort,
-			Target:     dst,
-			TargetPort: dstPort,
-			SourceType: sourceType,
-			Confidence: confidence,
-			Evidence:   evidence,
+		// Заменяем только если новая связь имеет более высокий приоритет или уверенность.
+		if shouldReplaceLink(existing, sourceType, confidence) {
+			t.Links[existingIndex] = Link{
+				Source:     src,
+				SourcePort: srcPort,
+				Target:     dst,
+				TargetPort: dstPort,
+				SourceType: sourceType,
+				Confidence: confidence,
+				Evidence:   evidence,
+			}
 		}
 		return
 	}
+
+	// 2. Проверка совпадения по паре устройств (без портов).
 	if existingIndex, ok := byEndpoint[endpointKey]; ok {
 		existing := t.Links[existingIndex]
 		existingSrcPort := strings.TrimSpace(portLabel(existing.SourcePort))
 		existingDstPort := strings.TrimSpace(portLabel(existing.TargetPort))
 		newSrcPort := strings.TrimSpace(portLabel(srcPort))
 		newDstPort := strings.TrimSpace(portLabel(dstPort))
+
 		existingHasFullPortPair := existingSrcPort != "" && existingDstPort != ""
 		newHasFullPortPair := newSrcPort != "" && newDstPort != ""
-		// Keep multiple links for the same devices only when both links have
-		// explicit port info and the port pairs differ.
-		if !(existingHasFullPortPair && newHasFullPortPair &&
-			(existingSrcPort != newSrcPort || existingDstPort != newDstPort)) {
-			if confidenceRank(confidence) <= confidenceRank(existing.Confidence) {
-				return
+
+		// Если у существующей и новой связи есть полные порты, и они различаются —
+		// разрешаем несколько связей для одной пары устройств (разные порты).
+		if existingHasFullPortPair && newHasFullPortPair &&
+			(existingSrcPort != newSrcPort || existingDstPort != newDstPort) {
+			// Разные порты — создаём новую связь.
+			// Но проверяем дедуп по полному ключу (с портами).
+			if _, ok := dedup[endpointKeyFull]; !ok {
+				t.Links = append(t.Links, Link{
+					Source:     src,
+					SourcePort: srcPort,
+					Target:     dst,
+					TargetPort: dstPort,
+					SourceType: sourceType,
+					Confidence: confidence,
+					Evidence:   evidence,
+				})
+				newIndex := len(t.Links) - 1
+				dedup[endpointKeyFull] = newIndex
 			}
+			return
+		}
+
+		// Тот же порт или без информации о порту — применяем дедуп по source_type.
+		if shouldReplaceLink(existing, sourceType, confidence) {
 			t.Links[existingIndex] = Link{
 				Source:     src,
 				SourcePort: srcPort,
@@ -557,7 +945,10 @@ func addLink(
 			dedup[key] = existingIndex
 			return
 		}
+		return
 	}
+
+	// 3. Новая связь — добавляем.
 	t.Links = append(t.Links, Link{
 		Source:     src,
 		SourcePort: srcPort,
@@ -569,8 +960,41 @@ func addLink(
 	})
 	newIndex := len(t.Links) - 1
 	dedup[key] = newIndex
+	dedup[endpointKeyFull] = newIndex
 	if _, exists := byEndpoint[endpointKey]; !exists {
 		byEndpoint[endpointKey] = newIndex
+	}
+}
+
+// shouldReplaceLink определяет, следует ли заменить существующую связь новой.
+// Приоритет: LLDP > FDB > Inferred. При равных source_type — по confidence.
+func shouldReplaceLink(existing Link, newSource LinkSourceType, newConf LinkConfidence) bool {
+	existingRank := sourceTypeRank(existing.SourceType)
+	newRank := sourceTypeRank(newSource)
+
+	if newRank > existingRank {
+		return true
+	}
+	if newRank < existingRank {
+		return false
+	}
+
+	// Равные source_type — сравниваем confidence.
+	return confidenceRank(newConf) > confidenceRank(existing.Confidence)
+}
+
+// sourceTypeRank возвращает приоритет типа источника связи.
+// Чем выше ранг, тем надёжнее источник.
+func sourceTypeRank(st LinkSourceType) int {
+	switch st {
+	case LinkSourceLLDP:
+		return 3 // LLDP — наиболее надёжный источник
+	case LinkSourceFDB:
+		return 2 // FDB/MAC-таблица — средний уровень
+	case LinkSourceInferred:
+		return 1 // Эвристика — наименее надёжный
+	default:
+		return 0
 	}
 }
 

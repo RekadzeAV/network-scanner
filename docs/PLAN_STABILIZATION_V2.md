@@ -283,6 +283,53 @@
 
 ---
 
+## 🟣 D-трек: Дополнительное улучшение качества
+
+**Дата начала:** 2026-08-09  
+**Текущий статус:** ✅ **ЗАВЕРШЕНО** (2026-08-10)
+
+### D1 — Topology hardening (SNMP + LLDP/FDB)
+
+| # | Подзадача | Описание | Статус |
+|---|-----------|----------|--------|
+| D1.1 | Расширенная дедупликация | Приоритеты source_type (LLDP > FDB > Inferred) + объединение evidence | ✅ Завершено |
+| D1.2 | ExplainLink | Человеко-readable объяснение для каждой связи | ✅ Завершено |
+| D1.3 | DedupReport | Отчёт о дедупликации (устройства, связи, source_type, confidence) | ✅ Завершено |
+| D1.4 | Text Export Fallback | `SaveAsText`/`WriteText` — текстовый экспорт без Graphviz | ✅ Завершено |
+| D1.5 | Integration кейсы | Partial SNMP, loop-like связи, mixed-vendor, large network | ✅ Завершено |
+
+**Итоговое покрытие `topology`: 87.0%** (+4.8% за D-трек)
+
+### D2 — Topology export hardening
+
+| # | Подзадача | Описание | Статус |
+|---|-----------|----------|--------|
+| D2.1 | JSON Schema Validation | Валидация JSON schema при экспорте (через feature-flag) | ✅ Завершено |
+| D2.2 | GraphML Equivalence | Smoke-тесты эквивалентности json ↔ graphml | ✅ Завершено |
+| D2.3 | Export Format Smoke | Тесты SaveJSON, SaveGraphML, SaveAsText, SaveGraphMLToBytes | ✅ Завершено |
+| D2.4 | yEd/Gephi Compatibility | Проверка совместимости GraphML с внешними инструментами | ✅ Завершено |
+| D2.5 | Golden Snapshots | Детерминированность DOT-вывода, roundtrip тесты, fallback PNG/SVG | ✅ Завершено |
+
+### D3 — GUI Results UX hardening
+
+| # | Подзадача | Описание | Статус |
+|---|-----------|----------|--------|
+| D3.1 | GUI-smoke Modes | Тесты sorted/filter/analytics для Table/Cards режимов | ✅ Завершено |
+| D3.2 | Visual Baseline | Тесты port chips (empty, basic, truncation, narrow/wide/medium) | ✅ Завершено |
+| D3.3 | Responsive UI | Тесты responsive для 3 размеров окна | ✅ Завершено |
+| D3.4 | Perf Budget | Бенчмарки и perf-budget (<1ms на 1000 results) | ✅ Завершено |
+| D3.5 | Cross-check Metrics | Тесты collectAnalytics, normalizeDeviceTypes consistency | ✅ Завершено |
+
+### D4 — Управление рисками внедрения
+
+| # | Подзадача | Описание | Статус |
+|---|-----------|----------|--------|
+| D4.1 | Feature Flags | `internal/features/flags.go` — система управления флагами (6 флагов) | ✅ Завершено (97.6% coverage) |
+| D4.2 | CI Smoke Profile | D-Track Smoke Tests job в `.github/workflows/go.yml` | ✅ Завершено |
+| D4.3 | Rollback Plan | `docs/ROLLBACK_PLAN_D_TRACK.md` — 4 уровня отката, smoke-профили, мониторинг | ✅ Завершено |
+
+---
+
 ## 📚 Справочные материалы
 
 - **Декомпозиция по платформам:** `docs/PLATFORM_DECOMPOSITION.md` — детальная разбивка задач Windows / Linux / macOS
