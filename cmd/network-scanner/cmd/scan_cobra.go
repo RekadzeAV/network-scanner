@@ -13,7 +13,6 @@ import (
 	"network-scanner/internal/builder"
 	"network-scanner/internal/contracts"
 	"network-scanner/internal/display"
-	"network-scanner/internal/gui"
 	"network-scanner/internal/network"
 	"network-scanner/internal/presenter"
 	"network-scanner/internal/scanner"
@@ -161,14 +160,14 @@ func RunScanCobra(c *cobra.Command, cfg builder.Config) error {
 	// Вывод результатов
 	internalResults := ConvertToInternalResults(results)
 	display.SetShowRawBanners(false)
-	
+
 	// JSON output
 	if jsonOutput {
 		jsonData, err := json.MarshalIndent(map[string]interface{}{
-			"network":    networkCIDR,
-			"hosts":      len(internalResults),
-			"scan_time":  time.Now().UTC().Format(time.RFC3339),
-			"results":    internalResults,
+			"network":   networkCIDR,
+			"hosts":     len(internalResults),
+			"scan_time": time.Now().UTC().Format(time.RFC3339),
+			"results":   internalResults,
 		}, "", "  ")
 		if err != nil {
 			return fmt.Errorf("ошибка формирования JSON: %w", err)
@@ -176,7 +175,7 @@ func RunScanCobra(c *cobra.Command, cfg builder.Config) error {
 		fmt.Println(string(jsonData))
 		return nil
 	}
-	
+
 	display.DisplayResults(internalResults)
 	display.DisplayAnalytics(internalResults)
 
@@ -325,15 +324,13 @@ var deviceControlCmd = &cobra.Command{
 	},
 }
 
-// guiCmd — запуск GUI
+// guiCmd — запуск GUI (только при сборке с тегом gui)
 var guiCmd = &cobra.Command{
 	Use:   "gui",
 	Short: "Запустить GUI приложение",
 	Long:  "Запуск графического интерфейса Network Scanner.",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Запуск GUI приложения...")
-		a := gui.NewApp()
-		a.Run()
+		RunGUI()
 	},
 }
 

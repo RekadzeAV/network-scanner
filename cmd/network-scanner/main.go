@@ -1,4 +1,4 @@
-﻿//go:build windows
+﻿//go:build !gui_only
 
 package main
 
