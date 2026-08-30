@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/gosnmp/gosnmp"
 )
 
 // BatchProcessor выполняет задачи батчами с ограничением параллелизма
@@ -106,15 +108,75 @@ func (p *BatchProcessor) resultsToSlice(results map[string]Result, tasks []Task)
 	return slice
 }
 
+// SNMPClient интерфейс для SNMP операций
+type SNMPClient interface {
+	Get(oid string) (string, error)
+	Close() error
+}
+
+// gosnmpClient обёртка над gosnmp
+type gosnmpClient struct {
+	conn *gosnmp.GoSNMP
+}
+
+// NewSNMPClient создаёт новый SNMP клиент
+func NewSNMPClient(host, community string, timeout time.Duration) (SNMPClient, error) {
+	if timeout <= 0 {
+		timeout = 2 * time.Second
+	}
+	c := &gosnmp.GoSNMP{
+		Target:    host,
+		Port:      161,
+		Community: community,
+		Version:   gosnmp.Version2c,
+		Timeout:   timeout,
+		Retries:   2,
+	}
+	if err := c.Connect(); err != nil {
+		return nil, fmt.Errorf("snmp connect to %s: %w", host, err)
+	}
+	return &gosnmpClient{conn: c}, nil
+}
+
+// Get выполняет SNMP GET запрос
+func (g *gosnmpClient) Get(oid string) (string, error) {
+	result, err := g.conn.Get([]string{oid})
+	if err != nil {
+		return "", fmt.Errorf("snmp get %s: %w", oid, err)
+	}
+	if len(result.Variables) == 0 {
+		return "", fmt.Errorf("empty response for %s", oid)
+	}
+	pdu := result.Variables[0]
+	switch v := pdu.Value.(type) {
+	case string:
+		return v, nil
+	case []byte:
+		return string(v), nil
+	default:
+		return fmt.Sprintf("%v", v), nil
+	}
+}
+
+// Close закрывает SNMP соединение
+func (g *gosnmpClient) Close() error {
+	if g.conn != nil && g.conn.Conn != nil {
+		return g.conn.Conn.Close()
+	}
+	return nil
+}
+
 // SNMPBatchProcessor специализированный процессор для SNMP
 type SNMPBatchProcessor struct {
 	BatchProcessor
+	timeout time.Duration
 }
 
 // NewSNMPBatchProcessor создаёт SNMP BatchProcessor
 func NewSNMPBatchProcessor() *SNMPBatchProcessor {
 	return &SNMPBatchProcessor{
 		BatchProcessor: *NewBatchProcessor(5, 20, 10*time.Second),
+		timeout:        2 * time.Second,
 	}
 }
 
@@ -133,7 +195,7 @@ type SNMPResponse struct {
 	Error error
 }
 
-// ProcessSNMPBatch выполняет батч SNMP запросов
+// ProcessSNMPBatch выполняет батч SNMP запросов с реальными SNMP запросами
 func (p *SNMPBatchProcessor) ProcessSNMPBatch(ctx context.Context, requests []SNMPRequest) []SNMPResponse {
 	tasks := make([]Task, len(requests))
 	for i, req := range requests {
@@ -145,11 +207,32 @@ func (p *SNMPBatchProcessor) ProcessSNMPBatch(ctx context.Context, requests []SN
 
 	results, _ := p.ProcessBatch(ctx, tasks, func(ctx context.Context, task Task) (interface{}, error) {
 		req := task.Payload.(SNMPRequest)
-		// TODO: реальный SNMP запрос
+
+		// Создаём SNMP клиент
+		client, err := NewSNMPClient(req.Host, req.Community, p.timeout)
+		if err != nil {
+			return SNMPResponse{
+				Host:  req.Host,
+				OID:   req.OID,
+				Error: err,
+			}, nil
+		}
+		defer client.Close()
+
+		// Выполняем SNMP GET запрос
+		value, err := client.Get(req.OID)
+		if err != nil {
+			return SNMPResponse{
+				Host:  req.Host,
+				OID:   req.OID,
+				Error: err,
+			}, nil
+		}
+
 		return SNMPResponse{
 			Host:  req.Host,
 			OID:   req.OID,
-			Value: "stub",
+			Value: value,
 		}, nil
 	})
 

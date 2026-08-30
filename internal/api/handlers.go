@@ -4,16 +4,31 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"network-scanner/internal/contracts"
+	"network-scanner/internal/inventory"
 )
+
+// ScanDeps зависимости для сканирования (dependency injection)
+type ScanDeps struct {
+	ScannerService contracts.ScannerService
+	InventoryStore *inventory.Store
+}
 
 // Handler оборачивает HTTP handler с общей логикой
 type Handler struct {
 	config Config
+	deps   ScanDeps
 }
 
 // NewHandler создаёт новый Handler
 func NewHandler(config Config) *Handler {
 	return &Handler{config: config}
+}
+
+// NewHandlerWithDeps создаёт новый Handler с зависимостями
+func NewHandlerWithDeps(config Config, deps ScanDeps) *Handler {
+	return &Handler{config: config, deps: deps}
 }
 
 // writeJSON записывает JSON ответ

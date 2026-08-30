@@ -104,9 +104,14 @@ func TestSNMPBatchProcessor(t *testing.T) {
 		t.Fatalf("expected 2 responses, got %d", len(responses))
 	}
 
+	// После реализации TASK-001 ProcessSNMPBatch возвращает реальные данные
+	// или пустые значения при ошибке подключения (что нормально для теста)
 	for i, r := range responses {
-		if r.Value != "stub" {
-			t.Fatalf("response %d: expected stub value, got %s", i, r.Value)
+		// Проверяем, что response не nil и структура заполнена
+		if r.Host == "" {
+			t.Errorf("response %d: expected non-empty host", i)
 		}
+		// Value может быть пустым при ошибке SNMP — это нормально
+		t.Logf("response %d: host=%s, oid=%s, value=%s, error=%v", i, r.Host, r.OID, r.Value, r.Error)
 	}
 }

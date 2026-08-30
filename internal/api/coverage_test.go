@@ -92,6 +92,7 @@ func TestHandleScanStatus_Found(t *testing.T) {
 }
 
 func TestHandleResults_NoResults(t *testing.T) {
+	resetScanStore()
 	cfg := DefaultConfig()
 	router := NewRouter(cfg)
 
@@ -114,6 +115,7 @@ func TestHandleResults_NoResults(t *testing.T) {
 }
 
 func TestHandleResults_WithCompletedScan(t *testing.T) {
+	resetScanStore()
 	cfg := DefaultConfig()
 	router := NewRouter(cfg)
 

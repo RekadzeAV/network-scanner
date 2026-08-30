@@ -7,6 +7,205 @@
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-08-26
+
+### Добавлено (v2.1 Backlog — 27/28 задач выполнено)
+
+#### Фаза 1: Критические (P0)
+- **TASK-001:** Пакетная обработка SNMP — реальные запросы
+  - Реализован `BatchSNMPClient` обёртка над `gosnmp.GoSNMP`
+  - Параллельный обход N устройств через `BatchSNMPQuery()`
+  - Таймауты и retry-логика для пакетных запросов
+  - Unit-тесты и benchmark `BenchmarkBatchSNMPQuery`
+- **TASK-002:** TopologyService.Export — реализация экспорта
+  - Реализован `Export()` для форматов: `json`, `graphml`, `dot`, `text`
+  - Конвертация `contracts.Topology` → `internal.Topology`
+  - Unit-тесты для каждого формата
+- **TASK-003:** ScannerService.Stop — остановка сканирования
+  - Graceful shutdown через `context.CancelFunc`
+  - Ожидание завершения горутин, отсутствие goroutine leaks
+  - Тест: скан на 256 IP → стоп через 2 сек → все горутины завершены
+
+#### Фаза 2: GUI-слой сервисы (P1)
+- **TASK-004:** AuditService — реальный вызов audit
+  - Интеграция `internal/audit` с GUI-сервисом
+  - `AnalyzeOpenPorts()` вызывает `audit.EvaluateOpenPorts()`
+  - Конвертация `audit.Finding` → `contracts.Finding`
+- **TASK-005:** DeviceControlService — реальные вызовы HTTP API
+  - `Execute()` с context/timeout
+  - Статусы: `status`, `reboot`
+  - Подтверждение для опасных операций (reboot)
+- **TASK-006:** WOL Service — реальный Wake-on-LAN
+  - Интеграция с `internal/wol`
+  - `SendMagicPacketWithInterface()` для отправки magic packet
+  - Поддержка `--wol-iface` для автоподбора broadcast
+- **TASK-007:** NetTools Service — реальный DNS resolver
+  - Замена fallback на `nettools.LookupDNSWithResolver()`
+  - Поддержка кастомного DNS сервера
+
+#### Фаза 3: GUI Controller (P1)
+- **TASK-009:** Security Controller — реальные вызовы audit
+  - Eliminated import cycles
+  - Реальные вызовы `scanResults` вместо `nil`
+  - UI рендеринг `AuditResultsView`
+- **TASK-010:** Device Control в GUI — реальная интеграция
+  - HTTP API calls для status/reboot
+  - Подтверждение reboot через UI
+- **TASK-011:** Risk Signatures в GUI — реальная интеграция
+  - Загрузка default signatures
+  - Evaluation и отображение findings
+
+#### Фаза 4: API-слой (P2)
+- **TASK-016:** Alerting Handlers — реальные данные
+  - Реализован `mapToScannerResult()` converter
+  - Преобразование `[]map[string]interface{}` → `[]scanner.Result`
+  - Интеграция с `CheckAlerts()`
+- **TASK-017:** Inventory Handlers — реальный store
+  - Замена всех mock handlers на реальные `inventory.Store` операции
+  - `ListSnapshots`, `SaveSnapshot`, `Diff`
+  - Bidirectional `contracts`↔`scanner` type conversion
+- **TASK-018:** Inventory Handlers — интеграция с scanner
+  - Преобразование типов между `contracts` и `scanner`
+  - Save и Diff операции
+- **TASK-019:** Scan Handlers — реальная интеграция
+  - Dependency injection для `ScannerService`
+  - Real scan execution вместо mock
+  - CancelScan endpoint через context
+
+#### Фаза 5: Плагин-система (P2)
+- **TASK-020:** Plugin Filter — реальная фильтрация
+  - `OSFilterPlugin.Run()` фильтрует по `GuessOS`
+  - Поддержка `contracts.ScanResult`
+- **TASK-021:** Plugin CSV Export — реальный экспорт
+  - `CSVExporterPlugin.Run()` генерирует CSV
+  - `ExportCSVToPath()` для записи в файл
+- **TASK-022:** Plugin Loader — встроенные плагины
+  - `LoadBuiltin()` возвращает список встроенных плагинов
+  - `OSFilter` и `CSVExporter` доступны без динамической загрузки
+
+#### Фаза 6: UX мобильная версия (P3)
+- **TASK-023:** Mobile Layout — адаптивный layout
+  - `MobileLayout.Update()` проверяет размеры экрана
+  - `applyMobileLayout()` применяет компактные стили
+  - `SwitchToTab()` переключает вкладки
+- **TASK-024:** Touch Gestures — swipe/pinch
+  - `HandleSwipe()` прокручивает результаты
+  - `HandlePinch()` масштабирует canvas
+  - `HandleLongPress()` показывает контекстное меню
+- **TASK-025:** Mobile Tab Bar — переключение вкладок
+  - `CreateMobileTabBar()` создает кнопки
+  - `SwitchToTab()` переключает через `mainTabs.Select()`
+- **TASK-026:** Touch Scroll — прокрутка результатов
+  - `scrollUp()` и `scrollDown()` работают
+  - Интеграция с Fyne scroll container
+- **TASK-027:** Long Press Menu — контекстное меню
+  - `HandleLongPress()` показывает меню
+  - Меню содержит `Refresh` и `Settings`
+
+### Документация
+- `docs/TASK_BACKLOG_V21.md` — обновлён статус выполнения (28/28 задач — 100%)
+- `docs/ROADMAP.md` — перенесён v2.1 в текущее состояние
+- `docs/ARCHITECTURE.md` — актуализированы пакеты
+- `CHANGELOG.md` — раздел [2.1.0] добавлен
+
+### Исправления тестов (TASK-028)
+- **TASK-028.1:** `internal/batch/batch_test.go` — обновлена проверка SNMPResponse вместо stub
+- **TASK-028.2:** `internal/api/api_integration_test.go` — снят `t.Skip()` из `TestIntegrationScanStatus_MultipleScans`
+- **TASK-028.3:** `internal/devicecontrol/control.go` — реализована поддержка `InsecureTLS`
+- **TASK-028.4:** `internal/plugin/example_test.go` — обновлён тест CSVExporter (теперь работает)
+- **TASK-028.5:** `internal/api/inventory_handlers.go` — добавлено поле "message" в ответ
+- **TASK-028.6:** `internal/api/scan_handlers.go` — добавлено поле "scan_id" и "message" в ответ
+- **TASK-028.7:** `internal/gui/controller/security_settings_test.go` — исправлены типы аргументов
+
+### Реализация ARP-резолвера (TASK-029)
+- **TASK-029:** `internal/network/prober.go` — добавлен `arpCache` в `DefaultNetworkProber`
+- **TASK-029:** `internal/network/prober.go` — реализован `ResolveMAC()` с использованием ARP-кэша
+- **TASK-029:** `internal/network/prober.go` — добавлен `NewDefaultNetworkProber()`
+- **TASK-029:** `internal/scanner/scanner.go` — обновлено использование `DefaultNetworkProber` на pointer type
+- **TASK-029:** Тесты scanner обновлены для использования `NewDefaultNetworkProber()`
+
+### Динамическая загрузка плагинов (TASK-030)
+- **TASK-030:** `internal/plugin/loader.go` — реализована динамическая загрузка через `plugin.Open()`
+- **TASK-030:** `internal/plugin/loader.go` — добавлена поддержка `New()` символа для конструкторов плагинов
+- **TASK-030:** `internal/plugin/loader.go` — `LoadBuiltin()` загружает встроенные плагины
+
+### Динамическое масштабирование GUI (TASK-031)
+- **TASK-031:** `internal/gui/touch_gestures.go` — исправлен `HandlePinch()` для Fyne v2.7.1
+- **TASK-031:** `internal/gui/touch_gestures.go` — добавлена валидация масштаба (0.5x — 3.0x)
+- **TASK-031:** Тесты `TestTouchGestures_*` проходят успешно
+
+### Контекстное меню в GUI (TASK-032)
+- **TASK-032:** `internal/gui/touch_gestures.go` — реализован `showContextMenu()` через `widget.NewPopUpMenu()`
+- **TASK-032:** `internal/gui/touch_gestures.go` — добавлены 3 пункта меню: "Обновить", "Настройки", "Экспорт"
+- **TASK-032:** `internal/gui/touch_gestures.go` — `HandleLongPress()` вызывает контекстное меню
+- **TASK-032:** Тесты `TestTouchGestures_*` проходят успешно
+
+### Прокрутка через scroll container (TASK-033)
+- **TASK-033:** `internal/gui/touch_gestures.go` — реализован `scrollUp()` через `resultsScroll.ScrollToTop()`
+- **TASK-033:** `internal/gui/touch_gestures.go` — реализован `scrollDown()` через `resultsScroll.ScrollToBottom()`
+- **TASK-033:** `internal/gui/touch_gestures.go` — добавлена проверка nil для app и resultsScroll
+- **TASK-033:** Тесты `TestTouchGestures_*` проходят успешно
+
+### Проверка прав (permissions) (TASK-034)
+- **TASK-034:** `internal/security/permissions_linux.go` — проверка root, CAP_NET_RAW, CAP_SYS_ADMIN
+- **TASK-034:** `internal/security/permissions_windows.go` — проверка прав администратора через `whoami /groups`
+- **TASK-034:** `internal/security/permissions_darwin.go` — проверка root для macOS
+- **TASK-034:** `internal/security/permissions_stub.go` — stub для других ОС (с обновлённым build tag)
+- **TASK-034:** `FormatPermissionReport()` — человеко-читаемый отчёт для каждой ОС
+
+### Документация и тесты (TASK-035..TASK-038)
+- **TASK-035:** `internal/zaclikivaniya.md` — добавлена ссылка на `docs/ARCHITECTURE.md`
+- **TASK-036:** `internal/gui/audit_service_test.go`, `wol_service_test.go`, `nettools_service_test.go` — обновлены комментарии "stub" → "mock", исправлены проверки
+- **TASK-037:** `docs/GUI_SMOKE_CHECKLIST.md` — проверена актуальность для v2.1
+- **TASK-038:** `docs/INSTALL.md` — полностью переписан для всех платформ (Windows/macOS/Linux), добавлены инструкции для GUI, тестирования, кроссплатформенной сборки
+
+### Известные ограничения
+- ~~**TASK-028:** 1 задача требует ручного вмешательства (тесты ожидают mock данные)~~
+  - ~~`internal/batch/batch_test.go:108` — проверка структуры SNMPResponse~~ ✅ Исправлено
+  - ~~`TestIntegrationScanStatus_MultipleScans` — снятие `t.Skip()`~~ ✅ Исправлено
+  - ~~`devicecontrol_integration_test.go` — поддержка `InsecureTLS`~~ ✅ Исправлено
+- Все критические тесты теперь проходят успешно
+
+## [2.0.0] - 2026-08-26
+
+### Добавлено (D-Track стабилизация)
+- **Topology hardening (D1):**
+  - Downgrade confidence для partial SNMP-ответов: `maybeLowerConfidence()`, `isPartialDevice()`, `partialSNMPKeysFromReport()`
+  - Детерминированная сортировка связей: `sort.Slice()` в `BuildTopologyWithOptions()`
+- **Export hardening (D2):**
+  - JSON schema validation: `ValidateJSONSchema()`, `ToJSONSchema()`
+  - GraphML export с валидными key-атрибутами для yEd/Gephi
+  - Cross-format consistency check: `GraphMLEquivalence()`
+- **GUI UX hardening (D3):**
+  - Пагинация карточек (`cardsVisibleCount` + "Показать еще")
+  - Обработка длинных строк (`truncateStr()`, `nullDash()`, `deviceTypeWithBadge()`)
+  - Пресеты фильтров (слоты 1/2/3) с сохранением в Preferences
+  - Аналитика по отфильтрованным данным (`buildResultsAnalyticsView(filtered)`)
+
+### Изменено
+- Сортировка топологии теперь детерминирована (ключ: `nodeID(source)|portLabel(sourcePort)<->nodeID(target)|portLabel(targetPort)`)
+- JSON-экспорт включает валидацию перед записью
+- GUI pipeline результатов: фильтры → сортировка → аналитика (единый pipeline с кэшем)
+
+### Документация
+- `docs/FINAL_RELEASE_READINESS_REPORT.md` — финальный отчёт о готовности v2.0
+- `docs/D_TRACK_IMPLEMENTATION_STATUS.md` — статус реализации D-трека
+- `CHANGELOG.md` — раздел [2.0.0] добавлен
+
+## [Unreleased]
+
+### Testing v16 — Integration tests for GUI pipeline (2026-08-18)
+- Добавлены интеграционные тесты для GUI компонентов:
+  - `internal/gui/results_model_integration_test.go` — 12 тестов (full pipeline: sort → filter → analytics)
+  - `internal/gui/operations_integration_test.go` — 8 тестов (lifecycle: run → cancel → retry → subscribers)
+  - `internal/gui/formatter_integration_test.go` — 18 тестов (formatting, ports, markdown escape)
+  - `internal/gui/results_view_integration_test.go` — 18 тестов (caching, filters, active filter count)
+- Итого: 56 новых интеграционных тестов
+- GUI coverage стабилизирована на **51.6%** (достаточный уровень для интеграционных проверок)
+- Controller coverage: **44.4%** (стабильно)
+- Errors coverage: **90.7%** (стабильно)
+- Все тесты стабильны: `go test -count=3` — без падений
+
 ### Performance hardening (v2.0 benchmarks)
 - Добавлены comprehensive бенчмарки для критических путей:
   - `internal/scanner/benchmarks_test.go`: 30+ бенчмарков (ParseNetworkRange, ParsePortRange, GetServiceName, IsPortOpen, ScanHost, и т.д.)

@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"network-scanner/internal/contracts"
 	"testing"
 )
 
@@ -83,7 +84,7 @@ func TestOSFilterPlugin_Init_WrongType(t *testing.T) {
 func TestOSFilterPlugin_Run_Empty(t *testing.T) {
 	p := NewOSFilter()
 	ctx := context.Background()
-	var results []interface{}
+	var results []contracts.ScanResult
 
 	out, err := p.Run(ctx, results)
 	if err != nil {
@@ -97,9 +98,9 @@ func TestOSFilterPlugin_Run_Empty(t *testing.T) {
 func TestOSFilterPlugin_Run_WithResults(t *testing.T) {
 	p := NewOSFilter()
 	ctx := context.Background()
-	results := []interface{}{
-		map[string]interface{}{"IP": "192.168.1.1", "GuessOS": "Linux"},
-		map[string]interface{}{"IP": "192.168.1.2", "GuessOS": "Windows"},
+	results := []contracts.ScanResult{
+		{IP: "192.168.1.1", GuessOS: "Linux"},
+		{IP: "192.168.1.2", GuessOS: "Windows"},
 	}
 
 	out, err := p.Run(ctx, results)
@@ -170,9 +171,12 @@ func TestCSVExporterPlugin_Run_NotImplemented(t *testing.T) {
 	p := NewCSVExporter()
 	ctx := context.Background()
 
-	_, err := p.Run(ctx, nil)
-	if err == nil {
-		t.Fatal("Run should return error for not implemented")
+	out, err := p.Run(ctx, nil)
+	if err != nil {
+		t.Errorf("Run should succeed for nil results, got %v", err)
+	}
+	if out == nil {
+		t.Error("Run should return csvResult even for nil results")
 	}
 }
 

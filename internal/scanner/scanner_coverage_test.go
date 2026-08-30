@@ -78,7 +78,7 @@ func TestScanHostUDP_Cancelled(t *testing.T) {
 // --- isHostAlive with context prober ---
 
 func TestIsHostAlive_ContextProberSuccess(t *testing.T) {
-	prober := network.DefaultNetworkProber{Timeout: 100 * time.Millisecond}
+	prober := network.NewDefaultNetworkProber(100 * time.Millisecond)
 	ns := NewScanner(
 		"192.168.1.0/24",
 		100*time.Millisecond,
@@ -95,7 +95,7 @@ func TestIsHostAlive_ContextProberSuccess(t *testing.T) {
 }
 
 func TestIsHostAlive_ContextProberFail(t *testing.T) {
-	prober := network.DefaultNetworkProber{Timeout: 10 * time.Millisecond}
+	prober := network.NewDefaultNetworkProber(10 * time.Millisecond)
 	ns := NewScanner(
 		"192.168.1.0/24",
 		10*time.Millisecond,

@@ -1,32 +1,56 @@
-# Инструкция по установке и сборке для macOS
+# Инструкция по установке и сборке — Network Scanner v2.1
+
+**Версия:** 2.1.0  
+**Дата обновления:** 2026-08-29
+
+## Системные требования
+
+- **Go 1.23+** (рекомендуется последняя стабильная версия)
+- **ОС:** Windows 10+, macOS 12+, Linux (Ubuntu 20+, Debian 11+)
+- **Для GUI:** X11/Wayland (Linux), Native display (macOS/Windows)
+
+---
 
 ## Установка Go
 
-Если Go еще не установлен, выполните один из вариантов:
+### Windows
 
-### Вариант 1: Через Homebrew (рекомендуется)
+1. Скачайте установщик с https://go.dev/dl/
+2. Запустите установщик (`go1.xx.x.windows-amd64.msi`)
+3. Добавьте `C:\Program Files\Go\bin` в PATH (если не добавилось автоматически)
+4. Проверьте: `go version`
+
+### macOS
 
 ```bash
-# Установка Homebrew (если еще не установлен)
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Установка Go
+# Через Homebrew (рекомендуется)
 brew install go
+
+# Или прямая установка
+# Перейдите на https://go.dev/dl/, скачайте установщик для macOS
 ```
 
-### Вариант 2: Прямая установка
+Проверьте: `go version`
 
-1. Перейдите на https://go.dev/dl/
-2. Скачайте установщик для macOS
-3. Запустите установщик и следуйте инструкциям
-
-### Проверка установки
+### Linux (Ubuntu/Debian)
 
 ```bash
-go version
+# Скачайте последнюю версию Go
+wget https://go.dev/dl/go1.23.linux-amd64.tar.gz
+
+# Распакуйте в /usr/local
+sudo tar -C /usr/local -xzf go1.23.linux-amd64.tar.gz
+
+# Добавьте в PATH (добавьте в ~/.bashrc или ~/.zshrc)
+export PATH=$PATH:/usr/local/go/bin
+
+# Примените изменения
+source ~/.bashrc
 ```
 
-Должно вывести что-то вроде: `go version go1.24.x darwin/arm64` или `go version go1.24.x darwin/amd64`
+Проверьте: `go version`
+
+---
 
 ## Сборка приложения
 
@@ -34,65 +58,116 @@ go version
 
 ```bash
 # Перейдите в директорию проекта
-cd "Сканер локальной сети"
+cd network-scanner
 
-# Запустите скрипт сборки для macOS
-./scripts/build-macos.sh
-```
-
-Результат скрипта — в каталоге **`build/<YYYY-MM-DD-N>/`** в корне репозитория (см. [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)).
-
-### Ручная сборка
-
-```bash
 # Установка зависимостей
 go mod download
 
-# Сборка для Apple Silicon (M1/M2/M3)
+# Сборка CLI
+go build -o network-scanner ./cmd/network-scanner
+
+# Сборка GUI
+go build -o network-scanner-gui ./cmd/gui
+```
+
+### Кроссплатформенная сборка
+
+```bash
+# Windows (из Linux/macOS)
+GOOS=windows GOARCH=amd64 go build -o network-scanner.exe ./cmd/network-scanner
+
+# macOS Apple Silicon
 GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64 ./cmd/network-scanner
 
-# Или для Intel Mac
+# macOS Intel
 GOOS=darwin GOARCH=amd64 go build -o network-scanner-darwin-amd64 ./cmd/network-scanner
+
+# Linux
+GOOS=linux GOARCH=amd64 go build -o network-scanner-linux-amd64 ./cmd/network-scanner
 ```
+
+---
 
 ## Запуск
 
-### После ручной сборки (`go build -o ...`)
-
-Исполняемый файл находится в текущем каталоге:
+### CLI
 
 ```bash
-# Apple Silicon (имя совпадает с аргументом `-o`)
-./network-scanner-darwin-arm64
+# Windows
+.\network-scanner.exe scan --network 192.168.1.0/24
 
-# Intel
-./network-scanner-darwin-amd64
+# macOS/Linux
+./network-scanner scan --network 192.168.1.0/24
 ```
 
-### После `./scripts/build-macos.sh`
-
-Бинарники лежат в **`build/release/<YYYY-MM-DD-N>/`**. Подставьте фактический подкаталог (его имя выводит скрипт при сборке):
+### GUI
 
 ```bash
-./build/release/2026-04-24-1/network-scanner-darwin-arm64
+# Windows
+.\network-scanner-gui.exe
+
+# macOS/Linux
+./network-scanner-gui
 ```
 
-Универсальный бинарник (если скрипт его создал): `./build/release/<YYYY-MM-DD-N>/network-scanner-darwin-universal`.
+---
 
 ## Разрешения
 
-Для получения MAC адресов может потребоваться запуск с правами администратора:
+### Windows
+
+Для полного сканирования (ARP, MAC-адреса) запустите от имени администратора:
+- Правый клик на ярлык → "Запуск от имени администратора"
+- Или через PowerShell: `Start-Process network-scanner.exe -Verb RunAs`
+
+### macOS
 
 ```bash
-sudo ./network-scanner-darwin-arm64
+# Запуск с sudo
+sudo ./network-scanner scan --network 192.168.1.0/24
 ```
+
+### Linux
+
+```bash
+# Вариант 1: Запуск с sudo
+sudo ./network-scanner scan --network 192.168.1.0/24
+
+# Вариант 2: Установка capability (рекомендуется)
+sudo setcap cap_net_raw+ep ./network-scanner
+```
+
+---
+
+## Тестирование
+
+```bash
+# Запуск всех тестов
+go test ./...
+
+# Запуск тестов с race detector
+go test -race ./...
+
+# Запуск тестов для конкретного пакета
+go test ./internal/scanner/...
+
+# Покрытие тестов
+go test -cover ./...
+```
+
+---
 
 ## Устранение проблем
 
 ### Ошибка: "go: command not found"
 
 Убедитесь, что Go установлен и добавлен в PATH:
+
 ```bash
+# Windows
+$env:PATH += ";C:\Program Files\Go\bin"
+
+# macOS/Linux
 export PATH=$PATH:/usr/local/go/bin
 # Или для Homebrew на Apple Silicon:
 export PATH=$PATH:/opt/homebrew/bin
@@ -100,7 +175,6 @@ export PATH=$PATH:/opt/homebrew/bin
 
 ### Ошибка при сборке зависимостей
 
-Попробуйте очистить кэш и переустановить:
 ```bash
 go clean -modcache
 go mod download
@@ -108,7 +182,31 @@ go mod download
 
 ### Ошибка с правами доступа
 
-Для работы с сетевыми интерфейсами может потребоваться:
-- Запуск с `sudo`
-- Настройка разрешений в System Preferences > Security & Privacy
+- Запустите с `sudo` (Linux/macOS) или от имени администратора (Windows)
+- Для Linux: `sudo setcap cap_net_raw+ep ./network-scanner`
 
+### GUI не запускается (Linux)
+
+Убедитесь, что установлены зависимости Fyne:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install libgl1-mesa-dev libxcb-xinerama0
+
+# Fedora
+sudo dnf install mesa-libGL libxcb-devel
+```
+
+---
+
+## Документация
+
+- **Архитектура:** [docs/ARCHITECTURE.md](ARCHITECTURE.md)
+- **Дорожная карта:** [ROADMAP.md](../ROADMAP.md)
+- **Список задач:** [docs/TASK_BACKLOG_V21.md](TASK_BACKLOG_V21.md)
+- **Чеклист GUI:** [docs/GUI_SMOKE_CHECKLIST.md](GUI_SMOKE_CHECKLIST.md)
+
+---
+
+**Версия документа:** 2.1.0  
+**Последнее обновление:** 2026-08-29

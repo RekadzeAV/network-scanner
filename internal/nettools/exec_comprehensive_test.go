@@ -158,8 +158,9 @@ func TestHumanizeToolError_Parse(t *testing.T) {
 	if msg == "" {
 		t.Error("expected non-empty message")
 	}
-	if msg == "parse failed" {
-		t.Error("expected plain message for parse error")
+	// Parse error не имеет специального хинта — возвращается base message
+	if msg != "parse failed" {
+		t.Errorf("expected 'parse failed', got %q", msg)
 	}
 }
 

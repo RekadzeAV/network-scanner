@@ -3,22 +3,23 @@ package gui
 import (
 	"context"
 	"fmt"
-	"net"
 	"os/exec"
 	"runtime"
 	"strings"
 	"time"
+
+	"network-scanner/internal/nettools"
 )
 
 // PingResult результат ping
 type PingResult struct {
-	Success    bool
-	Output     string
-	Duration   time.Duration
-	Host       string
-	Packets    int
-	Timeout    time.Duration
-	Error      string
+	Success  bool
+	Output   string
+	Duration time.Duration
+	Host     string
+	Packets  int
+	Timeout  time.Duration
+	Error    string
 }
 
 // TracerouteResult результат traceroute
@@ -67,7 +68,7 @@ func (s *NetToolsService) Ping(ctx context.Context, host string, count int, time
 
 	start := time.Now()
 	var cmd *exec.Cmd
-	
+
 	switch runtime.GOOS {
 	case "windows":
 		cmd = exec.CommandContext(ctx, "ping", "-n", fmt.Sprintf("%d", count), "-w", fmt.Sprintf("%d", timeout.Milliseconds()), host)
@@ -95,7 +96,7 @@ func (s *NetToolsService) Traceroute(ctx context.Context, host string, maxHops i
 
 	start := time.Now()
 	var cmd *exec.Cmd
-	
+
 	switch runtime.GOOS {
 	case "windows":
 		cmd = exec.CommandContext(ctx, "tracert", "-h", fmt.Sprintf("%d", maxHops), host)
@@ -115,22 +116,21 @@ func (s *NetToolsService) Traceroute(ctx context.Context, host string, maxHops i
 	}, nil
 }
 
-// DNSLookup выполняет DNS-запрос
+// DNSLookup выполняет DNS-запрос с реальным resolver
 func (s *NetToolsService) DNSLookup(ctx context.Context, host string, resolver string) (*DNSResult, error) {
 	if host == "" {
 		return nil, fmt.Errorf("host is required")
 	}
 
 	start := time.Now()
-	var records []string
-	var err error
-	
-	if resolver != "" {
-		// Используем указанный resolver
-		records, err = net.LookupHost(host)
-		_ = resolver // TODO: передать resolver в resolver
-	} else {
-		records, err = net.LookupHost(host)
+
+	// Реальный вызов nettools.LookupDNSWithResolver
+	result, err := nettools.LookupDNSWithResolver(ctx, host, resolver)
+
+	records := make([]string, 0)
+	if result != nil {
+		records = append(records, result.ForwardIPs...)
+		records = append(records, result.ReverseNames...)
 	}
 
 	return &DNSResult{
@@ -152,7 +152,7 @@ func (s *NetToolsService) WhoisLookup(ctx context.Context, domain string) (*Whoi
 	start := time.Now()
 	var output string
 	var err error
-	
+
 	switch runtime.GOOS {
 	case "windows":
 		// Windows не имеет whois по умолчанию

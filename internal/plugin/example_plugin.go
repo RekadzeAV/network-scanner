@@ -1,20 +1,14 @@
-// Package plugin содержит примеры плагинов для Network Scanner.
-//
-// Этот пакет содержит примеры плагинов, которые можно использовать как
-// шаблон для создания собственных расширений.
-//
-// # Пример: фильтр по ОС
-//
-// Плагин фильтрует устройства по операционной системе:
-//
-//	plugin := osfilter.NewPlugin()
-//	plugin.Init(map[string]interface{}{"os": "Linux"})
-//	filtered, err := plugin.Run(ctx, results)
 package plugin
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
+	"os"
+	"strings"
+
+	"network-scanner/internal/contracts"
+	"network-scanner/internal/scanner"
 )
 
 // OSFilterPlugin фильтрует результаты по операционной системе
@@ -50,10 +44,17 @@ func (p *OSFilterPlugin) Init(cfg map[string]interface{}) error {
 	return nil
 }
 
-// Run реализует Plugin
-func (p *OSFilterPlugin) Run(ctx context.Context, results []interface{}) (interface{}, error) {
-	// TODO: Реализовать фильтрацию
-	return results, nil
+// Run реализует Plugin — фильтрация результатов по ОС
+func (p *OSFilterPlugin) Run(ctx context.Context, results []contracts.ScanResult) (interface{}, error) {
+	filtered := make([]contracts.ScanResult, 0)
+
+	for _, r := range results {
+		if p.osFilter == "" || strings.Contains(strings.ToLower(r.GuessOS), strings.ToLower(p.osFilter)) {
+			filtered = append(filtered, r)
+		}
+	}
+
+	return filtered, nil
 }
 
 // Close реализует Plugin
@@ -89,13 +90,84 @@ func (p *CSVExporterPlugin) Init(cfg map[string]interface{}) error {
 	return nil
 }
 
-// Run реализует Plugin
-func (p *CSVExporterPlugin) Run(ctx context.Context, results []interface{}) (interface{}, error) {
-	// TODO: Реализовать экспорт в CSV
-	return nil, fmt.Errorf("not implemented")
+// Run реализует Plugin — экспорт в CSV
+func (p *CSVExporterPlugin) Run(ctx context.Context, results []contracts.ScanResult) (interface{}, error) {
+	type csvResult struct {
+		filename string
+		data     string
+	}
+
+	var sb strings.Builder
+	sb.WriteString("IP,Hostname,MAC,DeviceType,DeviceVendor,GuessOS,OpenPorts\n")
+
+	for _, r := range results {
+		ports := make([]int, 0, len(r.Ports))
+		for _, port := range r.Ports {
+			if port.State == "open" {
+				ports = append(ports, port.Port)
+			}
+		}
+
+		sb.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%s,%v\n",
+			r.IP,
+			r.Hostname,
+			r.MAC,
+			r.DeviceType,
+			r.DeviceVendor,
+			r.GuessOS,
+			ports,
+		))
+	}
+
+	return csvResult{
+		filename: "export.csv",
+		data:     sb.String(),
+	}, nil
 }
 
 // Close реализует Plugin
 func (p *CSVExporterPlugin) Close() error {
+	return nil
+}
+
+// ExportCSVToPath экспортирует результаты в файл CSV
+func ExportCSVToPath(results []scanner.Result, path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("create csv file: %w", err)
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
+	defer w.Flush()
+
+	// Заголовок
+	if err := w.Write([]string{"IP", "Hostname", "MAC", "DeviceType", "DeviceVendor", "GuessOS", "OpenPorts"}); err != nil {
+		return fmt.Errorf("write csv header: %w", err)
+	}
+
+	// Данные
+	for _, host := range results {
+		ports := make([]int, 0, len(host.Ports))
+		for _, p := range host.Ports {
+			if p.State == "open" {
+				ports = append(ports, p.Port)
+			}
+		}
+
+		record := []string{
+			host.IP,
+			host.Hostname,
+			host.MAC,
+			host.DeviceType,
+			host.DeviceVendor,
+			host.GuessOS,
+			fmt.Sprintf("%v", ports),
+		}
+		if err := w.Write(record); err != nil {
+			return fmt.Errorf("write csv record: %w", err)
+		}
+	}
+
 	return nil
 }

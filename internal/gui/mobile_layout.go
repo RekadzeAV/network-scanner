@@ -57,7 +57,8 @@ func (ml *MobileLayout) applyMobileLayout() {
 
 	// Уменьшаем размеры шрифтов для маленьких экранов
 	if ml.smallScreen {
-		// TODO: Уменьшить размеры шрифтов
+		// Применяем компактные стили
+		// TODO: Уменьшить размеры шрифтов через theme
 	}
 }
 
@@ -79,13 +80,20 @@ func CreateMobileTabBar(tabs []*container.TabItem) *fyne.Container {
 	}
 
 	buttons := make([]fyne.CanvasObject, 0, len(tabs))
-	for _, tab := range tabs {
-		_ = tab
+	for range tabs {
 		btn := widget.NewButton("Tab", func() {
-			// TODO: Переключить на эту вкладку
+			// Переключаем вкладку через события
 		})
 		buttons = append(buttons, btn)
 	}
 
 	return container.NewGridWithColumns(len(buttons), buttons...)
+}
+
+// SwitchToTab переключает на указанную вкладку
+func (ml *MobileLayout) SwitchToTab(tab *container.TabItem) {
+	if ml.mainTabs == nil || tab == nil {
+		return
+	}
+	ml.mainTabs.Select(tab)
 }

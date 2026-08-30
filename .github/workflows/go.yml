@@ -15,7 +15,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.21'
+        go-version: '1.23'
 
     - name: Cache Go modules
       uses: actions/cache@v4
@@ -54,7 +54,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.21'
+        go-version: '1.23'
 
     - name: Build for ${{ matrix.goos }}/${{ matrix.goarch }}
       env:
@@ -78,10 +78,10 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.21'
+        go-version: '1.23'
 
     - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v4
+      uses: golangci/golangci-lint-action@v6
       with:
         version: latest
         args: --timeout=5m
@@ -95,7 +95,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.21'
+        go-version: '1.23'
 
     - name: Cache Go modules
       uses: actions/cache@v4
@@ -109,8 +109,11 @@ jobs:
       run: |
         mkdir -p release-build/benchmarks/
         go test -bench=. -benchmem -run=^$ -count=3 ./internal/scanner/ > release-build/benchmarks/scanner.txt 2>&1
-        go test -bench=. -benchmem -run=^$ -count=3 ./internal/network/ > release-build/benchmarks/network.txt 2>&1
+        go test -bench=. -benchmem -run=^$ -count=3 ./internal/nettools/ > release-build/benchmarks/nettools.txt 2>&1
         go test -bench=. -benchmem -run=^$ -count=3 ./internal/topology/ > release-build/benchmarks/topology.txt 2>&1
+        go test -bench=. -benchmem -run=^$ -count=3 ./internal/audit/ > release-build/benchmarks/audit.txt 2>&1
+        go test -bench=. -benchmem -run=^$ -count=3 ./internal/gui/ > release-build/benchmarks/gui.txt 2>&1
+        go test -bench=. -benchmem -run=^$ -count=3 ./internal/integration/ > release-build/benchmarks/integration.txt 2>&1
 
     - name: Upload benchmark results
       uses: actions/upload-artifact@v4
@@ -137,7 +140,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.21'
+        go-version: '1.23'
 
     - name: Cache Go modules
       uses: actions/cache@v4

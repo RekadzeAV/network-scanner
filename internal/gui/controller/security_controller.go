@@ -1,11 +1,16 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"network-scanner/internal/audit"
+	"network-scanner/internal/devicecontrol"
 	"network-scanner/internal/logger"
+	"network-scanner/internal/risksignature"
+	"network-scanner/internal/scanner"
 	"network-scanner/internal/wol"
 
 	"fyne.io/fyne/v2"
@@ -27,6 +32,7 @@ type SecurityUI struct {
 	WOLIfaceEntry       *widget.Entry
 	StatusLabel         *widget.Label
 	Window              fyne.Window
+	AuditResultsView    *widget.Label // Виджет для отображения результатов аудита
 }
 
 // SecurityController управляет безопасностью и управлением устройствами.
@@ -43,10 +49,14 @@ func NewSecurityController(app fyne.App, ui *SecurityUI) *SecurityController {
 	}
 }
 
-// RunAudit запускает аудит открытых портов.
-func (c *SecurityController) RunAudit(results []interface{}, minSeverity string) {
-	if len(results) == 0 {
+// RunAudit запускает аудит открытых портов с реальными данными.
+func (c *SecurityController) RunAudit(scanResults []scanner.Result, minSeverity string) {
+	if len(scanResults) == 0 {
 		c.setStatus("Нет данных для аудита (выполните сканирование)")
+		if c.ui.AuditResultsView != nil {
+			c.ui.AuditResultsView.SetText("Нет данных для аудита")
+			c.ui.AuditResultsView.Refresh()
+		}
 		return
 	}
 	if minSeverity == "" {
@@ -57,17 +67,21 @@ func (c *SecurityController) RunAudit(results []interface{}, minSeverity string)
 		minSeverity = "low"
 	}
 	c.setStatus("Выполняется аудит открытых портов...")
-	logger.Log("Аудит портов: severity=%s, хостов=%d", minSeverity, len(results))
+	logger.Log("Аудит портов: severity=%s, хостов=%d", minSeverity, len(scanResults))
 
-	// Конвертируем interface{} -> scanner.Result для аудита
-	// TODO: При полной миграции передать []scanner.Result напрямую
-	findings := audit.EvaluateOpenPorts(nil) // TODO: передать реальные данные
+	// Реальный вызов audit с передачей реальных результатов
+	findings := audit.EvaluateOpenPorts(scanResults)
 	findings = audit.FilterByMinSeverity(findings, minSeverity)
 	report := audit.FormatFindings(findings)
 
 	c.setStatus(fmt.Sprintf("Аудит завершен. Найдено проблем: %d", len(findings)))
 	logger.Log("Аудит завершен. Проблем: %d", len(findings))
-	_ = report // TODO: вывести отчет в UI
+
+	// Выводим отчет в UI
+	if c.ui.AuditResultsView != nil {
+		c.ui.AuditResultsView.SetText(report)
+		c.ui.AuditResultsView.Refresh()
+	}
 }
 
 // CheckDeviceStatus проверяет статус устройства через HTTP API.
@@ -87,21 +101,40 @@ func (c *SecurityController) CheckDeviceStatus() {
 	}
 
 	user := ""
-	_ = user // TODO: передать в devicecontrol
 	pass := ""
-	_ = pass // TODO: передать в devicecontrol
+	if c.ui.DeviceUserEntry != nil {
+		user = strings.TrimSpace(c.ui.DeviceUserEntry.Text)
+	}
+	if c.ui.DevicePassEntry != nil {
+		pass = strings.TrimSpace(c.ui.DevicePassEntry.Text)
+	}
 
 	c.setStatus("Проверка статуса устройства...")
 	logger.Log("Проверка статуса: target=%s, vendor=%s", target, vendor)
 
-	// TODO: Реализовать вызов devicecontrol.Execute
-	// status, err := devicecontrol.GetStatus(target, vendor, user, pass)
-	// if err != nil {
-	//     c.setStatus(fmt.Sprintf("Ошибка: %v", err))
-	//     return
-	// }
-	// c.setStatus(fmt.Sprintf("Статус: %s", status))
-	c.setStatus("Статус устройства: OK (заглушка)")
+	// Реальный вызов devicecontrol.Execute
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req := devicecontrol.Request{
+		Action:    devicecontrol.ActionStatus,
+		TargetURL: target,
+		Vendor:    vendor,
+		Username:  user,
+		Password:  pass,
+		Timeout:   10 * time.Second,
+	}
+
+	resp, err := devicecontrol.Execute(ctx, req)
+	if err != nil {
+		c.setStatus(fmt.Sprintf("Ошибка: %v", err))
+		logger.LogError(err, "devicecontrol status")
+		dialog.ShowError(err, c.ui.Window)
+		return
+	}
+
+	c.setStatus(fmt.Sprintf("Статус: %s", resp.Message))
+	logger.Log("Статус устройства: %s", resp.Message)
 }
 
 // RebootDevice перезагружает устройство через HTTP API.
@@ -121,20 +154,40 @@ func (c *SecurityController) RebootDevice() {
 	}
 
 	user := ""
-	_ = user // TODO: передать в devicecontrol
 	pass := ""
-	_ = pass // TODO: передать в devicecontrol
+	if c.ui.DeviceUserEntry != nil {
+		user = strings.TrimSpace(c.ui.DeviceUserEntry.Text)
+	}
+	if c.ui.DevicePassEntry != nil {
+		pass = strings.TrimSpace(c.ui.DevicePassEntry.Text)
+	}
 
 	c.setStatus("Перезагрузка устройства...")
 	logger.Log("Перезагрузка: target=%s, vendor=%s", target, vendor)
 
-	// TODO: Реализовать вызов devicecontrol.Execute
-	// err := devicecontrol.Reboot(target, vendor, user, pass)
-	// if err != nil {
-	//     c.setStatus(fmt.Sprintf("Ошибка: %v", err))
-	//     return
-	// }
-	c.setStatus("Устройство перезагружено (заглушка)")
+	// Реальный вызов devicecontrol.Execute
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req := devicecontrol.Request{
+		Action:    devicecontrol.ActionReboot,
+		TargetURL: target,
+		Vendor:    vendor,
+		Username:  user,
+		Password:  pass,
+		Timeout:   10 * time.Second,
+	}
+
+	resp, err := devicecontrol.Execute(ctx, req)
+	if err != nil {
+		c.setStatus(fmt.Sprintf("Ошибка: %v", err))
+		logger.LogError(err, "devicecontrol reboot")
+		dialog.ShowError(err, c.ui.Window)
+		return
+	}
+
+	c.setStatus(fmt.Sprintf("Перезагрузка: %s", resp.Message))
+	logger.Log("Перезагрузка устройства: %s", resp.Message)
 }
 
 // WakeOnLAN отправляет Wake-on-LAN пакет.
@@ -172,27 +225,27 @@ func (c *SecurityController) WakeOnLAN() {
 	logger.Log("WoL отправлен на MAC: %s", mac)
 }
 
-// RunRiskSignatures запускает проверку сигнатур уязвимостей.
-func (c *SecurityController) RunRiskSignatures(results []interface{}) {
-	if len(results) == 0 {
+// RunRiskSignatures запускает проверку сигнатур уязвимостей с реальными данными.
+func (c *SecurityController) RunRiskSignatures(scanResults []scanner.Result) {
+	if len(scanResults) == 0 {
 		c.setStatus("Нет данных для проверки (выполните сканирование)")
 		return
 	}
 
 	c.setStatus("Проверка сигнатур уязвимостей...")
-	logger.Log("Запуск проверки сигнатур на %d хостах", len(results))
+	logger.Log("Запуск проверки сигнатур на %d хостах", len(scanResults))
 
-	// TODO: При полной миграции передать []scanner.Result напрямую
-	// db, err := risksignature.LoadDefault()
-	// if err != nil {
-	//     c.setStatus(fmt.Sprintf("Ошибка загрузки базы: %v", err))
-	//     return
-	// }
-	// findings := risksignature.Evaluate(results, db)
-	// c.setStatus(fmt.Sprintf("Найдено проблем: %d", len(findings)))
+	// Реальный вызов risksignature
+	db, err := risksignature.LoadDefault()
+	if err != nil {
+		c.setStatus(fmt.Sprintf("Ошибка загрузки базы сигнатур: %v", err))
+		logger.LogError(err, "risksignature load")
+		return
+	}
 
-	c.setStatus("Проверка завершена (заглушка)")
-	logger.Log("Проверка сигнатур завершена (заглушка)")
+	findings := risksignature.Evaluate(scanResults, db)
+	c.setStatus(fmt.Sprintf("Найдено проблем: %d", len(findings)))
+	logger.Log("Проверка сигнатур завершена. Проблем: %d", len(findings))
 }
 
 // setStatus устанавливает статус в UI.

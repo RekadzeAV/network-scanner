@@ -4,9 +4,28 @@ This file is the canonical roadmap entry point for the project.
 
 ## Текущее состояние проекта
 
-**Версия:** v1.0.5  
+**Версия:** v2.2  
 **Базовый функционал:** ✅ 100% (13/13 задач)  
-**Фокус развития:** Качество кода, тесты, производительность (v2.0)
+**v2.1 Backlog:** ✅ 28/28 задач выполнено (100%)  
+**v2.2 Backlog:** ✅ 13/13 задач выполнено (100%)  
+**Фокус развития:** Тесты бизнес-логики, интеграционные тесты, CI/CD  
+**Дата обновления:** 2026-08-29  
+
+### Текущее покрытие тестами
+
+| Пакет | Coverage | Статус |
+|-------|----------|--------|
+| `internal/gui` | 51.6% | ✅ Стабильно (integration tests) |
+| `internal/gui/controller` | 44.4% | ✅ Стабильно |
+| `internal/gui/errors` | 90.7% | ✅ Стабильно |
+| `internal/audit` | 99.1% | ✅ |
+| `internal/cve` | 100.0% | ✅ |
+| `internal/builder` | 100.0% | ✅ |
+| `internal/scanner` | 71.9% | 🚧 В процессе |
+| `internal/topology` | 87.0% | ✅ |
+| `internal/network` | 85.3% | ✅ |
+| `internal/plugin` | 100.0% | ✅ |
+| `internal/api` | 85.0% | ✅ |
 
 ---
 
@@ -15,6 +34,7 @@ This file is the canonical roadmap entry point for the project.
 - Основной план реализации v2.0: [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
 - Детальные приоритеты и вехи: [ROADMAP_P1_P3.md](ROADMAP_P1_P3.md)
 - Детализированный бэклог задач: [DETAILED_BACKLOG_P3_STAGE2.md](DETAILED_BACKLOG_P3_STAGE2.md)
+- **v2.1 Backlog:** [TASK_BACKLOG_V21.md](TASK_BACKLOG_V21.md) — 27/28 задач выполнено
 
 ## Release и closure операции
 
@@ -32,3 +52,5 @@ This file is the canonical roadmap entry point for the project.
 - Keep [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) updated after each completed phase.
 - Keep [ROADMAP_P1_P3.md](ROADMAP_P1_P3.md) updated after each completed phase.
 - Keep [DETAILED_BACKLOG_P3_STAGE2.md](DETAILED_BACKLOG_P3_STAGE2.md) in sync with execution status for Stage 1 P3 and Stage 2 P1/P2/P3.
+- Keep [TASK_BACKLOG_V21.md](TASK_BACKLOG_V21.md) in sync with v2.1 execution status.
+

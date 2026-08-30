@@ -3,6 +3,8 @@ package topology
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 
 	"network-scanner/internal/contracts"
 	"network-scanner/internal/scanner"
@@ -54,8 +56,154 @@ func (s *topologyServiceImpl) Build(ctx context.Context, results []contracts.Sca
 }
 
 func (s *topologyServiceImpl) Export(t *contracts.Topology, format string, path string) error {
-	// TODO: реализация экспорта
-	return nil
+	if t == nil {
+		return fmt.Errorf("topology is nil")
+	}
+	if strings.TrimSpace(path) == "" {
+		return fmt.Errorf("export path is empty")
+	}
+
+	// Конвертируем contracts.Topology во внутренний Topology
+	internalTopo := convertFromContractTopology(t)
+	if internalTopo == nil {
+		return fmt.Errorf("failed to convert topology")
+	}
+
+	// Экспортируем в зависимости от формата
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "json":
+		return internalTopo.SaveJSON(path)
+	case "graphml", "xml":
+		return internalTopo.SaveGraphML(path)
+	case "dot":
+		f, err := os.Create(path)
+		if err != nil {
+			return fmt.Errorf("create file: %w", err)
+		}
+		defer f.Close()
+		return internalTopo.ToDOT(f)
+	case "text", "txt":
+		return internalTopo.SaveAsText(path)
+	default:
+		return fmt.Errorf("unsupported export format: %s (supported: json, graphml, dot, text)", format)
+	}
+}
+
+// convertFromContractTopology конвертирует contracts.Topology во внутренний Topology
+func convertFromContractTopology(t *contracts.Topology) *Topology {
+	if t == nil {
+		return nil
+	}
+
+	topo := &Topology{
+		Devices: make(map[string]*Device),
+		Links:   make([]Link, 0, len(t.Links)),
+	}
+
+	// Создаём устройства
+	for _, d := range t.Devices {
+		if d == nil {
+			continue
+		}
+		key := d.IP
+		if key == "" {
+			key = d.Hostname
+		}
+		if key == "" {
+			key = d.MAC
+		}
+		if key == "" {
+			key = "unknown"
+		}
+
+		dt := DeviceTypeUnknown
+		switch strings.ToLower(d.Type) {
+		case "router":
+			dt = DeviceTypeRouter
+		case "switch", "network":
+			dt = DeviceTypeSwitch
+		case "host", "server", "computer":
+			dt = DeviceTypeHost
+		}
+
+		topo.Devices[key] = &Device{
+			IP:       d.IP,
+			MAC:      d.MAC,
+			Hostname: d.Hostname,
+			Type:     dt,
+		}
+	}
+
+	// Создаём связи
+	for _, l := range t.Links {
+		if l == nil || l.Source == nil || l.Target == nil {
+			continue
+		}
+
+		srcKey := l.Source.IP
+		if srcKey == "" {
+			srcKey = l.Source.Hostname
+		}
+		if srcKey == "" {
+			srcKey = l.Source.MAC
+		}
+		if srcKey == "" {
+			srcKey = "unknown"
+		}
+
+		dstKey := l.Target.IP
+		if dstKey == "" {
+			dstKey = l.Target.Hostname
+		}
+		if dstKey == "" {
+			dstKey = l.Target.MAC
+		}
+		if dstKey == "" {
+			dstKey = "unknown"
+		}
+
+		srcDev := topo.Devices[srcKey]
+		dstDev := topo.Devices[dstKey]
+		if srcDev == nil {
+			srcDev = &Device{IP: l.Source.IP, Hostname: l.Source.Hostname, MAC: l.Source.MAC, Type: DeviceTypeUnknown}
+			topo.Devices[srcKey] = srcDev
+		}
+		if dstDev == nil {
+			dstDev = &Device{IP: l.Target.IP, Hostname: l.Target.Hostname, MAC: l.Target.MAC, Type: DeviceTypeUnknown}
+			topo.Devices[dstKey] = dstDev
+		}
+
+		srcPort := ensurePort(srcDev, 0, l.SourcePort)
+		dstPort := ensurePort(dstDev, 0, l.TargetPort)
+
+		sourceType := LinkSourceInferred
+		switch strings.ToLower(l.SourceType) {
+		case "lldp":
+			sourceType = LinkSourceLLDP
+		case "fdb":
+			sourceType = LinkSourceFDB
+		}
+
+		confidence := LinkConfidenceLow
+		switch strings.ToLower(l.Confidence) {
+		case "high":
+			confidence = LinkConfidenceHigh
+		case "medium":
+			confidence = LinkConfidenceMedium
+		}
+
+		topo.Links = append(topo.Links, Link{
+			Source:     srcDev,
+			SourcePort: srcPort,
+			Target:     dstDev,
+			TargetPort: dstPort,
+			SourceType: sourceType,
+			Confidence: confidence,
+			Evidence:   l.Evidence,
+		})
+	}
+
+	return topo
 }
 
 // convertToContractTopology конвертирует internal Topology в contracts.Topology

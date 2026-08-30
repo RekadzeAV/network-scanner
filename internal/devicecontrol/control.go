@@ -3,6 +3,7 @@ package devicecontrol
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -110,7 +111,16 @@ func Execute(ctx context.Context, req Request) (Response, error) {
 	}
 	bodyBytes, _ := json.Marshal(payload)
 
-	httpClient := &http.Client{Timeout: req.Timeout}
+	// Configure HTTP client with optional InsecureTLS support
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: req.InsecureTLS,
+		},
+	}
+	httpClient := &http.Client{
+		Timeout:   req.Timeout,
+		Transport: transport,
+	}
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return Response{}, fmt.Errorf("create request: %w", err)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"plugin"
 	"runtime"
 )
 
@@ -27,7 +28,7 @@ func (pl *PluginLoader) Load(path string) (Plugin, error) {
 	// Проверяем расширение файла
 	ext := filepath.Ext(path)
 	var expectedExt string
-	
+
 	switch runtime.GOOS {
 	case "windows":
 		expectedExt = ".dll"
@@ -36,26 +37,47 @@ func (pl *PluginLoader) Load(path string) (Plugin, error) {
 	default:
 		expectedExt = ".so"
 	}
-	
+
 	if ext != expectedExt {
 		return nil, fmt.Errorf("unsupported plugin extension %q, expected %q", ext, expectedExt)
 	}
-	
+
 	// Проверяем существование файла
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, fmt.Errorf("plugin file not found: %s", path)
 	}
-	
-	// TODO: Реализовать динамическую загрузку через plugin package
-	// Для этого плагин должен быть скомпилирован с plugin.enabled
-	
-	return nil, fmt.Errorf("dynamic plugin loading not yet implemented: %s", path)
+
+	// Динамическая загрузка через plugin package (CGO)
+	p, err := plugin.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load plugin %s: %w", path, err)
+	}
+
+	// Ищем символ "New" — конструктор плагина
+	sym, err := p.Lookup("New")
+	if err != nil {
+		return nil, fmt.Errorf("plugin %s: missing 'New' symbol: %w", path, err)
+	}
+
+	// Преобразуем в функцию-конструктор
+	newFunc, ok := sym.(func() (Plugin, error))
+	if !ok {
+		return nil, fmt.Errorf("plugin %s: 'New' symbol is not a constructor", path)
+	}
+
+	// Создаём экземпляр плагина
+	pg, err := newFunc()
+	if err != nil {
+		return nil, fmt.Errorf("plugin %s: failed to create instance: %w", path, err)
+	}
+
+	return pg, nil
 }
 
 // LoadAll загружает все плагины из директории
 func (pl *PluginLoader) LoadAll(dir string) ([]Plugin, error) {
 	var plugins []Plugin
-	
+
 	// Проверяем существование директории
 	info, err := os.Stat(dir)
 	if os.IsNotExist(err) {
@@ -68,18 +90,18 @@ func (pl *PluginLoader) LoadAll(dir string) ([]Plugin, error) {
 	if !info.IsDir() {
 		return nil, fmt.Errorf("plugins path is not a directory: %s", dir)
 	}
-	
+
 	// Читаем файлы в директории
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read plugins directory: %w", err)
 	}
-	
+
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
-		
+
 		path := filepath.Join(dir, entry.Name())
 		plugin, err := pl.Load(path)
 		if err != nil {
@@ -88,7 +110,7 @@ func (pl *PluginLoader) LoadAll(dir string) ([]Plugin, error) {
 		}
 		plugins = append(plugins, plugin)
 	}
-	
+
 	return plugins, nil
 }
 
@@ -107,4 +129,13 @@ func ValidExtensions() []string {
 	default:
 		return []string{".so"}
 	}
+}
+
+// LoadBuiltin загружает встроенные плагины
+func LoadBuiltin() ([]Plugin, error) {
+	plugins := []Plugin{
+		NewOSFilter(),
+		NewCSVExporter(),
+	}
+	return plugins, nil
 }

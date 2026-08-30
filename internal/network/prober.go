@@ -9,7 +9,21 @@ import (
 
 // DefaultNetworkProber is the default implementation for liveness and MAC probes.
 type DefaultNetworkProber struct {
-	Timeout time.Duration
+	Timeout  time.Duration
+	arpCache *ARPCache
+}
+
+// NewDefaultNetworkProber создаёт новый пробер с инициализированным ARP-кэшем.
+func NewDefaultNetworkProber(timeout time.Duration) *DefaultNetworkProber {
+	return &DefaultNetworkProber{
+		Timeout:  timeout,
+		arpCache: NewDefaultARPCache(5 * time.Minute),
+	}
+}
+
+// SetARPCache устанавливает пользовательский ARP-кэш.
+func (p *DefaultNetworkProber) SetARPCache(cache *ARPCache) {
+	p.arpCache = cache
 }
 
 // Ping checks host availability using a short TCP probe set.
@@ -82,11 +96,27 @@ func (p DefaultNetworkProber) PingContext(ip string, done <-chan struct{}) (bool
 }
 
 // ResolveMAC attempts to resolve MAC from parsed IP.
-// Cross-platform active ARP probing stays inside scanner for now.
-func (p DefaultNetworkProber) ResolveMAC(ip string) (net.HardwareAddr, error) {
+// Uses ARP cache for fast resolution.
+func (p *DefaultNetworkProber) ResolveMAC(ip string) (net.HardwareAddr, error) {
 	parsed := net.ParseIP(ip)
 	if parsed == nil {
 		return nil, fmt.Errorf("invalid IP: %s", ip)
 	}
-	return nil, fmt.Errorf("MAC resolution is not implemented in default prober")
+
+	// Если ARP-кэш не инициализирован — возвращаем ошибку
+	if p.arpCache == nil {
+		return nil, fmt.Errorf("ARP cache not initialized")
+	}
+
+	macStr, err := p.arpCache.Get(ip)
+	if err != nil {
+		return nil, fmt.Errorf("MAC resolution failed for %s: %w", ip, err)
+	}
+
+	mac, err := net.ParseMAC(macStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid MAC address %q for %s: %w", macStr, ip, err)
+	}
+
+	return mac, nil
 }

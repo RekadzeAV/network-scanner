@@ -10,6 +10,7 @@ import (
 // --- AppModel edge cases ---
 
 func TestAppModel_MultipleStatusUpdates(t *testing.T) {
+	skipHeadless(t)
 	model := NewAppModel()
 
 	// Множественные обновления статуса

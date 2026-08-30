@@ -213,8 +213,14 @@ func inc(ip net.IP) {
 
 // IsPortOpen проверяет, открыт ли TCP порт через dial-connection.
 // timeout — максимальное время ожидания соединения.
+// При timeout <= 0 используется значение по умолчанию (100ms).
 func IsPortOpen(host string, port int, timeout time.Duration) bool {
 	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+
+	// Минимальный таймаут для предотвращения бесконечного ожидания
+	if timeout <= 0 {
+		timeout = 100 * time.Millisecond
+	}
 
 	// Используем Dialer с явным таймаутом для лучшей работы в Windows
 	dialer := &net.Dialer{
@@ -236,8 +242,14 @@ func IsPortOpen(host string, port int, timeout time.Duration) bool {
 // IsUDPPortOpen проверяет, открыт ли UDP порт.
 // Метод: отправляет пустой UDP пакет и проверяет ответ.
 // Таймаут означает "открыт/фильтрован" (UDP не имеет подтверждения).
+// При timeout <= 0 используется значение по умолчанию (100ms).
 func IsUDPPortOpen(host string, port int, timeout time.Duration) bool {
 	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+
+	// Минимальный таймаут для предотвращения бесконечного ожидания
+	if timeout <= 0 {
+		timeout = 100 * time.Millisecond
+	}
 
 	// Используем Dialer с явным таймаутом
 	dialer := &net.Dialer{
