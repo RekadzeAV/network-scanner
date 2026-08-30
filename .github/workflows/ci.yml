@@ -64,16 +64,14 @@ jobs:
           args: --timeout=5m
 
   build:
-    name: Build
+    name: Build (${{ matrix.os }}, ${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     needs: [test, lint]
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         arch: [amd64]
-        exclude:
-          - os: windows-latest
-            arch: amd64
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -83,14 +81,131 @@ jobs:
         with:
           go-version: "${{ env.GO_VERSION }}"
 
-      - name: Build binary
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
         run: |
-          GOOS="${{ runner.os == 'Windows' && 'windows' || runner.os == 'macOS' && 'darwin' || 'linux' }}" \
-          GOARCH="${{ matrix.arch }}" \
-          go build -o release-build/network-scanner-${{ runner.os }}-${{ matrix.arch }} -ldflags="-X main.Version=dev -X main.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.GitCommit=$(git rev-parse --short HEAD)" ./cmd/network-scanner/
+          sudo apt-get update
+          sudo apt-get install -y gcc libasound2-dev libcups2-dev libx11-dev libxext-dev libxrandr-dev libxi-dev libxtest-dev libxdamage-dev libxfixes-dev libgl1-mesa-dev libgtk-3-dev
 
-      - name: Upload artifact
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install go
+
+      - name: Build CLI binary
+        run: |
+          mkdir -p release-build
+          GOOS="${{ matrix.os == 'windows' && 'windows' || matrix.os == 'macos' && 'darwin' || 'linux' }}" \
+          GOARCH="${{ matrix.arch }}" \
+          CGO_ENABLED=1 \
+          go build -o release-build/network-scanner-${{ matrix.os }}-${{ matrix.arch }} \
+            -ldflags="-X main.Version=2.2.0 -X main.BuildTime=2026-08-29T00:00:00Z -X main.GitCommit=$(git rev-parse --short HEAD)" \
+            ./cmd/network-scanner
+
+      - name: Build GUI binary
+        run: |
+          mkdir -p release-build
+          GOOS="${{ matrix.os == 'windows' && 'windows' || matrix.os == 'macos' && 'darwin' || 'linux' }}" \
+          GOARCH="${{ matrix.arch }}" \
+          CGO_ENABLED=1 \
+          go build -o release-build/network-scanner-gui-${{ matrix.os }}-${{ matrix.arch }} \
+            ./cmd/gui
+
+      - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: network-scanner-${{ runner.os }}-${{ matrix.arch }}
+          name: network-scanner-${{ matrix.os }}-${{ matrix.arch }}
           path: release-build/network-scanner-${{ matrix.os }}-${{ matrix.arch }}
+
+      - name: Upload GUI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-scanner-gui-${{ matrix.os }}-${{ matrix.arch }}
+          path: release-build/network-scanner-gui-${{ matrix.os }}-${{ matrix.arch }}
+
+  stage2-p1-closure:
+    name: Stage 2 P1 Closure
+    runs-on: ${{ matrix.os }}
+    needs: [test, lint]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Run stage2-p1 closure check
+        shell: bash
+        run: |
+          if [ -f "scripts/stage2-p1-closure-check.sh" ]; then
+            bash scripts/stage2-p1-closure-check.sh
+          elif [ -f "scripts/stage2-p1-closure-check.ps1" ]; then
+            pwsh -File scripts/stage2-p1-closure-check.ps1
+          else
+            echo "No closure check script found for stage2-p1"
+            exit 1
+          fi
+
+  stage2-p2-closure:
+    name: Stage 2 P2 Closure
+    runs-on: ${{ matrix.os }}
+    needs: [test, lint]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Run stage2-p2 closure check
+        shell: bash
+        run: |
+          if [ -f "scripts/stage2-p2-closure-check.sh" ]; then
+            bash scripts/stage2-p2-closure-check.sh
+          elif [ -f "scripts/stage2-p2-closure-check.ps1" ]; then
+            pwsh -File scripts/stage2-p2-closure-check.ps1
+          else
+            echo "No closure check script found for stage2-p2"
+            exit 1
+          fi
+
+  stage2-p3-closure:
+    name: Stage 2 P3 Closure
+    runs-on: ${{ matrix.os }}
+    needs: [test, lint]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Run stage2-p3 closure check
+        shell: bash
+        run: |
+          if [ -f "scripts/stage2-p3-closure-check.sh" ]; then
+            bash scripts/stage2-p3-closure-check.sh
+          elif [ -f "scripts/stage2-p3-closure-check.ps1" ]; then
+            pwsh -File scripts/stage2-p3-closure-check.ps1
+          else
+            echo "No closure check script found for stage2-p3"
+            exit 1
+          fi
