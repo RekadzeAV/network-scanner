@@ -59,11 +59,14 @@ func (m *AppModel) UpdateProgress(percent float64, stage string) {
 }
 
 // SetStatus устанавливает статус приложения.
+//
+// binding.String потокобезопасен и не требует маршалинга в UI-поток: подписчики
+// (виджеты через DataBinder) сами синхронизируются. Обёртка fyne.Do здесь не
+// только лишняя — вне запущенного Fyne-приложения (тесты, headless) она не
+// выполняет замыкание, и статус молча терялся.
 func (m *AppModel) SetStatus(status string) {
 	if m.statusText != nil {
-		fyne.Do(func() {
-			_ = m.statusText.Set(status)
-		})
+		_ = m.statusText.Set(status)
 	}
 }
 

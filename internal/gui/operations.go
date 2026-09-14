@@ -96,14 +96,28 @@ func (m *OperationsManager) Run(opType OperationType, title string, task Operati
 func (m *OperationsManager) Retry(id string) (string, bool) {
 	m.mu.RLock()
 	op, ok := m.ops[id]
+
+	// Статус и данные операции читаем под той же блокировкой: setRunning()
+	// и finish() пишут их из горутины execute(), поэтому чтение полей после
+	// RUnlock — data race. Run() берёт m.mu.Lock(), вызывать его под
+	// RLock нельзя (RWMutex не реентерабелен), поэтому данные копируем.
+	retryable := ok && op != nil && op.task != nil &&
+		(op.Status == OperationFailed || op.Status == OperationCanceled)
+
+	var (
+		kind  OperationType
+		title string
+		task  OperationTask
+	)
+	if retryable {
+		kind, title, task = op.Type, op.Title, op.task
+	}
 	m.mu.RUnlock()
-	if !ok || op == nil || op.task == nil {
+
+	if !retryable {
 		return "", false
 	}
-	if op.Status != OperationFailed && op.Status != OperationCanceled {
-		return "", false
-	}
-	return m.Run(op.Type, op.Title, op.task), true
+	return m.Run(kind, title, task), true
 }
 
 func (m *OperationsManager) Cancel(id string) bool {

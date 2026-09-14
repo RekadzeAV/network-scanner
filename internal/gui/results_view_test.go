@@ -3,16 +3,82 @@ package gui
 import (
 	"os"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"network-scanner/internal/scanner"
 
+	fyneapp "fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/widget"
 )
+
+// displayProbeTimeout — сколько ждём подъёма драйвера Fyne при проверке дисплея.
+const displayProbeTimeout = 15 * time.Second
+
+var (
+	displayProbeOnce sync.Once
+	displayUsable    bool
+)
+
+// skipHeadless пропускает тест если нет дисплея (CI, SSH, headless mode)
+//
+// Кроме явного FYNE_HEADLESS=1 проверяется фактическая возможность поднять
+// драйвер Fyne. Без этой проверки NewApp() в бездисплейной сессии блокируется
+// навсегда внутри NewWindow и вешает весь go test вместо пропуска GUI-тестов.
+// Проверка дорога, поэтому выполняется один раз на пакет и кэшируется.
+func skipHeadless(t *testing.T) {
+	t.Helper()
+
+	if os.Getenv("FYNE_HEADLESS") == "1" {
+		t.Skip("GUI tests require a display server")
+	}
+
+	displayProbeOnce.Do(func() { displayUsable = fyneDriverStarts(displayProbeTimeout) })
+
+	if !displayUsable {
+		t.Skip("Fyne driver does not start in this session (no usable display)")
+	}
+}
+
+// fyneDriverStarts создаёт окно Fyne в отдельной горутине и возвращает false,
+// если инициализация драйвера не завершилась за timeout либо завершилась паникой.
+func fyneDriverStarts(timeout time.Duration) bool {
+	if timeout <= 0 {
+		timeout = displayProbeTimeout
+	}
+
+	started := make(chan bool, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				started <- false
+			}
+		}()
+
+		probeApp := fyneapp.NewWithID("network-scanner.display-probe")
+		if probeApp == nil {
+			started <- false
+			return
+		}
+		if probeWindow := probeApp.NewWindow("display probe"); probeWindow != nil {
+			probeWindow.Close()
+		}
+		started <- true
+	}()
+
+	select {
+	case ok := <-started:
+		return ok
+	case <-time.After(timeout):
+		return false
+	}
+}
 
 // --- filteredSortedResults & cache ---
 
 func TestFilteredSortedResults_Empty(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	res := app.filteredSortedResults()
@@ -22,6 +88,8 @@ func TestFilteredSortedResults_Empty(t *testing.T) {
 }
 
 func TestFilteredSortedResults_CacheHit(t *testing.T) {
+	skipHeadless(t)
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.scanResults = []scanner.Result{
@@ -45,6 +113,7 @@ func TestFilteredSortedResults_CacheHit(t *testing.T) {
 }
 
 func TestFilteredSortedResults_FilterByPortState(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.scanResults = []scanner.Result{
@@ -64,6 +133,7 @@ func TestFilteredSortedResults_FilterByPortState(t *testing.T) {
 // --- selectedTypeFilters ---
 
 func TestSelectedTypeFilters_Empty(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	filters := app.selectedTypeFilters()
@@ -73,6 +143,7 @@ func TestSelectedTypeFilters_Empty(t *testing.T) {
 }
 
 func TestSelectedTypeFilters_WithChecks(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.quickTypeChecks = map[string]*widget.Check{
@@ -92,6 +163,7 @@ func TestSelectedTypeFilters_WithChecks(t *testing.T) {
 // --- buildResultsPipelineCacheKey ---
 
 func TestBuildResultsPipelineCacheKey(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.scanResultsVersion = 123
@@ -118,6 +190,7 @@ func TestBuildResultsPipelineCacheKey_NilApp(t *testing.T) {
 // --- applyAdvancedFilters ---
 
 func TestApplyAdvancedFilters_CIDR(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.resultsCidrFilterEnt = &widget.Entry{Text: "192.168.1.0/24"}
@@ -134,6 +207,7 @@ func TestApplyAdvancedFilters_CIDR(t *testing.T) {
 }
 
 func TestApplyAdvancedFilters_PortState(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.resultsPortStateMode = "has_closed"
@@ -152,6 +226,7 @@ func TestApplyAdvancedFilters_PortState(t *testing.T) {
 // --- passesCIDRFilter ---
 
 func TestPassesCIDRFilter_Valid(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.resultsCidrFilterEnt = &widget.Entry{Text: "192.168.1.0/24"}
@@ -168,6 +243,7 @@ func TestPassesCIDRFilter_Valid(t *testing.T) {
 }
 
 func TestPassesCIDRFilter_Empty(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.resultsCidrFilterEnt = &widget.Entry{Text: ""}
@@ -179,6 +255,7 @@ func TestPassesCIDRFilter_Empty(t *testing.T) {
 }
 
 func TestPassesCIDRFilter_NilEntry(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.resultsCidrFilterEnt = nil
@@ -192,6 +269,7 @@ func TestPassesCIDRFilter_NilEntry(t *testing.T) {
 // --- passesPortStateMode ---
 
 func TestPassesPortStateMode_Open(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.resultsPortStateMode = "has_open"
@@ -203,6 +281,7 @@ func TestPassesPortStateMode_Open(t *testing.T) {
 }
 
 func TestPassesPortStateMode_Closed(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.resultsPortStateMode = "has_closed"
@@ -214,6 +293,7 @@ func TestPassesPortStateMode_Closed(t *testing.T) {
 }
 
 func TestPassesPortStateMode_Filtered(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.resultsPortStateMode = "has_filtered"
@@ -225,6 +305,7 @@ func TestPassesPortStateMode_Filtered(t *testing.T) {
 }
 
 func TestPassesPortStateMode_All(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.resultsPortStateMode = "all"
@@ -238,6 +319,7 @@ func TestPassesPortStateMode_All(t *testing.T) {
 // --- activeFilterCount ---
 
 func TestActiveFilterCount(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 
@@ -292,6 +374,7 @@ func TestClampFloat32(t *testing.T) {
 // --- layout helpers ---
 
 func TestCurrentLayoutProfile(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 
@@ -320,6 +403,7 @@ func TestLayoutAdaptiveMultiplier(t *testing.T) {
 // --- resultsTableColumnWidths ---
 
 func TestResultsTableColumnWidths(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 
@@ -344,6 +428,7 @@ func TestResultsTableColumnWidths(t *testing.T) {
 // --- resultsTableHeaders ---
 
 func TestResultsTableHeaders(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 

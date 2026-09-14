@@ -91,7 +91,10 @@ func (a *App) saveAccentColor(name string, c color.RGBA) {
 		return
 	}
 	p := a.myApp.Preferences()
-	val := c.R<<24 | c.G<<16 | c.B<<8 | c.A
+	// Упаковка RGBA обязана идти в 32 битах: в арифметике uint8 сдвиги R и G
+	// обнулялись, и в Preferences долетали только B и A — акцентный цвет после
+	// перезапуска искажался.
+	val := uint32(c.R)<<24 | uint32(c.G)<<16 | uint32(c.B)<<8 | uint32(c.A)
 	p.SetString(accentKey(name), strconv.FormatUint(uint64(val), 16))
 }
 

@@ -1,0 +1,28 @@
+# Performance Regression Baseline — Network Scanner
+# Обновлён: 2026-09-10 (v2.3.0 C4)
+# Формат: <name> <ns_per_op> <bytes_per_op> <allocs_per_op>
+# Сгенерировано: go test ./internal/benchmark -bench=".*" -benchmem -benchtime=100x -count=1
+#
+# Примечание: ns/op используется для сравнения только у CPU-bound бенчмарков
+# (см. CPU_ONLY_BENCHMARKS в scripts/check-perf-regression.sh).
+# Сетевые бенчмарки сравниваются только по allocs/op и bytes/op,
+# потому что ns/op на них зависит от сетевого стека раннера CI.
+BenchmarkNetworkScanner_PingDiscovery 366 352 5
+BenchmarkNetworkScanner_PortScan 1006059 13485 183
+BenchmarkPluginRegistry_Register 161 114 6
+BenchmarkPluginRegistry_ExecuteAll 1544229 23129 300
+BenchmarkPluginRegistry_ExecutePhase 1243285 16132 216
+BenchmarkPluginRegistry_GetAll 127399 2683 41
+BenchmarkEventBus_Subscribe 51 25 0
+BenchmarkEventBus_Publish 4202 1462 13
+BenchmarkEventBus_PublishBatch 1930 659 10
+BenchmarkEventBus_SubscribeAny 101 21 0
+BenchmarkEventBus_ConcurrentPublish 195 195 3
+BenchmarkConfigValidation_Schema 113 0 0
+BenchmarkConfigValidation_Specific 2682 3063 51
+BenchmarkConfigValidation_InvalidConfig 378 238 10
+BenchmarkConfigValidation_EmptySchema 8 0 0
+BenchmarkFullPipeline 1282752 16512 224
+BenchmarkPluginRegistry_MemoryAlloc 368 512 12
+BenchmarkEventBus_MemoryAlloc 414 744 8
+BenchmarkConfigValidation_MemoryAlloc 56 0 0

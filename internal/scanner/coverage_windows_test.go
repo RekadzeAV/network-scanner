@@ -6,11 +6,40 @@ import (
 	"net"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"network-scanner/internal/contracts"
 )
+
+// progressRecorder — потокобезопасный сборщик вызовов progress callback.
+//
+// Колбэк выполняется из воркеров сканирования в нескольких горутинах,
+// поэтому инкремент счётчика и append в срез без блокировки — data race.
+type progressRecorder struct {
+	mu     sync.Mutex
+	calls  int
+	stages []string
+}
+
+func (r *progressRecorder) record(stage string, current, total int, message string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls++
+	r.stages = append(r.stages, stage)
+}
+
+func (r *progressRecorder) count() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.calls
+}
+
+// callback — готовый аргумент для SetProgressCallback.
+func (r *progressRecorder) callback() func(string, int, int, string) {
+	return r.record
+}
 
 // ============================================================================
 // W-18: Тесты для scanHost — ключевые непокрытые ветки
@@ -202,17 +231,15 @@ func TestIsHostAlive_ShortTimeout(t *testing.T) {
 func TestScan_WithProgressCallback(t *testing.T) {
 	ns := NewNetworkScanner("192.168.1.0/24", 100*time.Millisecond, "80", 10, false)
 
-	progressCalled := false
-	ns.SetProgressCallback(func(stage string, current, total int, message string) {
-		progressCalled = true
-	})
+	rec := &progressRecorder{}
+	ns.SetProgressCallback(rec.callback())
 
 	ns.Scan()
 	// Даем время на выполнение
 	time.Sleep(100 * time.Millisecond)
 
 	// Progress callback должен был вызваться
-	if !progressCalled {
+	if rec.count() == 0 {
 		t.Log("Progress callback not called (expected for unreachable network)")
 	}
 }
@@ -755,16 +782,14 @@ func TestScan_NoTCP(t *testing.T) {
 func TestScan_ProgressCallback(t *testing.T) {
 	ns := NewNetworkScanner("192.168.1.0/24", 100*time.Millisecond, "80", 10, false)
 
-	var progressCalls int
-	ns.SetProgressCallback(func(stage string, current, total int, message string) {
-		progressCalls++
-	})
+	rec := &progressRecorder{}
+	ns.SetProgressCallback(rec.callback())
 
 	ns.Scan()
 	time.Sleep(100 * time.Millisecond)
 
 	// Progress callback должен был вызваться несколько раз
-	if progressCalls == 0 {
+	if rec.count() == 0 {
 		t.Log("Progress callback not called (expected for unreachable network)")
 	}
 }
@@ -1044,18 +1069,14 @@ func TestIsHostAlive_ResultsChannel(t *testing.T) {
 func TestScan_ProgressCallbackPing(t *testing.T) {
 	ns := NewNetworkScanner("192.168.1.0/24", 100*time.Millisecond, "80", 10, false)
 
-	var progressCalls int
-	var progressStages []string
-	ns.SetProgressCallback(func(stage string, current, total int, message string) {
-		progressCalls++
-		progressStages = append(progressStages, stage)
-	})
+	rec := &progressRecorder{}
+	ns.SetProgressCallback(rec.callback())
 
 	ns.Scan()
 	time.Sleep(100 * time.Millisecond)
 
 	// Progress callback должен был вызваться с stage "ping"
-	if progressCalls == 0 {
+	if rec.count() == 0 {
 		t.Log("Progress callback not called (expected for unreachable network)")
 	}
 }
@@ -1064,18 +1085,14 @@ func TestScan_ProgressCallbackPing(t *testing.T) {
 func TestScan_ProgressCallbackPorts(t *testing.T) {
 	ns := NewNetworkScanner("192.168.1.0/24", 100*time.Millisecond, "80", 10, false)
 
-	var progressCalls int
-	var progressStages []string
-	ns.SetProgressCallback(func(stage string, current, total int, message string) {
-		progressCalls++
-		progressStages = append(progressStages, stage)
-	})
+	rec := &progressRecorder{}
+	ns.SetProgressCallback(rec.callback())
 
 	ns.Scan()
 	time.Sleep(100 * time.Millisecond)
 
 	// Progress callback должен был вызваться с stage "ports"
-	if progressCalls == 0 {
+	if rec.count() == 0 {
 		t.Log("Progress callback not called (expected for unreachable network)")
 	}
 }
@@ -1108,16 +1125,14 @@ func TestScan_CancelledDuringPortScan(t *testing.T) {
 func TestScan_NoAliveHosts_Callback(t *testing.T) {
 	ns := NewNetworkScanner("192.0.2.0/24", 100*time.Millisecond, "80", 10, false)
 
-	var progressCalls int
-	ns.SetProgressCallback(func(stage string, current, total int, message string) {
-		progressCalls++
-	})
+	rec := &progressRecorder{}
+	ns.SetProgressCallback(rec.callback())
 
 	ns.Scan()
 	time.Sleep(100 * time.Millisecond)
 
 	// Progress callback должен был вызваться
-	if progressCalls == 0 {
+	if rec.count() == 0 {
 		t.Log("Progress callback not called (expected for unreachable network)")
 	}
 }
@@ -1267,19 +1282,15 @@ func TestIsHostAlive_ContextProberErrorVerbose(t *testing.T) {
 func TestScan_ProgressCallbackMultipleCalls(t *testing.T) {
 	ns := NewNetworkScanner("192.168.1.0/24", 100*time.Millisecond, "80", 10, false)
 
-	var progressCalls int
-	var progressStages []string
-	ns.SetProgressCallback(func(stage string, current, total int, message string) {
-		progressCalls++
-		progressStages = append(progressStages, stage)
-	})
+	rec := &progressRecorder{}
+	ns.SetProgressCallback(rec.callback())
 
 	ns.Scan()
 	time.Sleep(100 * time.Millisecond)
 
 	// Progress callback должен был вызваться несколько раз
-	if progressCalls < 2 {
-		t.Errorf("Expected at least 2 progress calls, got %d", progressCalls)
+	if rec.count() < 2 {
+		t.Errorf("Expected at least 2 progress calls, got %d", rec.count())
 	}
 }
 
@@ -1287,18 +1298,14 @@ func TestScan_ProgressCallbackMultipleCalls(t *testing.T) {
 func TestScan_ProgressCallbackWithAliveHosts(t *testing.T) {
 	ns := NewNetworkScanner("127.0.0.1/32", 100*time.Millisecond, "80", 10, false)
 
-	var progressCalls int
-	var progressStages []string
-	ns.SetProgressCallback(func(stage string, current, total int, message string) {
-		progressCalls++
-		progressStages = append(progressStages, stage)
-	})
+	rec := &progressRecorder{}
+	ns.SetProgressCallback(rec.callback())
 
 	ns.Scan()
 	time.Sleep(100 * time.Millisecond)
 
 	// Progress callback должен был вызваться с разными stages
-	if progressCalls == 0 {
+	if rec.count() == 0 {
 		t.Log("Progress callback not called (expected for localhost)")
 	}
 }
@@ -1332,10 +1339,8 @@ func TestScan_NoTCP_NoAliveHosts(t *testing.T) {
 	ns := NewNetworkScanner("192.0.2.0/24", 100*time.Millisecond, "", 10, false)
 	ns.scanTCPPorts = false
 
-	var progressCalls int
-	ns.SetProgressCallback(func(stage string, current, total int, message string) {
-		progressCalls++
-	})
+	rec := &progressRecorder{}
+	ns.SetProgressCallback(rec.callback())
 
 	ns.Scan()
 	time.Sleep(100 * time.Millisecond)

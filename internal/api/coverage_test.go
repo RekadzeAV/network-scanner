@@ -5,12 +5,23 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"network-scanner/internal/contracts"
 	"network-scanner/internal/topology"
 )
+
+// tempInventoryPath — путь к БД инвентаря во временном каталоге теста.
+//
+// inventory.Open создаёт отсутствующие каталоги, поэтому «несуществующий»
+// путь не вызывает ошибку, а записывает БД в рабочее дерево. Во временном
+// каталоге тест проверяет то же поведение и не оставляет артефактов.
+func tempInventoryPath(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(t.TempDir(), "nonexistent", "path", "inventory.db")
+}
 
 // ============================================================================
 // handleScan — edge cases
@@ -92,6 +103,7 @@ func TestHandleScanStatus_Found(t *testing.T) {
 }
 
 func TestHandleResults_NoResults(t *testing.T) {
+	resetScanStore()
 	cfg := DefaultConfig()
 	router := NewRouter(cfg)
 
@@ -114,6 +126,7 @@ func TestHandleResults_NoResults(t *testing.T) {
 }
 
 func TestHandleResults_WithCompletedScan(t *testing.T) {
+	resetScanStore()
 	cfg := DefaultConfig()
 	router := NewRouter(cfg)
 
@@ -373,7 +386,7 @@ func TestTriggerAlertHandler_NotInitialized(t *testing.T) {
 
 func TestHistoryHandler_InventoryOpenFail(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.InventoryPath = "nonexistent/path/that/does/not/exist.db"
+	cfg.InventoryPath = tempInventoryPath(t)
 	router := NewRouter(cfg)
 
 	req := httptest.NewRequest("GET", "/api/v1/history", nil)
@@ -390,7 +403,7 @@ func TestHistoryHandler_InventoryOpenFail(t *testing.T) {
 
 func TestHistoryHandler_WithLimit(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.InventoryPath = "nonexistent/path/that/does/not/exist.db"
+	cfg.InventoryPath = tempInventoryPath(t)
 	router := NewRouter(cfg)
 
 	req := httptest.NewRequest("GET", "/api/v1/history?limit=10", nil)
@@ -405,7 +418,7 @@ func TestHistoryHandler_WithLimit(t *testing.T) {
 
 func TestCompareHandler_InventoryOpenFail(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.InventoryPath = "nonexistent/path/that/does/not/exist.db"
+	cfg.InventoryPath = tempInventoryPath(t)
 	router := NewRouter(cfg)
 
 	req := httptest.NewRequest("GET", "/api/v1/history/compare/id-a/id-b", nil)
@@ -439,7 +452,7 @@ func TestSNMPCollectHandler_InvalidJSON(t *testing.T) {
 
 func TestSNMPCollectHandler_InventoryOpenFail(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.InventoryPath = "nonexistent/path/that/does/not/exist.db"
+	cfg.InventoryPath = tempInventoryPath(t)
 	router := NewRouter(cfg)
 
 	body, _ := json.Marshal(map[string]interface{}{
@@ -477,7 +490,7 @@ func TestTopologyBuildHandler_InvalidJSON(t *testing.T) {
 
 func TestTopologyBuildHandler_InventoryOpenFail(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.InventoryPath = "nonexistent/path/that/does/not/exist.db"
+	cfg.InventoryPath = tempInventoryPath(t)
 	router := NewRouter(cfg)
 
 	body, _ := json.Marshal(map[string]interface{}{
@@ -527,7 +540,7 @@ func TestTopologyExportHandler_InvalidJSON(t *testing.T) {
 
 func TestTopologyExportHandler_InventoryOpenFail(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.InventoryPath = "nonexistent/path/that/does/not/exist.db"
+	cfg.InventoryPath = tempInventoryPath(t)
 	router := NewRouter(cfg)
 
 	body, _ := json.Marshal(map[string]interface{}{
@@ -563,7 +576,7 @@ func TestTopologyDOTHandler_InvalidJSON(t *testing.T) {
 
 func TestTopologyDOTHandler_InventoryOpenFail(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.InventoryPath = "nonexistent/path/that/does/not/exist.db"
+	cfg.InventoryPath = tempInventoryPath(t)
 	router := NewRouter(cfg)
 
 	body, _ := json.Marshal(map[string]interface{}{})
@@ -595,7 +608,7 @@ func TestTopologyStatsHandler_InvalidJSON(t *testing.T) {
 
 func TestTopologyStatsHandler_InventoryOpenFail(t *testing.T) {
 	cfg := DefaultConfig()
-	cfg.InventoryPath = "nonexistent/path/that/does/not/exist.db"
+	cfg.InventoryPath = tempInventoryPath(t)
 	router := NewRouter(cfg)
 
 	body, _ := json.Marshal(map[string]interface{}{})

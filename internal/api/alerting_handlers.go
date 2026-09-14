@@ -6,15 +6,16 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/gorilla/mux"
 	"network-scanner/internal/alerting"
 	"network-scanner/internal/inventory"
+
+	"github.com/gorilla/mux"
 )
 
 // alertingEngine глобальный движок алертинга (для простоты)
 var (
-	alertingEng    *alerting.Engine
-	alertingEngMu  sync.Mutex
+	alertingEng   *alerting.Engine
+	alertingEngMu sync.Mutex
 )
 
 // initAlerting инициализирует движок алертинга
@@ -32,7 +33,7 @@ func (h *Handler) alertsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	severity := r.URL.Query().Get("severity")
-	
+
 	var alerts []alerting.Alert
 	if severity != "" {
 		alerts = alertingEng.GetAlertsBySeverity(alerting.Severity(severity))
@@ -64,9 +65,10 @@ func (h *Handler) checkAlertsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: преобразовать map в scanner.Result
-	// Для демонстрации возвращаем заглушку
-	alerts := alertingEng.CheckAlerts(nil, nil)
+	alerts := alertingEng.CheckAlerts(
+		mapToScannerResults(req.OldHosts),
+		mapToScannerResults(req.NewHosts),
+	)
 
 	h.writeJSON(w, http.StatusOK, map[string]interface{}{
 		"alerts": alerts,
@@ -133,6 +135,3 @@ func (h *Handler) triggerAlertHandler(w http.ResponseWriter, r *http.Request) {
 		"scan_b": scanIDB,
 	})
 }
-
-
-

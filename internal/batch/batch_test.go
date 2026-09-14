@@ -104,9 +104,11 @@ func TestSNMPBatchProcessor(t *testing.T) {
 		t.Fatalf("expected 2 responses, got %d", len(responses))
 	}
 
+	// ProcessSNMPBatch выполняет реальные SNMP-запросы: в тестовой среде агентов
+	// нет, поэтому каждый ответ обязан содержать ошибку, а не заглушку-значение.
 	for i, r := range responses {
-		if r.Value != "stub" {
-			t.Fatalf("response %d: expected stub value, got %s", i, r.Value)
+		if r.Error == nil {
+			t.Errorf("response %d: expected error for unreachable agent, got value %q", i, r.Value)
 		}
 	}
 }

@@ -176,6 +176,29 @@ func (c *ToolsController) RunDNSTool() {
 	}()
 }
 
+// currentWindow безопасно возвращает главное окно приложения.
+//
+// fyne.App интерфейс не гарантирует CurrentWindow(): конкретный тип приложения
+// (app.New() в тестах, headless-режим) его не реализует. Прямой type assertion
+// паниковал — здесь всегда comma-ok, а при недоступности окна возвращается nil.
+func (c *ToolsController) currentWindow() fyne.Window {
+	if w, ok := c.app.(interface{ CurrentWindow() fyne.Window }); ok {
+		return w.CurrentWindow()
+	}
+	return nil
+}
+
+// showInfo показывает информационный диалог, если окно доступно.
+//
+// В fyne 2.7 dialog.ShowInformation с nil-окном паникует (base.go разыменовывает
+// окно), поэтому без окна сообщение пропускается: в headless-режиме показать
+// его всё равно некому.
+func (c *ToolsController) showInfo(title, message string) {
+	if w := c.currentWindow(); w != nil {
+		dialog.ShowInformation(title, message, w)
+	}
+}
+
 // RunWOLTool запускает Wake-on-LAN.
 func (c *ToolsController) RunWOLTool() {
 	mac := ""
@@ -183,7 +206,7 @@ func (c *ToolsController) RunWOLTool() {
 		mac = strings.TrimSpace(c.ui.WOLMacEntry.Text)
 	}
 	if mac == "" {
-		dialog.ShowInformation("Wake-on-LAN", "Введите MAC-адрес", c.app.(interface{ CurrentWindow() fyne.Window }).CurrentWindow())
+		c.showInfo("Wake-on-LAN", "Введите MAC-адрес")
 		return
 	}
 	bcast := ""
@@ -281,7 +304,7 @@ func (c *ToolsController) RunDeviceControlTool(action string) {
 		target = strings.TrimSpace(c.ui.DeviceTargetEntry.Text)
 	}
 	if target == "" {
-		dialog.ShowInformation("Device Control", "Введите URL устройства", c.app.(interface{ CurrentWindow() fyne.Window }).CurrentWindow())
+		c.showInfo("Device Control", "Введите URL устройства")
 		return
 	}
 	vendor := ""
@@ -407,7 +430,7 @@ func (c *ToolsController) withHost() (string, bool) {
 	}
 	host := strings.TrimSpace(c.ui.HostEntry.Text)
 	if host == "" {
-		dialog.ShowInformation("Инструменты", "Введите хост или IP", c.app.(interface{ CurrentWindow() fyne.Window }).CurrentWindow())
+		c.showInfo("Инструменты", "Введите хост или IP")
 		return "", false
 	}
 	return host, true

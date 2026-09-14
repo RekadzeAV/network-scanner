@@ -17,6 +17,9 @@ func TestCreateAppIcon(t *testing.T) {
 }
 
 func TestNewApp(t *testing.T) {
+	// Fyne GUI требует дисплея — в headless-режиме (CI, SSH) тест пропускаем
+	skipHeadless(t)
+
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	if app == nil {
@@ -43,6 +46,7 @@ func TestNewApp(t *testing.T) {
 }
 
 func TestApp_loadScanSettings(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.loadScanSettings()
@@ -56,6 +60,7 @@ func TestApp_loadScanSettings(t *testing.T) {
 }
 
 func TestApp_saveScanSettings(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.scanTCPPortsCheck.SetChecked(true)
@@ -70,6 +75,7 @@ func TestApp_saveScanSettings(t *testing.T) {
 }
 
 func TestApp_setPortRangeControlsEnabled(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	app.setPortRangeControlsEnabled(true)
@@ -78,6 +84,7 @@ func TestApp_setPortRangeControlsEnabled(t *testing.T) {
 }
 
 func TestApp_autoDetectNetwork(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	// autoDetectNetwork запускает горутину, ждём немного
@@ -99,6 +106,7 @@ func TestApp_autoDetectNetwork(t *testing.T) {
 // TestApp_applyRecommendedScanProfile_SavesSettings — migrated to controller/controller_test.go
 
 func TestApp_resetUIPanelLayoutWithFeedback(t *testing.T) {
+	skipHeadless(t)
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	// resetUIPanelLayoutWithFeedback не должна паниковать

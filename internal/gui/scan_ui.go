@@ -15,6 +15,11 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// resultsRenderDebounceDefault — задержка дебаунса перерисовки результатов:
+// сглаживает поток обновлений прогресса, не давая GUI перерисовываться на
+// каждое событие сканера.
+const resultsRenderDebounceDefault = 180 * time.Millisecond
+
 // initScanUI инициализирует UI сканирования
 func (a *App) initScanUI() {
 	logger.LogDebug("[initScanUI] Начало")
@@ -23,6 +28,9 @@ func (a *App) initScanUI() {
 			logger.LogError(fmt.Errorf("PANIC в initScanUI: %v", rec), "initScanUI")
 		}
 	}()
+	// Дефолт debounce рендера результатов задаётся сразу: он нужен даже если
+	// buildResultsContainer ещё не вызывался (тесты, headless-режим).
+	a.resultsRenderDebounce = resultsRenderDebounceDefault
 	// Поле ввода сети
 	logger.LogDebug("[initScanUI] Создаю networkEntry")
 	networkLabel := widget.NewLabel("Сеть (CIDR, например 192.168.1.0/24):")
@@ -204,7 +212,7 @@ func (a *App) buildResultsContainer() *fyne.Container {
 	a.cardsVisibleCount = 200
 	a.showRawBanners = false
 	a.resultsState = resultsStateIdle
-	a.resultsRenderDebounce = 180 * time.Millisecond
+	a.resultsRenderDebounce = resultsRenderDebounceDefault
 	a.resultsBody = container.NewMax(widget.NewLabel("Результаты сканирования появятся здесь после запуска."))
 	a.resultsModeSel = widget.NewRadioGroup([]string{"Таблица", "Карточки"}, func(value string) {
 		if strings.TrimSpace(value) == "" {

@@ -226,6 +226,8 @@ func ExtractVersionHint(port int, banner string) string {
 func trimMailLikePrefix(s string) string {
 	s = strings.TrimSpace(s)
 	s = strings.TrimPrefix(s, "+OK")
+	// Протокольные префиксы, которые дублируют нормализацию по порту.
+	s = strings.TrimPrefix(s, "SMTP ")
 	// Срезаем типовые коды ответов: 220/250/5xx и т.п.
 	if len(s) >= 3 && isDigit(s[0]) && isDigit(s[1]) && isDigit(s[2]) {
 		s = strings.TrimSpace(s[3:])
@@ -242,7 +244,9 @@ func isDigit(b byte) bool {
 
 func isPlainHTTPPort(port int) bool {
 	switch port {
-	case 80, 8080:
+	// 8000/8888/8880 — типовые альтернативные HTTP-порты (в т.ч. Jetty,
+	// alternative web UI, Asterisk HTTP), встречаются в корпоративных сетях.
+	case 80, 8080, 8000, 8888, 8880:
 		return true
 	default:
 		return false
@@ -251,7 +255,9 @@ func isPlainHTTPPort(port int) bool {
 
 func isTLSHTTPPort(port int) bool {
 	switch port {
-	case 443, 8443:
+	// 465 (SMTPS), 993 (IMAPS), 995 (POP3S) — TLS-обёртки почтовых протоколов:
+	// баннер по ним читается как TLS HTTP-ответ.
+	case 443, 8443, 465, 993, 995:
 		return true
 	default:
 		return false

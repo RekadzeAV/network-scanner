@@ -38,9 +38,19 @@ func EstimateHostCount(cidr string) (int, error) {
 	return 1 << hostBits, nil
 }
 
-// DetectLocalNetwork определяет локальную сеть автоматически
+// DetectLocalNetwork определяет локальную сеть автоматически.
+// Приоритет у IPv4, но если IPv4 нет — вернёт IPv6.
 func DetectLocalNetwork() (string, error) {
-	// Получаем интерфейсы с таймаутом (избегаем зависания в Windows)
+	// Сначала пробуем IPv4
+	if cidr, err := detectLocalNetworkIPv4(); err == nil && cidr != "" {
+		return cidr, nil
+	}
+	// Если IPv4 нет — пробуем IPv6
+	return detectLocalNetworkIPv6()
+}
+
+// detectLocalNetworkIPv4 определяет локальную IPv4 сеть.
+func detectLocalNetworkIPv4() (string, error) {
 	interfacesChan := make(chan []net.Interface, 1)
 	errChan := make(chan error, 1)
 	go func() {
@@ -55,7 +65,6 @@ func DetectLocalNetwork() (string, error) {
 	var interfaces []net.Interface
 	select {
 	case interfaces = <-interfacesChan:
-		// Успешно получили интерфейсы
 	case err := <-errChan:
 		return "", err
 	case <-time.After(5 * time.Second):
@@ -63,12 +72,10 @@ func DetectLocalNetwork() (string, error) {
 	}
 
 	for _, iface := range interfaces {
-		// Пропускаем неактивные интерфейсы и loopback
 		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
 			continue
 		}
 
-		// Получаем адреса интерфейса с таймаутом (избегаем зависания в Windows)
 		addrsChan := make(chan []net.Addr, 1)
 		addrErrChan := make(chan error, 1)
 		go func() {
@@ -83,11 +90,9 @@ func DetectLocalNetwork() (string, error) {
 		var addrs []net.Addr
 		select {
 		case addrs = <-addrsChan:
-			// Успешно получили адреса
 		case <-addrErrChan:
 			continue
 		case <-time.After(2 * time.Second):
-			// Таймаут для получения адресов интерфейса, пропускаем этот интерфейс
 			continue
 		}
 
@@ -100,12 +105,10 @@ func DetectLocalNetwork() (string, error) {
 				ip = v.IP
 			}
 
-			// Пропускаем IPv6 и loopback
 			if ip == nil || ip.IsLoopback() || ip.To4() == nil {
 				continue
 			}
 
-			// Определяем маску подсети
 			if ipnet, ok := addr.(*net.IPNet); ok {
 				mask := ipnet.Mask
 				ones, bits := mask.Size()
@@ -117,10 +120,163 @@ func DetectLocalNetwork() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("не найдена активная сеть")
+	return "", fmt.Errorf("не найдена активная IPv4 сеть")
 }
 
-// ParseNetworkRange парсит диапазон сети (например, 192.168.1.0/24)
+// detectLocalNetworkIPv6 определяет локальную IPv6 сеть.
+func detectLocalNetworkIPv6() (string, error) {
+	interfacesChan := make(chan []net.Interface, 1)
+	errChan := make(chan error, 1)
+	go func() {
+		interfaces, err := net.Interfaces()
+		if err != nil {
+			errChan <- err
+			return
+		}
+		interfacesChan <- interfaces
+	}()
+
+	var interfaces []net.Interface
+	select {
+	case interfaces = <-interfacesChan:
+	case err := <-errChan:
+		return "", err
+	case <-time.After(5 * time.Second):
+		return "", fmt.Errorf("таймаут получения сетевых интерфейсов")
+	}
+
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+
+		addrsChan := make(chan []net.Addr, 1)
+		addrErrChan := make(chan error, 1)
+		go func() {
+			addrs, err := iface.Addrs()
+			if err != nil {
+				addrErrChan <- err
+				return
+			}
+			addrsChan <- addrs
+		}()
+
+		var addrs []net.Addr
+		select {
+		case addrs = <-addrsChan:
+		case <-addrErrChan:
+			continue
+		case <-time.After(2 * time.Second):
+			continue
+		}
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+
+			if ip == nil || ip.IsLoopback() || ip.To4() != nil {
+				continue
+			}
+
+			if ipnet, ok := addr.(*net.IPNet); ok {
+				mask := ipnet.Mask
+				ones, bits := mask.Size()
+				if ones > 0 && bits == 128 {
+					network := fmt.Sprintf("%s/%d", ipnet.IP.Mask(mask).String(), ones)
+					return network, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("не найдена активная IPv6 сеть")
+}
+
+// DetectLocalNetworkDual возвращает список всех обнаруженных сетей (IPv4 и IPv6).
+func DetectLocalNetworkDual() (ipv4 []string, ipv6 []string, err error) {
+	interfacesChan := make(chan []net.Interface, 1)
+	errChan := make(chan error, 1)
+	go func() {
+		interfaces, err := net.Interfaces()
+		if err != nil {
+			errChan <- err
+			return
+		}
+		interfacesChan <- interfaces
+	}()
+
+	var interfaces []net.Interface
+	select {
+	case interfaces = <-interfacesChan:
+	case err := <-errChan:
+		return nil, nil, err
+	case <-time.After(5 * time.Second):
+		return nil, nil, fmt.Errorf("таймаут получения сетевых интерфейсов")
+	}
+
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+
+		addrsChan := make(chan []net.Addr, 1)
+		addrErrChan := make(chan error, 1)
+		go func() {
+			addrs, err := iface.Addrs()
+			if err != nil {
+				addrErrChan <- err
+				return
+			}
+			addrsChan <- addrs
+		}()
+
+		var addrs []net.Addr
+		select {
+		case addrs = <-addrsChan:
+		case <-addrErrChan:
+			continue
+		case <-time.After(2 * time.Second):
+			continue
+		}
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+
+			if ipnet, ok := addr.(*net.IPNet); ok {
+				mask := ipnet.Mask
+				ones, bits := mask.Size()
+				if ones <= 0 || bits == 0 {
+					continue
+				}
+				cidr := fmt.Sprintf("%s/%d", ipnet.IP.Mask(mask).String(), ones)
+				if ip.To4() != nil {
+					ipv4 = append(ipv4, cidr)
+				} else {
+					ipv6 = append(ipv6, cidr)
+				}
+			}
+		}
+	}
+
+	return ipv4, ipv6, nil
+}
+
+// ParseNetworkRange парсит диапазон сети (например, 192.168.1.0/24 или 2001:db8::/64)
 // и возвращает список всех IP-адресов в подсети.
 func ParseNetworkRange(network string) ([]net.IP, error) {
 	baseIP, ipnet, err := net.ParseCIDR(strings.TrimSpace(network))
@@ -213,8 +369,14 @@ func inc(ip net.IP) {
 
 // IsPortOpen проверяет, открыт ли TCP порт через dial-connection.
 // timeout — максимальное время ожидания соединения.
+// При timeout <= 0 используется значение по умолчанию (100ms).
 func IsPortOpen(host string, port int, timeout time.Duration) bool {
 	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+
+	// Минимальный таймаут для предотвращения бесконечного ожидания
+	if timeout <= 0 {
+		timeout = 100 * time.Millisecond
+	}
 
 	// Используем Dialer с явным таймаутом для лучшей работы в Windows
 	dialer := &net.Dialer{
@@ -236,8 +398,14 @@ func IsPortOpen(host string, port int, timeout time.Duration) bool {
 // IsUDPPortOpen проверяет, открыт ли UDP порт.
 // Метод: отправляет пустой UDP пакет и проверяет ответ.
 // Таймаут означает "открыт/фильтрован" (UDP не имеет подтверждения).
+// При timeout <= 0 используется значение по умолчанию (100ms).
 func IsUDPPortOpen(host string, port int, timeout time.Duration) bool {
 	address := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+
+	// Минимальный таймаут для предотвращения бесконечного ожидания
+	if timeout <= 0 {
+		timeout = 100 * time.Millisecond
+	}
 
 	// Используем Dialer с явным таймаутом
 	dialer := &net.Dialer{

@@ -178,6 +178,8 @@ type NetworkScanner struct {
 	portScanner      PortScanner
 	udpPortScanner   PortScanner
 	resultPresenter  ResultPresenter
+	icmpPinger       ICMPPinger // подменяемый ICMP-пингер (setICMPPinger в тестах)
+	icmpPingEnabled  bool       // ICMP-пинг как первый способ проверки живости хоста
 	tcpCancelBefore  int64
 	tcpCancelWait    int64
 	udpCancelHosts   int64
@@ -330,6 +332,12 @@ func (ns *NetworkScanner) SetOSDetectActive(enable bool) {
 // SetVerbosePortLogs включает детальные логи по отдельным портам.
 func (ns *NetworkScanner) SetVerbosePortLogs(enable bool) {
 	ns.verbosePortLogs = enable
+}
+
+// SetICMPPingEnabled включает ICMP ping для проверки живости хоста.
+// ICMP ping быстрее и надежнее, чем порт-сканирование для обнаружения хостов.
+func (ns *NetworkScanner) SetICMPPingEnabled(enable bool) {
+	ns.icmpPingEnabled = enable
 }
 
 // Scan запускает сканирование сети.
@@ -595,6 +603,16 @@ func (ns *NetworkScanner) GetDiagnosticsSummary() string {
 // isHostAlive проверяет, доступен ли хост через probe по commonPorts (80,443,22,135,139,445).
 // Использует параллельные dial-connections с таймаутом.
 func (ns *NetworkScanner) isHostAlive(ip string) bool {
+	// ICMP-пинг по запросу: дешевле портового веера, но часто блокируется,
+	// поэтому ошибка ICMP не окончательный вердикт — идём дальше к портам.
+	if ns.icmpPingEnabled {
+		alive, err := ns.pingICMP(ip)
+		if err == nil {
+			return alive
+		}
+		logger.LogDebug("ICMP-пинг %s не удался (%v), проверяю порты", ip, err)
+	}
+
 	if ns.networkProber != nil {
 		if contextAwareProber, ok := ns.networkProber.(ContextNetworkProber); ok {
 			isAlive, err := contextAwareProber.PingContext(ip, ns.ctx.Done())

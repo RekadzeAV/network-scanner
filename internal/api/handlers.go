@@ -4,16 +4,32 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"network-scanner/internal/contracts"
 )
+
+// ScanDeps — внедряемые зависимости обработчиков.
+//
+// Нужен, чтобы HTTP-слой не создавал сканер напрямую: в тестах подставляется
+// заглушка, в боевом режиме поле остаётся nil и обработчик сам создаёт сервис.
+type ScanDeps struct {
+	ScannerService contracts.ScannerService
+}
 
 // Handler оборачивает HTTP handler с общей логикой
 type Handler struct {
 	config Config
+	deps   ScanDeps
 }
 
 // NewHandler создаёт новый Handler
 func NewHandler(config Config) *Handler {
 	return &Handler{config: config}
+}
+
+// NewHandlerWithDeps создаёт Handler с внедрёнными зависимостями.
+func NewHandlerWithDeps(config Config, deps ScanDeps) *Handler {
+	return &Handler{config: config, deps: deps}
 }
 
 // writeJSON записывает JSON ответ

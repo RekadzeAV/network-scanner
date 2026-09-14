@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  network-scanner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: "2.3.0"
+        BUILD_TIME: "2026-09-09"
+        GIT_COMMIT: "latest"
+    image: network-scanner:2.3.0
+    container_name: network-scanner-cli
+    environment:
+      - NETWORK_SCANNER_DATA_DIR=/data/scans
+      - NETWORK_SCANNER_CONFIG_DIR=/data/config
+      - NETWORK_SCANNER_LOG_LEVEL=info
+    volumes:
+      - scanner-data:/data/scans
+      - scanner-config:/data/config
+    # Сеть host для доступа к локальной сети
+    network_mode: host
+    # Права для ICMP ping и ARP
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+volumes:
+  scanner-data:
+    driver: local
+  scanner-config:
+    driver: local

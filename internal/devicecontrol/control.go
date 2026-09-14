@@ -3,6 +3,7 @@ package devicecontrol
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -111,6 +112,13 @@ func Execute(ctx context.Context, req Request) (Response, error) {
 	bodyBytes, _ := json.Marshal(payload)
 
 	httpClient := &http.Client{Timeout: req.Timeout}
+	// InsecureTLS — осознанный обход проверки сертификата для устройств с
+	// самоподписанными сертификатами (домашние роутеры, старые коммутаторы).
+	if req.InsecureTLS {
+		httpClient.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // см. комментарий выше
+		}
+	}
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return Response{}, fmt.Errorf("create request: %w", err)
