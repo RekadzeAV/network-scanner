@@ -46,3 +46,15 @@ Thumbs.db
 .env
 .env.*
 
+# Тестовые артефакты: тесты internal/api открывают inventory по относительному
+# пути из DefaultConfig(), поэтому БД создаётся внутри пакета.
+internal/api/inventory.db
+internal/api/nonexistent/
+
+# Артефакты покрытия/тестов (цикл 2026-09-15: предотвращение повторного накопления
+# в корне и internal/legacy — см. docs/FINAL_PLAN_2026-09-15.md, задача F4/F5)
+*_cov
+/*_cov_*
+/.tmp/
+/*.log
+/update_plan.py

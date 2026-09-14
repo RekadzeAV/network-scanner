@@ -15,15 +15,16 @@
 
 | Метрика | Значение |
 |---------|----------|
-| Базовый функционал | ✅ 100% (13/13 задач) |
-| Coverage GUI | 17.8% (требует улучшения, цель 60%) |
-| Coverage Core | ~75% (требует улучшения, цель 85%) |
-| Пройдено тестов | 33/33 ✅ |
+| Базовый функционал | ✅ 100% |
+| Текущая версия | v2.3.0 (in progress) |
+| Тесты | 49 пакетов, зелёные кроме `internal/topology` (regression в работе, этап E0) |
+| Coverage критических пакетов | network 85.7%, api 75.2%, banner 90.8%, scanner 73.5% (цель 85%) |
+| Архитектурный слой v2.3 | ✅ plugin/eventbus/commands/apperror/configvalidation/benchmark (интеграция — в плане) |
 | CLI размер | 60.6 MB |
 | GUI размер | 58.5 MB |
 
-**Текущая версия:** v1.0.5  
-**Фокус развития:** Качество кода, тесты, производительность (v2.0)
+**Текущая версия:** v2.3.0
+**Фокус развития:** устранение regression, coverage 85%+, интеграция архитектурного слоя
 
 ---
 
@@ -120,28 +121,22 @@ network-scanner/
 
 ### Основная документация
 - **[USER_GUIDE.md](docs/USER_GUIDE.md)** - Подробное руководство пользователя
-- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Архитектура проекта (v2.0)
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Архитектура проекта
 - **[TECHNICAL.md](docs/TECHNICAL.md)** - Техническая документация для разработчиков
 - **[GUI.md](docs/GUI.md)** - Документация по GUI версии приложения
+- **[PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)** - Структура проекта
 - **[INSTALL.md](docs/INSTALL.md)** - Инструкции по установке
 - **[QUICKSTART-macOS.md](docs/QUICKSTART-macOS.md)** - Быстрый старт для macOS
 - **[ROADMAP.md](docs/ROADMAP.md)** - Канонический роадмап проекта
-- **[IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)** - План реализации v2.0
+- **[UNIFIED_OPTIMIZED_PLAN_2026-09-15.md](docs/UNIFIED_OPTIMIZED_PLAN_2026-09-15.md)** - Единый оптимизированный план работ
+- **[IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)** - План реализации v2.3
 
 ### Отчеты и чеклисты
-- **[ANALYSIS.md](docs/ANALYSIS.md)** - Анализ проекта
-- **[P1_CLOSURE_CHECKLIST.md](docs/P1_CLOSURE_CHECKLIST.md)** - Чеклист закрытия P1
-- **[P3_CLOSURE_CHECKLIST.md](docs/P3_CLOSURE_CHECKLIST.md)** - Чеклист закрытия P3
-- **[RELEASE_OPERATIONS_CHEATSHEET.md](docs/RELEASE_OPERATIONS_CHEATSHEET.md)** - Команды closure и релизного дежурства
 - **[BUILD_STRUCTURE.md](docs/BUILD_STRUCTURE.md)** - Структура каталогов релизной сборки
-- **[RELEASE_READINESS_SNAPSHOT.md](docs/RELEASE_READINESS_SNAPSHOT.md)** - Срез готовности релиза
-- **[CHECKLIST_STATUS_INDEX.md](docs/CHECKLIST_STATUS_INDEX.md)** - Индекс статусов по всем чеклистам
+- Архив завершённых отчётов, чеклистов и релизных итогов: **[docs/archive/](docs/archive/)**
 
 ### История и релизы
 - **[CHANGELOG.md](CHANGELOG.md)** - История изменений проекта
-- **[RELEASE_SUMMARY_UI_RESULTS.md](docs/RELEASE_SUMMARY_UI_RESULTS.md)** - Релиз-итог по UI результатов
-- **[RELEASE_SUMMARY_STAGE2_P2.md](docs/RELEASE_SUMMARY_STAGE2_P2.md)** - Релиз-итог по Stage2 P2
-- **[RELEASE_SUMMARY_STAGE2_P3.md](docs/RELEASE_SUMMARY_STAGE2_P3.md)** - Релиз-итог по Stage2 P3
 
 ### Прочее
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - Правила вклада и соглашения по коммитам
@@ -911,5 +906,5 @@ ipconfig /all       # Windows
 
 ---
 
-**Версия документа:** 2.0.0  
+**Версия документа:** 2.3.0  
 **Последнее обновление:** 2026-01-XX

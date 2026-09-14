@@ -1,7 +1,7 @@
 # Структура проекта Network Scanner
 
-**Версия:** 2.0.0  
-**Дата обновления:** 2026-01-XX
+**Версия:** 2.3.0  
+**Дата обновления:** 2026-09-15
 
 ## Текущая структура (актуальная)
 
@@ -21,7 +21,15 @@ network-scanner/
 │   │   ├── scanner.go      # NetworkScanner
 │   │   ├── interfaces.go   # Интерфейсы (NetworkProber, PortScanner, и т.д.)
 │   │   ├── deviceclassifier/ # Определение типов устройств
+│   │   ├── plugin/         # (v2.3 C1) Plugin-система probe-обработчиков
 │   │   └── daemon/         # Daemon mode для фоновой работы
+│   ├── eventbus/           # (v2.3 C2) Шина событий для decoupling
+│   ├── configvalidation/   # (v2.3 C3) Валидация конфигурационных схем
+│   ├── benchmark/          # (v2.3 C4) Бенчмарки и baseline производительности
+│   ├── commands/           # (v2.3 C5) Единый слой диспатча команд CLI/GUI/API
+│   ├── apperror/           # (v2.3 C6) Единая обработка ошибок со стабильными кодами
+│   ├── features/           # (v2.3) Feature flags
+│   ├── integration/        # (v2.3 C7) Интеграционные тесты пайплайна
 │   ├── network/            # Сетевые операции
 │   │   ├── network.go      # Определение сети, парсинг CIDR
 │   │   ├── prober.go       # NetworkProber (ping, ARP)
@@ -98,13 +106,13 @@ network-scanner/
 
 ## Связанные документы
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) - Архитектура проекта (v2.0)
-- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - План реализации v2.0
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Архитектура проекта
+- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - План реализации v2.3
 - [USER_GUIDE.md](USER_GUIDE.md) - Руководство пользователя
 - [TECHNICAL.md](TECHNICAL.md) - Техническая документация
 
 ---
 
-**Версия документа:** 2.0.0  
-**Последнее обновление:** 2026-01-XX
+**Версия документа:** 2.3.0  
+**Последнее обновление:** 2026-09-15
 

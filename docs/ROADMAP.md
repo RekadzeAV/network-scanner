@@ -1,34 +1,36 @@
 # Roadmap
 
-This file is the canonical roadmap entry point for the project.
+Этот файл — каноническая точка входа в roadmap проекта.
 
 ## Текущее состояние проекта
 
-**Версия:** v1.0.5  
-**Базовый функционал:** ✅ 100% (13/13 задач)  
-**Фокус развития:** Качество кода, тесты, производительность (v2.0)
-
----
+**Версия:** v2.3.0 (in progress)
+**Базовый функционал:** ✅ 100%
+**v2.1 / v2.2 backlogs:** ✅ выполнены
+**Архитектурный слой v2.3 (C1–C7):** ✅ пакеты реализованы с тестами; ⚠️ интеграция в приложения — в плане (этап E6)
+**Тесты:** ✅ regression `internal/topology` устранён (2026-09-15): 48 пакетов ok, 0 FAIL
+**Фокус развития:** коммит/пуш рабочего набора → CI → coverage 85%+ → интеграция архитектурного слоя
+**Дата обновления:** 2026-09-15
 
 ## Текущий план
 
-- Основной план реализации v2.0: [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
-- Детальные приоритеты и вехи: [ROADMAP_P1_P3.md](ROADMAP_P1_P3.md)
-- Детализированный бэклог задач: [DETAILED_BACKLOG_P3_STAGE2.md](DETAILED_BACKLOG_P3_STAGE2.md)
+- **Единый оптимизированный план:** [UNIFIED_OPTIMIZED_PLAN_2026-09-15.md](UNIFIED_OPTIMIZED_PLAN_2026-09-15.md) — канонический
+- **Финальный план цикла 2026-09-15 (F1–F8):** [FINAL_PLAN_2026-09-15.md](FINAL_PLAN_2026-09-15.md) — F1–F7 выполнены
+- **Три плана анализа:** [THREE_PLANS_ANALYSIS_2026-09-15.md](THREE_PLANS_ANALYSIS_2026-09-15.md)
+- **План реализации v2.3:** [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)
 
-## Release и closure операции
+## Ссылки
 
-- Release acceptance checklist: [RELEASE_ACCEPTANCE_CHECKLIST.md](RELEASE_ACCEPTANCE_CHECKLIST.md)
-- Readiness snapshot: [RELEASE_READINESS_SNAPSHOT.md](RELEASE_READINESS_SNAPSHOT.md)
-- Prioritized gap list: [RELEASE_READY_GAP_LIST.md](RELEASE_READY_GAP_LIST.md)
-- Checklist status index: [CHECKLIST_STATUS_INDEX.md](CHECKLIST_STATUS_INDEX.md)
-- P0 sign-off runbook: [P0_SIGNOFF_RUNBOOK.md](P0_SIGNOFF_RUNBOOK.md)
-- Stage2 commit-ready summary: [STAGE2_100_COMMIT_READY.md](STAGE2_100_COMMIT_READY.md)
-- Runbook commands and local release build output: [RELEASE_OPERATIONS_CHEATSHEET.md](RELEASE_OPERATIONS_CHEATSHEET.md) (artifacts under `build/release/`)
+- Структура проекта: [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+- Архитектура: [ARCHITECTURE.md](ARCHITECTURE.md)
+- Техническая документация: [TECHNICAL.md](TECHNICAL.md)
+- Руководство пользователя: [USER_GUIDE.md](USER_GUIDE.md)
+- История изменений: [../CHANGELOG.md](../CHANGELOG.md)
+- Архив завершённых документов: [archive/](archive/)
 
 ## Maintenance rules
 
-- Update this file when roadmap structure changes.
-- Keep [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) updated after each completed phase.
-- Keep [ROADMAP_P1_P3.md](ROADMAP_P1_P3.md) updated after each completed phase.
-- Keep [DETAILED_BACKLOG_P3_STAGE2.md](DETAILED_BACKLOG_P3_STAGE2.md) in sync with execution status for Stage 1 P3 and Stage 2 P1/P2/P3.
+- Обновлять этот файл при изменениях структуры roadmap.
+- Единственный актуальный операционный план — `UNIFIED_OPTIMIZED_PLAN_2026-09-15.md`; новые этапы добавлять только в него.
+- Завершённые планы и отчёты перемещать в `docs/archive/<YYYY-MM-cycle>/` и обновлять ссылки.
+- Не создавать дублирующих индексных документов — индекс навигации ведётся в [README.md](README.md).

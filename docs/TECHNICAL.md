@@ -522,8 +522,9 @@ require (
 
 ## Производительность
 
-Актуальный baseline и perf budget для `Этап 1 / P3` зафиксирован в:
-- [P3_PERF_BASELINE.md](P3_PERF_BASELINE.md)
+Актуальный baseline метрик производительности и perf-regression gate:
+- [internal/benchmark/benchmarks_baseline.txt](../internal/benchmark/benchmarks_baseline.txt) — baseline ns/op, bytes/op, allocs/op
+- `scripts/check-perf-regression.sh` — сравнение с baseline (Makefile: `benchmarks-check`)
 
 ### Оптимизации
 
@@ -788,7 +789,7 @@ require (
 - [План реализации](IMPLEMENTATION_PLAN.md) - План реализации v2.0
 - [README.md](../README.md) - Основная документация проекта
 - [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md) - Структура каталогов релизной сборки (`build/release/`)
-- [RELEASE_OPERATIONS_CHEATSHEET.md](RELEASE_OPERATIONS_CHEATSHEET.md) - Команды closure и локальные релизные артефакты
+- [RELEASE_OPERATIONS_CHEATSHEET.md](archive/2026-09-15-docs-sync/RELEASE_OPERATIONS_CHEATSHEET.md) - Команды closure и локальные релизные артефакты
 
 ---
 
@@ -898,5 +899,5 @@ Preflight выполняет early-fail диагностику блокеров:
 ---
 
 **Версия документа:** 2.0.0  
-**Последнее обновление:** 2026-01-XX
+**Последнее обновление:** 2026-09-15
 

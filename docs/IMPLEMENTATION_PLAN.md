@@ -1,9 +1,9 @@
-﻿﻿﻿# 📋 Полный план реализации Network Scanner v2.0
+# 📋 План реализации Network Scanner v2.3
 
-**Дата обновления:** 2026-01-XX  
-**Текущая версия:** v1.0.5  
+**Дата обновления:** 2026-09-15  
+**Текущая версия:** v2.3.0 (in progress)  
 **Статус проекта:** 🟢 Базовый функционал завершен (100%)  
-**Фокус развития:** Качество кода, тесты, производительность
+**Фокус развития:** устранение regression, coverage 85%+, интеграция архитектурного слоя. Единый операционный план: [UNIFIED_OPTIMIZED_PLAN_2026-09-15.md](UNIFIED_OPTIMIZED_PLAN_2026-09-15.md)
 
 ---
 
@@ -36,7 +36,29 @@
 ### Этап 3: Продвинутые функции
 - [x] 3.1 SNMP сбор данных
 - [x] 3.2 Topology discovery (построение карты сети)
-- [x] 3.3 GUI интерфейс (Fyne framework, 30+ файлов)
+- [x] 3.3 GUI интерфейс (Fyne framework, 108 файлов после SRP)
+
+### Этап v2.1: Сервисы и контроллеры
+- [x] Пакетная обработка SNMP (BatchSNMPClient)
+- [x] TopologyService.Export (json/graphml/dot/text)
+- [x] ScannerService.Stop (graceful shutdown)
+- [x] AuditService, DeviceControlService, WOL, NetTools
+- [x] Plugin system (OSFilter, CSVExporter, dynamic loader)
+- [x] ARP cache (асинхронное кэширование)
+- [x] Incremental CLI output
+- [x] Adaptive port-scanning limits
+- [x] Permissions check (cross-OS)
+
+### Этап v2.2: SRP Refactoring + IPv6
+- [x] SRP Refactoring: app.go 2780→605 строк (-78%)
+- [x] 12 новых модульных файлов в gui/
+- [x] IPv6 Support (dual-stack detection, GUI indicators)
+- [x] GUI Smoke Tests (24 smoke-теста)
+
+### Этап D-Track: Stabilization
+- [x] Topology hardening (confidence downgrade, deterministic sort)
+- [x] Export hardening (JSON validation, GraphML keys)
+- [x] GUI UX hardening (pagination, presets, analytics)
 
 ---
 
@@ -158,10 +180,10 @@ type App struct {
 
 ---
 
-## 🟡 MEDIUM: Важно для релиза
+## 🟡 MEDIUM: Текущий приоритет
 
-### M1: Увеличить core coverage до 85%+
-**Текущее:** ~75% | **Цель:** 85% | **Оценка:** 1-2 дня
+### M1: Повышение core coverage до 85%+
+**Текущее:** scanner 72%, banner 72%, api 62.8% | **Цель:** 85%+ | **Оценка:** 8 дней
 
 **Что нужно сделать:**  
 Написать тесты для критических пакетов.
@@ -181,11 +203,11 @@ type App struct {
 
 ---
 
-### M2: Добавить CI/CD pipeline
-**Текущее:** Нет автоматизации | **Цель:** GitHub Actions | **Оценка:** 1 день
+### M2: CI/CD стабилизация
+**Текущее:** CI BLOCKED (GITHUB_TOKEN) | **Цель:** зелёный CI на 3 платформах | **Оценка:** 3 дня
 
 **Что нужно сделать:**  
-Настроить автоматическую сборку, тесты, линтинг.
+Разблокировать CI и автоматизировать проверки.
 
 **Подзадачи:**
 
@@ -454,5 +476,5 @@ H1 (GUI tests) → M1 (Core tests) → M2 (CI/CD)
 ---
 
 **План создан:** 2025-01-XX  
-**Следующий пересмотр:** 2026-01-XX  
+**Следующий пересмотр:** 2026-09-15  
 **Автор:** Koda AI

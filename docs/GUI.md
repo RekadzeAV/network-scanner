@@ -150,8 +150,8 @@ GUI использует адаптивные профили ширины окн
 - корректное отображение вкладок `Сканирование`, `Топология`, `Инструменты` на `1366x768`.
 
 Быстрая проверка матрицы:
-- Windows: `scripts/smoke-gui-resolution.ps1`
-- Linux/macOS: `scripts/smoke-gui-resolution.sh`
+- Windows: `scripts/smoke_release_readiness.ps1`
+- Linux/macOS: `scripts/smoke_release_readiness.sh`
 
 ## Платформы
 
@@ -181,10 +181,10 @@ GUI версия работает на всех платформах, подде
 - [Инструкция по установке](INSTALL.md) - Инструкции по установке
 - [README.md](../README.md) - Основная документация проекта
 - [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md) - Структура каталогов релизной сборки (`build/release/`)
-- [RELEASE_OPERATIONS_CHEATSHEET.md](RELEASE_OPERATIONS_CHEATSHEET.md) - Команды closure и локальные релизные артефакты
+- [RELEASE_OPERATIONS_CHEATSHEET.md](archive/2026-09-15-docs-sync/RELEASE_OPERATIONS_CHEATSHEET.md) - Команды closure и локальные релизные артефакты
 
 ---
 
 **Версия документа:** 2.0.0  
-**Последнее обновление:** 2026-01-XX
+**Последнее обновление:** 2026-09-15
 

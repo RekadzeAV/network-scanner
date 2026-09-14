@@ -193,105 +193,64 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 
 ## Документация
 
-Проект включает подробную документацию:
+### Актуальные документы
 
-### Плановое внедрение по промту
+- **[README.md](../README.md)** — основная документация проекта (корень репозитория)
+- **[USER_GUIDE.md](USER_GUIDE.md)** — подробное руководство пользователя с примерами
+- **[GUI.md](GUI.md)** — документация по GUI-версии приложения
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — описание архитектуры проекта
+- **[TECHNICAL.md](TECHNICAL.md)** — техническая документация для разработчиков
+- **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** — структура проекта
+- **[ROADMAP.md](ROADMAP.md)** — канонический roadmap
+- **[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)** — план реализации v2.3
+- **[UNIFIED_OPTIMIZED_PLAN_2026-09-15.md](UNIFIED_OPTIMIZED_PLAN_2026-09-15.md)** — единый оптимизированный план работ
+- **[THREE_PLANS_ANALYSIS_2026-09-15.md](THREE_PLANS_ANALYSIS_2026-09-15.md)** — три плана анализа проекта
+- **[INSTALL.md](INSTALL.md)** — инструкции по установке для разных платформ
+- **[QUICKSTART-macOS.md](QUICKSTART-macOS.md)** — быстрый старт для macOS
+- **[BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)** — структура каталогов релизной сборки (`build/release/`)
+- **[LOGGING.md](LOGGING.md)** — система логирования
+- **[deployment.md](deployment.md)** — развертывание
+- **[GRAPHML_COMPATIBILITY_CHECK.md](GRAPHML_COMPATIBILITY_CHECK.md)** — ручная проверка совместимости GraphML (yEd/Gephi)
+- **[swagger.yaml](swagger.yaml)** — спецификация REST API (статус: требует regenerate под v2.3)
+- **[CHANGELOG.md](../CHANGELOG.md)** — история изменений
 
-- [PROMPT_EXECUTION_ANALYSIS.md](PROMPT_EXECUTION_ANALYSIS.md) - анализ разрыва и архитектурные решения
-- [PROMPT_EXECUTION_SPEC.md](PROMPT_EXECUTION_SPEC.md) - постановка и границы реализации
-- [PROMPT_EXECUTION_DEVELOPMENT_LOG.md](PROMPT_EXECUTION_DEVELOPMENT_LOG.md) - журнал разработки и изменений структуры
-- [PROMPT_EXECUTION_ROADMAP.md](PROMPT_EXECUTION_ROADMAP.md) - актуальный roadmap по фазам
-- [PHASE2_TASKS_CHECKLIST.md](PHASE2_TASKS_CHECKLIST.md) - детальный список задач и подзадач Фазы 2 со статусами
+### Сборка и кросс-компиляция
 
-### Smoke и closure проверки (оперативно)
+- [BUILD_REQUIREMENTS_WINDOWS.md](BUILD_REQUIREMENTS_WINDOWS.md), [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)
+- [CROSS_COMPILATION_WINDOWS.md](CROSS_COMPILATION_WINDOWS.md), [CROSS_COMPILATION_QUICKREF.md](CROSS_COMPILATION_QUICKREF.md)
+- [INSTALL_WINDOWS.md](INSTALL_WINDOWS.md), [INSTALL_LINUX_CROSS_COMPILER.md](INSTALL_LINUX_CROSS_COMPILER.md)
+- [SETUP_WINDOWS_CROSS_COMPILE.md](SETUP_WINDOWS_CROSS_COMPILE.md), [GIT_SETUP.md](GIT_SETUP.md)
+
+### Smoke и preflight проверки
 
 ```bash
 # Linux/macOS
 ./scripts/smoke-cli-tools.sh
-./scripts/stage2-p1-closure-check.sh
+./scripts/smoke-gui-resolution.sh ./network-scanner-gui
 ```
 
 ```powershell
 # Windows PowerShell
 .\scripts\smoke-cli-tools.ps1
-.\scripts\stage2-p1-closure-check.ps1
+.\scripts\smoke-gui-resolution.ps1 -GuiExe .\network-scanner-gui.exe
+.\scripts\docs-link-check.ps1   # или make docs-link-check-win
 ```
 
-- `smoke-cli-tools` проверяет tool-режимы `--ping`/`--dns` и включает детерминированную проверку CLI whois-пути через RDAP fallback (`go test ./cmd/network-scanner -run WhoisUsesRDAPFallback`).
-- `stage2-p1-closure-check` дополнительно включает `go test ./cmd/network-scanner -run Whois`, чтобы регрессии в `runToolsMode` для `--whois` ловились на этапе формального closure.
+### Архив
 
-### Операционный индекс (release/closure)
+Завершённые и устаревшие документы — в [archive/](archive/):
 
-- **[RELEASE_ACCEPTANCE_CHECKLIST.md](RELEASE_ACCEPTANCE_CHECKLIST.md)** - Финальный чеклист приемки перед релизом
-- **[P1_CLOSURE_CHECKLIST.md](P1_CLOSURE_CHECKLIST.md)** - Формальное закрытие Stage 1 / P1
-- **[P3_CLOSURE_CHECKLIST.md](P3_CLOSURE_CHECKLIST.md)** - Формальное закрытие Stage 1 / P3 и CI sign-off
-- **[GUI_SMOKE_CHECKLIST.md](GUI_SMOKE_CHECKLIST.md)** - Ручной smoke-чеклист GUI
-- **[RELEASE_READINESS_SNAPSHOT.md](RELEASE_READINESS_SNAPSHOT.md)** - Текущий снимок готовности релиза
-- **[CHECKLIST_STATUS_INDEX.md](CHECKLIST_STATUS_INDEX.md)** - Единый индекс статусов всех checklist-документов
-- **[RELEASE_READY_GAP_LIST.md](RELEASE_READY_GAP_LIST.md)** - Короткий backlog оставшихся задач до финального sign-off
-- **[P0_SIGNOFF_RUNBOOK.md](P0_SIGNOFF_RUNBOOK.md)** - Пошаговый runbook закрытия блокирующего P0 (Cross-OS + CI evidence)
-- **[RELEASE_OPERATIONS_CHEATSHEET.md](RELEASE_OPERATIONS_CHEATSHEET.md)** - Команды релизного прогона и расположение локальных бинарников (`build/release/`)
-- **[BUILD_STRUCTURE.md](BUILD_STRUCTURE.md)** - Структура каталогов релизной сборки (`build/release/`)
-- **[STAGE2_100_COMMIT_READY.md](STAGE2_100_COMMIT_READY.md)** - Краткий commit-ready итог по Stage2 и remaining шагам sign-off
-- **[COMMIT_READY_STAGE2_SIGNOFF.md](COMMIT_READY_STAGE2_SIGNOFF.md)** - Готовые варианты commit message для пакета Stage2 sign-off
-- **[ROADMAP_P1_P3.md](ROADMAP_P1_P3.md)** - Канонический статус фаз Stage 1/2 (`P1..P3`)
-- **[DETAILED_BACKLOG_P3_STAGE2.md](DETAILED_BACKLOG_P3_STAGE2.md)** - Детализированный backlog Stage 1 P3 + Stage 2 P1/P2/P3
-- **[RELEASE_READINESS_PR_READY.md](RELEASE_READINESS_PR_READY.md)** - Готовые short/long блоки статуса для PR
-- **[DOCS_SYNC_SUMMARY_2026-04-23.md](DOCS_SYNC_SUMMARY_2026-04-23.md)** - Сводка синхронизации документации
-- **[DOCS_SYNC_PR_SNIPPET_2026-04-23.md](DOCS_SYNC_PR_SNIPPET_2026-04-23.md)** - Короткий RU блок для PR-комментария
-- **[DOCS_SYNC_PR_SNIPPET_2026-04-23_EN.md](DOCS_SYNC_PR_SNIPPET_2026-04-23_EN.md)** - Короткий EN блок для PR-комментария
-- **[FINAL_PR_COMMENT_READY.md](FINAL_PR_COMMENT_READY.md)** - Финальный ready-to-paste комментарий в PR
-- **[MANUAL_SIGNOFF_TEMPLATE.md](MANUAL_SIGNOFF_TEMPLATE.md)** - Шаблон ручного sign-off
-- **[MANUAL_SIGNOFF_DRAFT.md](MANUAL_SIGNOFF_DRAFT.md)** - Черновик sign-off с предзаполненными auto-evidence
-
-### Быстрый preflight перед финальным sign-off (Windows)
-
-```powershell
-.\scripts\p0-signoff-preflight.ps1
-# или
-make p0-preflight-win
-```
-
-Preflight проверяет критические блокеры (`GITHUB_TOKEN`, рабочий `bash/sh` runtime для Unix closure, наличие успешного recent `ci.yml` run).
-
-### Единый агрегированный статус Stage2 sign-off (Windows)
-
-```powershell
-.\scripts\stage2-signoff-status.ps1
-# или
-make stage2-signoff-status-win
-```
-
-### Docs sanity: проверка локальных markdown-ссылок (Windows)
-
-```powershell
-.\scripts\docs-link-check.ps1
-# или
-make docs-link-check-win
-```
-
-- **[Инструкция по эксплуатации](../Инструкция%20по%20эксплуатации.md)** - Полная инструкция по эксплуатации программы (русский язык)
-- **[README.md](../README.md)** - Основная документация проекта
-- **[README.md](README.md)** - Основная документация (этот файл)
-- **[USER_GUIDE.md](USER_GUIDE.md)** - Подробное руководство пользователя с примерами
-- **[GUI.md](GUI.md)** - Документация по GUI версии приложения
-- **[INSTALL.md](INSTALL.md)** - Инструкции по установке для разных платформ
-- **[QUICKSTART-macOS.md](QUICKSTART-macOS.md)** - Быстрый старт для macOS
-- **[TECHNICAL.md](TECHNICAL.md)** - Техническая документация для разработчиков
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Описание архитектуры проекта
-- **[ANALYSIS.md](ANALYSIS.md)** - Анализ реализации и рекомендации
-- **[DEVELOPMENT_MAP.md](../DEVELOPMENT_MAP.md)** - Детальная карта разработки проекта
-- **[CHANGELOG.md](../CHANGELOG.md)** - История изменений проекта
-- **[QUICKSTART_WINDOWS_BUILD.md](../QUICKSTART_WINDOWS_BUILD.md)** - Быстрый старт: сборка для Windows на macOS
-- **[RELEASE_NOTES_1.0.3.md](../RELEASE_NOTES_1.0.3.md)** - Примечания к релизу 1.0.3
-- **[UI_IMPLEMENTATION_BACKLOG.md](UI_IMPLEMENTATION_BACKLOG.md)** - Детализированный и актуализированный backlog UI-рефакторинга (`P0..P5`)
-- **[PR_DESCRIPTION_UI_RESULTS.md](PR_DESCRIPTION_UI_RESULTS.md)** - Актуальный шаблон описания PR по изменениям GUI/результатов
+- `archive/2026-01-release-cycle/` — релизный цикл 1.0.x
+- `archive/2026-04-docs-sync/` — синхронизация документации 2026-04
+- `archive/2026-08-ui-tests/` — цикл UI-тестов 2026-08
+- `archive/2026-09-audit/` — аудит и closure-чеклисты v2.0–v2.2
+- `archive/2026-09-15-docs-sync/` — планы и отчёты, заменённые циклом 2026-09-15
 
 ## Поддержка
 
 При возникновении проблем:
+
 1. Убедитесь, что у вас установлена актуальная версия Go
 2. Проверьте, что вы находитесь в локальной сети
 3. На некоторых системах может потребоваться запуск с правами администратора для получения MAC адресов
 4. См. [USER_GUIDE.md](USER_GUIDE.md) для подробной информации
-

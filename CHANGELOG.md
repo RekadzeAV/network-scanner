@@ -7,6 +7,32 @@
 
 ## [Unreleased]
 
+### 2026-09-15: цикл стабилизации (E0–E3 единого плана)
+- **Исправление regression `internal/topology`:** реализован `topologyServiceImpl.Export` (json/graphml/dot/text/txt/xml) вместо TODO-заглушки; фикстура `TestSaveGraphMLToBytes` приведена в соответствие с `Validate()`; добавлен детерминированный порядок устройств `sortedDeviceKeys` (устранён недетерминизм DOT/GraphML/XML из-за map-итерации, падал `TestDOTGoldenSnapshot`)
+- **Дедупликация `internal/api/topology_handlers.go`:** общий хелпер загрузки снапшота/SNMP/построения топологии; GraphML-экспорт через `SaveGraphMLToBytes()` без временного файла
+- **Очистка репозитория:** удалены артефакты корня (`*_cov`, `*.log`, `.tmp/`) и 21 coverage-дубликат в `internal/legacy/`; `.gitignore` дополнен паттернами; `internal/zaclikivaniya.md` перемещён в архив
+- **Аудит документации:** 11 завершённых документов перемещены в `docs/archive/2026-09-15-docs-sync/`; актуализированы README, ROADMAP, PROJECT_STRUCTURE, ссылки в ARCHITECTURE/GUI/TECHNICAL/USER_GUIDE; устранены битые ссылки на архивированные файлы; контрольная проверка ссылок — 0 битых
+- **Git-гигиена:** удалены сломанные refs `refs/heads/~gvfYSKY.tmp`, `refs/remotes/origin/~gvf*` (подтверждено пользователем); восстановлен случайно утраченный `refs/remotes/origin/main` (dde66e1)
+- **Итог прогона:** `go build ./...` чисто; `go test ./... -short -count=1` — **48 пакетов ok, 0 FAIL** (регресс устранён)
+- Операционные планы: [FINAL_PLAN_2026-09-15.md](docs/FINAL_PLAN_2026-09-15.md) (F1–F7 ✅, F8 — коммит/пуш ожидает подтверждения), [UNIFIED_OPTIMIZED_PLAN_2026-09-15.md](docs/UNIFIED_OPTIMIZED_PLAN_2026-09-15.md) (E0–E2 ✅)
+
+## [2.3.0] - 2026-09-13 (in progress)
+
+### Архитектурный слой (C1–C7)
+- `internal/scanner/plugin/` — plugin-система probe-обработчиков (фазы HostDiscovery/PortScan/ServiceProbe/DeviceInfo)
+- `internal/eventbus/` — асинхронная шина событий с panic-protection
+- `internal/configvalidation/` — схемы и валидаторы конфигурации (CIDR, порты, хосты)
+- `internal/benchmark/` — 19 бенчмарков + baseline + perf-regression gate
+- `internal/commands/` — единый диспатч команд CLI/GUI/API (риски, middleware, аудит)
+- `internal/apperror/` — стабильные коды ошибок, Detect/Recover, HTTP-маппинг
+- Интеграционные/e2e-тесты архитектурного слоя (`internal/commands/e2e_test.go`, `internal/integration/`)
+
+### Покрытие тестами (M1)
+- `internal/api` 62.8% → 75.2%, `internal/banner` 72.3% → 90.8%, `internal/network` 77.7% → 85.7%, `internal/scanner` 72.0% → 73.5% (plateau)
+- CI: 9 jobs (test, lint, build, smoke, graphml, perf)
+
+## [2.0.0–2.2.0] - 2026-07..2026-09 (ретроспективный свод)
+
 ### Performance hardening (v2.0 benchmarks)
 - Добавлены comprehensive бенчмарки для критических путей:
   - `internal/scanner/benchmarks_test.go`: 30+ бенчмарков (ParseNetworkRange, ParsePortRange, GetServiceName, IsPortOpen, ScanHost, и т.д.)
