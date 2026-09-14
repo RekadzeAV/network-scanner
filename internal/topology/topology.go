@@ -304,7 +304,19 @@ func deviceKeys(d *Device) []string {
 	return out
 }
 
+// sortedDeviceKeys возвращает ключи устройств в детерминированном порядке.
+func sortedDeviceKeys(devices map[string]*Device) []string {
+	keys := make([]string, 0, len(devices))
+	for k := range devices {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 // ToDOT экспортирует топологию в формат DOT (Graphviz).
+// Порядок устройств детерминирован (сортировка по ключу), как в WriteText:
+// map-итерация в Go случайна, а DOT — golden-снимок для PNG/SVG.
 func (t *Topology) ToDOT(w io.Writer) error {
 	if t == nil {
 		return fmt.Errorf("topology is nil")
@@ -312,7 +324,8 @@ func (t *Topology) ToDOT(w io.Writer) error {
 	_, _ = fmt.Fprintln(w, "graph network {")
 	_, _ = fmt.Fprintln(w, `  rankdir="LR";`)
 	_, _ = fmt.Fprintln(w, `  node [shape=box, style="rounded,filled", fillcolor="#eef4ff"];`)
-	for _, d := range t.Devices {
+	for _, key := range sortedDeviceKeys(t.Devices) {
+		d := t.Devices[key]
 		label := deviceDisplayName(d)
 		_, _ = fmt.Fprintf(w, "  %q [label=%q];\n", nodeID(d), label)
 	}
@@ -341,10 +354,131 @@ func (t *Topology) SaveJSON(filename string) error {
 	return os.WriteFile(filename, data, 0644)
 }
 
-// SaveGraphML сохраняет топологию в GraphML-файл (XML-формат для Gephi и др.).
-func (t *Topology) SaveGraphML(filename string) error {
+// WriteText пишет топологию в человекочитаемом текстовом виде: устройства со
+// снапшотом SNMP (LLDP-соседи, MAC-таблица), связи и сводка.
+//
+// Порядок устройств детерминирован (сортировка по ключу), чтобы вывод можно было
+// сравнивать между запусками в golden-тестах.
+func (t *Topology) WriteText(w io.Writer) error {
+	if t == nil {
+		return fmt.Errorf("topology is nil")
+	}
+
+	var b strings.Builder
+	b.WriteString("Network Topology Report\n")
+	b.WriteString("=======================\n\n")
+
+	b.WriteString("── DEVICES ──\n")
+	keys := make([]string, 0, len(t.Devices))
+	for key := range t.Devices {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		d := t.Devices[key]
+		if d == nil {
+			fmt.Fprintf(&b, "  %s: <nil>\n", key)
+			continue
+		}
+		typ := string(d.Type)
+		if typ == "" {
+			typ = string(DeviceTypeUnknown)
+		}
+		fmt.Fprintf(&b, "  [%s] ip=%s mac=%s type=%s snmp=%t\n",
+			deviceDisplayName(d), d.IP, d.MAC, typ, d.SNMPEnabled)
+
+		if len(d.LldpNeighbors) > 0 {
+			b.WriteString("    LLDP Neighbors:\n")
+			for _, n := range d.LldpNeighbors {
+				if n == nil {
+					continue
+				}
+				fmt.Fprintf(&b, "      - chassis=%s port=%s sys=%s ifindex=%d\n",
+					n.RemoteChassisID, n.RemotePortID, n.RemoteSysName, n.LocalIfIndex)
+			}
+		}
+		if len(d.MacTable) > 0 {
+			b.WriteString("    MAC Table:\n")
+			macs := make([]string, 0, len(d.MacTable))
+			for mac := range d.MacTable {
+				macs = append(macs, mac)
+			}
+			sort.Strings(macs)
+			for _, mac := range macs {
+				fmt.Fprintf(&b, "      - %s -> if%d\n", mac, d.MacTable[mac])
+			}
+		}
+	}
+
+	b.WriteString("\n── LINKS ──\n")
+	if len(t.Links) == 0 {
+		b.WriteString("  нет обнаруженных связей\n")
+	}
+	for i, l := range t.Links {
+		src := deviceDisplayName(l.Source)
+		dst := deviceDisplayName(l.Target)
+		if p := portLabel(l.SourcePort); p != "" {
+			src += ":" + p
+		}
+		if p := portLabel(l.TargetPort); p != "" {
+			dst += ":" + p
+		}
+		source := string(l.SourceType)
+		if source == "" {
+			source = string(LinkSourceInferred)
+		}
+		fmt.Fprintf(&b, "  #%d %s -> %s [%s/%s]", i+1, src, dst, source, l.Confidence)
+		if evidence := strings.TrimSpace(l.Evidence); evidence != "" {
+			fmt.Fprintf(&b, " evidence=%s", evidence)
+		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n── SUMMARY ──\n")
+	fmt.Fprintf(&b, "  Devices: %d\n", len(t.Devices))
+	fmt.Fprintf(&b, "  Links:   %d\n", len(t.Links))
+
+	if _, err := io.WriteString(w, b.String()); err != nil {
+		return fmt.Errorf("write topology text: %w", err)
+	}
+	return nil
+}
+
+// SaveAsText сохраняет топологию в текстовый файл.
+//
+// В отличие от WriteText, выполняет Validate: файл сохраняется как артефакт
+// отчёта, и писать битвую топологию смысла нет.
+func (t *Topology) SaveAsText(filename string) error {
 	if err := t.Validate(); err != nil {
 		return fmt.Errorf("topology validation failed: %w", err)
+	}
+
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("create topology text file: %w", err)
+	}
+
+	if err := t.WriteText(file); err != nil {
+		_ = file.Close()
+		return err
+	}
+	return file.Close()
+}
+
+// SaveGraphML сохраняет топологию в GraphML-файл (XML-формат для Gephi и др.).
+func (t *Topology) SaveGraphML(filename string) error {
+	data, err := t.SaveGraphMLToBytes()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filename, data, 0644)
+}
+
+// SaveGraphMLToBytes сериализует топологию в GraphML без записи на диск.
+func (t *Topology) SaveGraphMLToBytes() ([]byte, error) {
+	if err := t.Validate(); err != nil {
+		return nil, fmt.Errorf("topology validation failed: %w", err)
 	}
 	type Key struct {
 		ID       string `xml:"id,attr"`
@@ -381,7 +515,8 @@ func (t *Topology) SaveGraphML(filename string) error {
 	}
 
 	g := Graph{ID: "network", EdgeDef: "undirected"}
-	for _, d := range t.Devices {
+	for _, key := range sortedDeviceKeys(t.Devices) {
+		d := t.Devices[key]
 		g.Nodes = append(g.Nodes, Node{
 			ID: nodeID(d),
 			Data: []Data{
@@ -419,9 +554,9 @@ func (t *Topology) SaveGraphML(filename string) error {
 		Graph: g,
 	}, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshal graphml: %w", err)
+		return nil, fmt.Errorf("marshal graphml: %w", err)
 	}
-	return os.WriteFile(filename, append([]byte(xml.Header), raw...), 0644)
+	return append([]byte(xml.Header), raw...), nil
 }
 
 // Validate валидирует топологию: проверяет целостность устройств и связей.
@@ -516,7 +651,7 @@ func addLink(
 	endpointKey := linkKey(nodeID(src), "", nodeID(dst), "")
 	if existingIndex, ok := dedup[key]; ok {
 		existing := t.Links[existingIndex]
-		if confidenceRank(confidence) <= confidenceRank(existing.Confidence) {
+		if !shouldReplaceLink(existing, sourceType, confidence) {
 			return
 		}
 		t.Links[existingIndex] = Link{
@@ -542,7 +677,7 @@ func addLink(
 		// explicit port info and the port pairs differ.
 		if !(existingHasFullPortPair && newHasFullPortPair &&
 			(existingSrcPort != newSrcPort || existingDstPort != newDstPort)) {
-			if confidenceRank(confidence) <= confidenceRank(existing.Confidence) {
+			if !shouldReplaceLink(existing, sourceType, confidence) {
 				return
 			}
 			t.Links[existingIndex] = Link{
@@ -701,6 +836,38 @@ func confidenceRank(c LinkConfidence) int {
 	default:
 		return 0
 	}
+}
+
+// sourceTypeRank — приоритет источника сведения о связи.
+//
+// LLDP — прямой протокол обнаружения соседей, поэтому надёжнее косвенных
+// признаков; FDB (таблица MAC коммутатора) увереннее эвристик. Неизвестный
+// источник ранга не имеет.
+func sourceTypeRank(s LinkSourceType) int {
+	switch s {
+	case LinkSourceLLDP:
+		return 3
+	case LinkSourceFDB:
+		return 2
+	case LinkSourceInferred:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// shouldReplaceLink решает, перезаписывать ли существующую связь новой.
+//
+// Сначала сравнивается источник: связь, полученная из LLDP, не заменяется
+// данными FDB, даже если у FDB достоверность выше. Только при равных
+// источниках решение выносит достоверность.
+func shouldReplaceLink(existing Link, newSource LinkSourceType, newConfidence LinkConfidence) bool {
+	oldSourceRank := sourceTypeRank(existing.SourceType)
+	newSourceRank := sourceTypeRank(newSource)
+	if newSourceRank != oldSourceRank {
+		return newSourceRank > oldSourceRank
+	}
+	return confidenceRank(newConfidence) > confidenceRank(existing.Confidence)
 }
 
 func nodeID(d *Device) string {

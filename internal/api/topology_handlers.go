@@ -2,8 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 
@@ -15,82 +15,111 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// topologyBuildHandler РѕР±СЂР°Р±Р°С‚С‹РІР°РµС‚ POST /api/v1/topology/build
-func (h *Handler) topologyBuildHandler(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		SnapshotID    string `json:"snapshot_id"`
-		SNMPEnabled   bool   `json:"snmp_enabled"`
-		SNMPCommunity string `json:"snmp_community"`
-		SNMPTimeout   int    `json:"snmp_timeout"`
+// topologyRequest — единая схема запроса всех топологических хендлеров.
+type topologyRequest struct {
+	SnapshotID    string `json:"snapshot_id"`
+	SNMPEnabled   bool   `json:"snmp_enabled"`
+	SNMPCommunity string `json:"snmp_community"`
+	SNMPTimeout   int    `json:"snmp_timeout"`
+}
+
+// applyDefaults — значения SNMP-параметров по умолчанию.
+func (r *topologyRequest) applyDefaults() {
+	if r.SNMPTimeout <= 0 {
+		r.SNMPTimeout = 2
+	}
+	if r.SNMPCommunity == "" {
+		r.SNMPCommunity = "public"
+	}
+}
+
+// errNoSnapshots — снапшоты в inventory отсутствуют.
+var errNoSnapshots = errors.New("no snapshots found")
+
+// httpFailure — HTTP-ошибка с кодом статуса и сообщением.
+type httpFailure struct {
+	code int
+	msg  string
+	err  error
+}
+
+// loadHostsForSnapshot — загрузка хостов снапшота: по ID или последнего.
+// Общий для всех топологических хендлеров путь (дедупликация).
+func (h *Handler) loadHostsForSnapshot(req topologyRequest) ([]scanner.Result, *httpFailure) {
+	store, err := inventory.Open(h.config.InventoryPath)
+	if err != nil {
+		return nil, &httpFailure{http.StatusInternalServerError, fmt.Sprintf("open inventory: %v", err), err}
+	}
+	defer store.Close()
+
+	if req.SnapshotID != "" {
+		snap, err := store.LoadSnapshot(req.SnapshotID)
+		if err != nil {
+			return nil, &httpFailure{http.StatusNotFound, fmt.Sprintf("snapshot not found: %v", err), err}
+		}
+		return snap.Hosts, nil
 	}
 
+	snapshots, err := store.ListSnapshots(1)
+	if err != nil {
+		return nil, &httpFailure{http.StatusInternalServerError, fmt.Sprintf("list snapshots: %v", err), err}
+	}
+	if len(snapshots) == 0 {
+		return nil, &httpFailure{http.StatusNotFound, "no snapshots found", errNoSnapshots}
+	}
+	lastSnap, err := store.LoadSnapshot(snapshots[len(snapshots)-1].ID)
+	if err != nil {
+		return nil, &httpFailure{http.StatusInternalServerError, fmt.Sprintf("load last snapshot: %v", err), err}
+	}
+	return lastSnap.Hosts, nil
+}
+
+// buildTopologyForRequest — общий пайплайн: снапшот → SNMP (best-effort) → топология.
+func (h *Handler) buildTopologyForRequest(req topologyRequest) (*topology.Topology, *httpFailure) {
+	hosts, failure := h.loadHostsForSnapshot(req)
+	if failure != nil {
+		return nil, failure
+	}
+
+	var snmpData map[string]*topology.Device
+	if req.SNMPEnabled {
+		data, _, err := snmpcollector.CollectWithReport(hosts, []string{req.SNMPCommunity}, req.SNMPTimeout)
+		if err != nil {
+			// Ошибка SNMP не влияет на ответ: топология строится без доп. данных.
+			fmt.Fprintf(os.Stderr, "SNMP error: %v\n", err)
+		}
+		snmpData = data
+	}
+
+	topo, err := topology.BuildTopology(hosts, snmpData)
+	if err != nil {
+		return nil, &httpFailure{http.StatusInternalServerError, fmt.Sprintf("build topology: %v", err), err}
+	}
+	return topo, nil
+}
+
+// topologyBuildHandler обрабатывает POST /api/v1/topology/build
+func (h *Handler) topologyBuildHandler(w http.ResponseWriter, r *http.Request) {
+	var req topologyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	req.applyDefaults()
 
-	if req.SNMPTimeout <= 0 {
-		req.SNMPTimeout = 2
-	}
-	if req.SNMPCommunity == "" {
-		req.SNMPCommunity = "public"
-	}
-
-	// Р—Р°РіСЂСѓР¶Р°РµРј СЃРЅР°РїС€РѕС‚
-	store, err := inventory.Open(h.config.InventoryPath)
-	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("open inventory: %v", err))
-		return
-	}
-	defer store.Close()
-
-	var hosts []scanner.Result
-	if req.SnapshotID != "" {
-		snap, err := store.LoadSnapshot(req.SnapshotID)
-		if err != nil {
-			h.writeError(w, http.StatusNotFound, fmt.Sprintf("snapshot not found: %v", err))
-			return
-		}
-		hosts = snap.Hosts
-	} else {
-		// Р‘РµСЂС‘Рј РїРѕСЃР»РµРґРЅРёР№ СЃРЅР°РїС€РѕС‚
-		snapshots, err := store.ListSnapshots(1)
-		if err != nil {
-			h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("list snapshots: %v", err))
-			return
-		}
-		if len(snapshots) == 0 {
+	topo, failure := h.buildTopologyForRequest(req)
+	if failure != nil {
+		// Историческое поведение build: пустой inventory — 200 с сообщением.
+		if errors.Is(failure.err, errNoSnapshots) {
 			h.writeJSON(w, http.StatusOK, map[string]interface{}{
 				"message": "no snapshots found",
 			})
 			return
 		}
-		lastSnap, err := store.LoadSnapshot(snapshots[len(snapshots)-1].ID)
-		if err != nil {
-			h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("load last snapshot: %v", err))
-			return
-		}
-		hosts = lastSnap.Hosts
-	}
-
-	// SNMP РѕРїСЂРѕСЃ
-	var snmpData map[string]*topology.Device
-	if req.SNMPEnabled {
-		fmt.Printf("SNMP РѕРїСЂРѕСЃ РґР»СЏ С‚РѕРїРѕР»РѕРіРёРё: %d СѓСЃС‚СЂРѕР№СЃС‚РІ\n", len(hosts))
-		snmpData, _, err = snmpcollector.CollectWithReport(hosts, []string{req.SNMPCommunity}, req.SNMPTimeout)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "SNMP error: %v\n", err)
-		}
-	}
-
-	// РЎС‚СЂРѕРёРј С‚РѕРїРѕР»РѕРіРёСЋ
-	topo, err := topology.BuildTopology(hosts, snmpData)
-	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("build topology: %v", err))
+		h.writeError(w, failure.code, failure.msg)
 		return
 	}
 
-	// РљРѕРЅРІРµСЂС‚РёСЂСѓРµРј РІ JSON
 	devices := make([]map[string]interface{}, 0, len(topo.Devices))
 	for _, d := range topo.Devices {
 		devices = append(devices, map[string]interface{}{
@@ -124,7 +153,7 @@ func (h *Handler) topologyBuildHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// topologyExportHandler РѕР±СЂР°Р±Р°С‚С‹РІР°РµС‚ POST /api/v1/topology/export/{format}
+// topologyExportHandler обрабатывает POST /api/v1/topology/export/{format}
 func (h *Handler) topologyExportHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	format := vars["format"]
@@ -134,76 +163,19 @@ func (h *Handler) topologyExportHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var req struct {
-		SnapshotID    string `json:"snapshot_id"`
-		SNMPEnabled   bool   `json:"snmp_enabled"`
-		SNMPCommunity string `json:"snmp_community"`
-		SNMPTimeout   int    `json:"snmp_timeout"`
-	}
-
+	var req topologyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	req.applyDefaults()
 
-	if req.SNMPTimeout <= 0 {
-		req.SNMPTimeout = 2
-	}
-	if req.SNMPCommunity == "" {
-		req.SNMPCommunity = "public"
-	}
-
-	// Р—Р°РіСЂСѓР¶Р°РµРј СЃРЅР°РїС€РѕС‚
-	store, err := inventory.Open(h.config.InventoryPath)
-	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("open inventory: %v", err))
-		return
-	}
-	defer store.Close()
-
-	var hosts []scanner.Result
-	if req.SnapshotID != "" {
-		snap, err := store.LoadSnapshot(req.SnapshotID)
-		if err != nil {
-			h.writeError(w, http.StatusNotFound, fmt.Sprintf("snapshot not found: %v", err))
-			return
-		}
-		hosts = snap.Hosts
-	} else {
-		snapshots, err := store.ListSnapshots(1)
-		if err != nil {
-			h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("list snapshots: %v", err))
-			return
-		}
-		if len(snapshots) == 0 {
-			h.writeError(w, http.StatusNotFound, "no snapshots found")
-			return
-		}
-		lastSnap, err := store.LoadSnapshot(snapshots[len(snapshots)-1].ID)
-		if err != nil {
-			h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("load last snapshot: %v", err))
-			return
-		}
-		hosts = lastSnap.Hosts
-	}
-
-	// SNMP РѕРїСЂРѕСЃ
-	var snmpData map[string]*topology.Device
-	if req.SNMPEnabled {
-		snmpData, _, err = snmpcollector.CollectWithReport(hosts, []string{req.SNMPCommunity}, req.SNMPTimeout)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "SNMP error: %v\n", err)
-		}
-	}
-
-	// РЎС‚СЂРѕРёРј С‚РѕРїРѕР»РѕРіРёСЋ
-	topo, err := topology.BuildTopology(hosts, snmpData)
-	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("build topology: %v", err))
+	topo, failure := h.buildTopologyForRequest(req)
+	if failure != nil {
+		h.writeError(w, failure.code, failure.msg)
 		return
 	}
 
-	// Р­РєСЃРїРѕСЂС‚РёСЂСѓРµРј
 	switch format {
 	case "json":
 		data, err := json.MarshalIndent(topo, "", "  ")
@@ -219,95 +191,28 @@ func (h *Handler) topologyExportHandler(w http.ResponseWriter, r *http.Request) 
 		topo.ToDOT(w)
 
 	case "graphml":
+		data, err := topo.SaveGraphMLToBytes()
+		if err != nil {
+			h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("marshal graphml: %v", err))
+			return
+		}
 		w.Header().Set("Content-Type", "application/xml")
-		tmpFile, err := os.CreateTemp("", "topology-*.graphml")
-		if err != nil {
-			h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("create temp file: %v", err))
-			return
-		}
-		tmpPath := tmpFile.Name()
-		defer os.Remove(tmpPath)
-		tmpFile.Close()
-
-		if err := topo.SaveGraphML(tmpPath); err != nil {
-			h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("save graphml: %v", err))
-			return
-		}
-
-		data, err := ioutil.ReadFile(tmpPath)
-		if err != nil {
-			h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("read temp file: %v", err))
-			return
-		}
 		w.Write(data)
 	}
 }
 
-// topologyDOTHandler РѕР±СЂР°Р±Р°С‚С‹РІР°РµС‚ GET /api/v1/topology/dot
+// topologyDOTHandler обрабатывает GET /api/v1/topology/dot
 func (h *Handler) topologyDOTHandler(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		SnapshotID    string `json:"snapshot_id"`
-		SNMPEnabled   bool   `json:"snmp_enabled"`
-		SNMPCommunity string `json:"snmp_community"`
-		SNMPTimeout   int    `json:"snmp_timeout"`
-	}
-
+	var req topologyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	req.applyDefaults()
 
-	if req.SNMPTimeout <= 0 {
-		req.SNMPTimeout = 2
-	}
-	if req.SNMPCommunity == "" {
-		req.SNMPCommunity = "public"
-	}
-
-	store, err := inventory.Open(h.config.InventoryPath)
-	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("open inventory: %v", err))
-		return
-	}
-	defer store.Close()
-
-	var hosts []scanner.Result
-	if req.SnapshotID != "" {
-		snap, err := store.LoadSnapshot(req.SnapshotID)
-		if err != nil {
-			h.writeError(w, http.StatusNotFound, fmt.Sprintf("snapshot not found: %v", err))
-			return
-		}
-		hosts = snap.Hosts
-	} else {
-		snapshots, err := store.ListSnapshots(1)
-		if err != nil {
-			h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("list snapshots: %v", err))
-			return
-		}
-		if len(snapshots) == 0 {
-			h.writeError(w, http.StatusNotFound, "no snapshots found")
-			return
-		}
-		lastSnap, err := store.LoadSnapshot(snapshots[len(snapshots)-1].ID)
-		if err != nil {
-			h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("load last snapshot: %v", err))
-			return
-		}
-		hosts = lastSnap.Hosts
-	}
-
-	var snmpData map[string]*topology.Device
-	if req.SNMPEnabled {
-		snmpData, _, err = snmpcollector.CollectWithReport(hosts, []string{req.SNMPCommunity}, req.SNMPTimeout)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "SNMP error: %v\n", err)
-		}
-	}
-
-	topo, err := topology.BuildTopology(hosts, snmpData)
-	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("build topology: %v", err))
+	topo, failure := h.buildTopologyForRequest(req)
+	if failure != nil {
+		h.writeError(w, failure.code, failure.msg)
 		return
 	}
 
@@ -315,89 +220,32 @@ func (h *Handler) topologyDOTHandler(w http.ResponseWriter, r *http.Request) {
 	topo.ToDOT(w)
 }
 
-// topologyStatsHandler РѕР±СЂР°Р±Р°С‚С‹РІР°РµС‚ GET /api/v1/topology/stats
+// topologyStatsHandler обрабатывает GET /api/v1/topology/stats
 func (h *Handler) topologyStatsHandler(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		SnapshotID    string `json:"snapshot_id"`
-		SNMPEnabled   bool   `json:"snmp_enabled"`
-		SNMPCommunity string `json:"snmp_community"`
-		SNMPTimeout   int    `json:"snmp_timeout"`
-	}
-
+	var req topologyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	req.applyDefaults()
 
-	if req.SNMPTimeout <= 0 {
-		req.SNMPTimeout = 2
-	}
-	if req.SNMPCommunity == "" {
-		req.SNMPCommunity = "public"
-	}
-
-	store, err := inventory.Open(h.config.InventoryPath)
-	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("open inventory: %v", err))
-		return
-	}
-	defer store.Close()
-
-	var hosts []scanner.Result
-	if req.SnapshotID != "" {
-		snap, err := store.LoadSnapshot(req.SnapshotID)
-		if err != nil {
-			h.writeError(w, http.StatusNotFound, fmt.Sprintf("snapshot not found: %v", err))
-			return
-		}
-		hosts = snap.Hosts
-	} else {
-		snapshots, err := store.ListSnapshots(1)
-		if err != nil {
-			h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("list snapshots: %v", err))
-			return
-		}
-		if len(snapshots) == 0 {
-			h.writeError(w, http.StatusNotFound, "no snapshots found")
-			return
-		}
-		lastSnap, err := store.LoadSnapshot(snapshots[len(snapshots)-1].ID)
-		if err != nil {
-			h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("load last snapshot: %v", err))
-			return
-		}
-		hosts = lastSnap.Hosts
-	}
-
-	var snmpData map[string]*topology.Device
-	if req.SNMPEnabled {
-		snmpData, _, err = snmpcollector.CollectWithReport(hosts, []string{req.SNMPCommunity}, req.SNMPTimeout)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "SNMP error: %v\n", err)
-		}
-	}
-
-	topo, err := topology.BuildTopology(hosts, snmpData)
-	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, fmt.Sprintf("build topology: %v", err))
+	topo, failure := h.buildTopologyForRequest(req)
+	if failure != nil {
+		h.writeError(w, failure.code, failure.msg)
 		return
 	}
 
-	// РЎС‚Р°С‚РёСЃС‚РёРєР° РїРѕ С‚РёРїР°Рј СѓСЃС‚СЂРѕР№СЃС‚РІ
+	// Статистика по типам устройств
 	typeStats := make(map[string]int)
 	for _, d := range topo.Devices {
 		typeStats[string(d.Type)]++
 	}
 
-	// РЎС‚Р°С‚РёСЃС‚РёРєР° РїРѕ confidence
+	// Статистика по confidence и source_type
 	confidenceStats := make(map[string]int)
-	for _, l := range topo.Links {
-		confidenceStats[string(l.Confidence)]++
-	}
-
-	// РЎС‚Р°С‚РёСЃС‚РёРєР° РїРѕ source_type
 	sourceStats := make(map[string]int)
 	for _, l := range topo.Links {
+		confidenceStats[string(l.Confidence)]++
 		sourceStats[string(l.SourceType)]++
 	}
 
@@ -410,7 +258,7 @@ func (h *Handler) topologyStatsHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ С„СѓРЅРєС†РёРё
+// Вспомогательные функции
 
 func deviceDisplayName(d *topology.Device) string {
 	if d == nil {
@@ -440,4 +288,3 @@ func portLabel(p *topology.Port) string {
 	}
 	return ""
 }
-
