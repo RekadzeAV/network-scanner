@@ -14,7 +14,8 @@
 - **Аудит документации:** 11 завершённых документов перемещены в `docs/archive/2026-09-15-docs-sync/`; актуализированы README, ROADMAP, PROJECT_STRUCTURE, ссылки в ARCHITECTURE/GUI/TECHNICAL/USER_GUIDE; устранены битые ссылки на архивированные файлы; контрольная проверка ссылок — 0 битых
 - **Git-гигиена:** удалены сломанные refs `refs/heads/~gvfYSKY.tmp`, `refs/remotes/origin/~gvf*` (подтверждено пользователем); восстановлен случайно утраченный `refs/remotes/origin/main` (dde66e1)
 - **Итог прогона:** `go build ./...` чисто; `go test ./... -short -count=1` — **48 пакетов ok, 0 FAIL** (регресс устранён)
-- Операционные планы: [FINAL_PLAN_2026-09-15.md](docs/FINAL_PLAN_2026-09-15.md) (F1–F7 ✅, F8 — коммит/пуш ожидает подтверждения), [UNIFIED_OPTIMIZED_PLAN_2026-09-15.md](docs/UNIFIED_OPTIMIZED_PLAN_2026-09-15.md) (E0–E2 ✅)
+- **Синхронизация с origin/main (v2.2.0):** merge `9d9fe83` — удалённый v2.2.0 (ARP-резолвер, D-трек, comparator/nettools/telemetry тесты, Makefile final-release цели) влит в локальный v2.3.0; конфликты разрешены в пользу v2.3-архитектуры (gui SRP, topology Export/детерминизм, api дедупликация), уникальные v2.2-сценарии портированы в `internal/gui/controller/topology_success_status_test.go`; после мержа — 48 пакетов ok, 0 FAIL; **пуш выполнен** (`0178015..9d9fe83`)
+- Операционные планы: [FINAL_PLAN_2026-09-15.md](docs/FINAL_PLAN_2026-09-15.md) (F1–F8 ✅), [UNIFIED_OPTIMIZED_PLAN_2026-09-15.md](docs/UNIFIED_OPTIMIZED_PLAN_2026-09-15.md) (E0–E3 ✅; далее E4 CI, E5 coverage, E6 интеграция слоя)
 
 ## [2.3.0] - 2026-09-13 (in progress)
 
