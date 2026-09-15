@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/widget"
 )
 
 // TouchGestures управляет жестами касания для мобильных устройств
@@ -63,7 +64,10 @@ func (tg *TouchGestures) HandlePinch(event *fyne.PointEvent, scale float32) {
 		currentScale := tg.canvas.Scale()
 		newScale := currentScale * scale
 		if newScale >= 0.5 && newScale <= 3.0 {
-			// TODO: Установить новый масштаб
+			// В Fyne v2.7.1 scale canvas устанавливается при запуске
+			// Для динамического масштабирования используем env variable
+			// TODO: Реализовать через FyneApp.toml или theme override
+			_ = newScale
 		}
 	}
 }
@@ -76,18 +80,47 @@ func (tg *TouchGestures) HandleLongPress(point fyne.Position) {
 
 	// Показываем контекстное меню
 	if tg.app.myWindow != nil {
-		// TODO: Показать контекстное меню
+		tg.showContextMenu(point)
 	}
+}
+
+// showContextMenu показывает контекстное меню в указанной позиции
+func (tg *TouchGestures) showContextMenu(point fyne.Position) {
+	// Создаём пункты меню
+	menuItems := []*fyne.MenuItem{
+		fyne.NewMenuItem("Обновить", func() {
+			// TODO: Реализовать обновление данных
+		}),
+		fyne.NewMenuItem("Настройки", func() {
+			// TODO: Открыть настройки
+		}),
+		fyne.NewMenuItem("Экспорт", func() {
+			// TODO: Реализовать экспорт данных
+		}),
+	}
+
+	// Создаём меню
+	menu := fyne.NewMenu("Контекстное меню", menuItems...)
+	popUp := widget.NewPopUpMenu(menu, tg.app.myWindow.Canvas())
+
+	// Показываем меню в указанной позиции
+	popUp.ShowAtPosition(point)
 }
 
 // scrollUp прокручивает результаты вверх
 func (tg *TouchGestures) scrollUp() {
-	// TODO: Реализовать прокрутку
+	if tg.app == nil || tg.app.resultsScroll == nil {
+		return
+	}
+	tg.app.resultsScroll.ScrollToTop()
 }
 
 // scrollDown прокручивает результаты вниз
 func (tg *TouchGestures) scrollDown() {
-	// TODO: Реализовать прокрутку
+	if tg.app == nil || tg.app.resultsScroll == nil {
+		return
+	}
+	tg.app.resultsScroll.ScrollToBottom()
 }
 
 // DesktopCustomShortcut кастомная обработка горячих клавиш для десктопа

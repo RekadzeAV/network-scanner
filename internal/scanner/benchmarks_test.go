@@ -23,7 +23,7 @@ func BenchmarkIsHostAlive(b *testing.B) {
 func BenchmarkIsHostAliveContext(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ctx, cancel := context.WithCancel(context.Background())
-		prober := network.DefaultNetworkProber{Timeout: 1 * time.Second}
+		prober := network.NewDefaultNetworkProber(1 * time.Second)
 		_, _ = prober.PingContext("127.0.0.1", ctx.Done())
 		cancel()
 	}
@@ -206,7 +206,7 @@ func BenchmarkNetworkScannerNew(b *testing.B) {
 
 // BenchmarkNetworkScannerNewWithDI — создание сканера с DI
 func BenchmarkNetworkScannerNewWithDI(b *testing.B) {
-	prober := network.DefaultNetworkProber{Timeout: 2 * time.Second}
+	prober := network.NewDefaultNetworkProber(2 * time.Second)
 	scanner := network.TCPPortScanner{Timeout: 2 * time.Second}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

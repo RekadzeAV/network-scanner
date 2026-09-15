@@ -70,3 +70,37 @@ func TestExtractVersionHintEmptyBanner(t *testing.T) {
 	}
 }
 
+func TestExtractVersionHint_HTTPS(t *testing.T) {
+	got := ExtractVersionHint(443, "HTTP/1.1 200 OK | Server=Apache")
+	if got != "HTTP/1.1 200 OK (Apache)" {
+		t.Fatalf("expected HTTPS hint, got %q", got)
+	}
+}
+
+func TestExtractVersionHint_8080(t *testing.T) {
+	got := ExtractVersionHint(8080, "HTTP/1.1 200 OK | Server=tomcat")
+	if got != "HTTP/1.1 200 OK (tomcat)" {
+		t.Fatalf("expected 8080 hint, got %q", got)
+	}
+}
+
+func TestExtractVersionHint_8443(t *testing.T) {
+	got := ExtractVersionHint(8443, "HTTP/1.1 200 OK | Server=nginx")
+	if got != "HTTP/1.1 200 OK (nginx)" {
+		t.Fatalf("expected 8443 hint, got %q", got)
+	}
+}
+
+func TestExtractVersionHint_OnlyStatus(t *testing.T) {
+	got := ExtractVersionHint(80, "HTTP/1.1 200 OK")
+	if got != "HTTP/1.1 200 OK" {
+		t.Fatalf("expected status only, got %q", got)
+	}
+}
+
+func TestExtractVersionHint_OnlyServer(t *testing.T) {
+	got := ExtractVersionHint(80, "Server=nginx")
+	if got != "nginx" {
+		t.Fatalf("expected server only, got %q", got)
+	}
+}

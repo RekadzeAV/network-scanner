@@ -244,7 +244,8 @@ func TestSaveScanHTML_Success(t *testing.T) {
 
 func TestSaveScanHTML_InvalidPath(t *testing.T) {
 	data := &ScanReportData{}
-	err := SaveScanHTML("/nonexistent/path/report.html", data)
+	// Use a path with reserved device name that will fail on Windows
+	err := SaveScanHTML("NUL\report.html", data)
 	if err == nil {
 		t.Fatal("expected error for invalid path")
 	}

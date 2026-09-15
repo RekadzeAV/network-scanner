@@ -9,7 +9,6 @@ import (
 	"network-scanner/internal/builder"
 	"network-scanner/internal/contracts"
 	"network-scanner/internal/display"
-	"network-scanner/internal/gui"
 	"network-scanner/internal/network"
 	"network-scanner/internal/presenter"
 	"network-scanner/internal/snmpcollector"
@@ -286,9 +285,7 @@ func ExecuteCLI() {
 			os.Exit(1)
 		}
 	case "gui":
-		fmt.Println("Запуск GUI приложения...")
-		a := gui.NewApp()
-		a.Run()
+		RunGUI()
 		return
 	default:
 		fmt.Printf("Неизвестная команда: %s\n", os.Args[1])

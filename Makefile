@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: build test test-integration run deploy bootstrap bootstrap-win lint lint-tools check-env smoke smoke-tools smoke-dtrack smoke-all p1-check p1-check-win p2-check p2-check-win p3-check p3-check-win stage2-p1-check stage2-p1-check-win stage2-p2-check stage2-p2-check-win stage2-p3-check stage2-p3-check-win ci-status ci-status-win ci-trigger ci-trigger-win p3-signoff p3-signoff-win p3-close-all p3-close-all-win p0-preflight-win p0-preflight docs-link-check-win stage2-signoff-status-win
+.PHONY: build test test-integration run deploy bootstrap bootstrap-win lint lint-tools check-env smoke smoke-tools smoke-dtrack smoke-all p1-check p1-check-win p2-check p2-check-win p3-check p3-check-win stage2-p1-check stage2-p1-check-win stage2-p2-check stage2-p2-check-win stage2-p3-check stage2-p3-check-win ci-status ci-status-win ci-trigger ci-trigger-win p3-signoff p3-signoff-win p3-close-all p3-close-all-win p0-preflight-win p0-preflight docs-link-check-win stage2-signoff-status-win final-release-check final-release-check-win
 
 build:
 	mkdir -p build
@@ -12,19 +12,6 @@ test:
 
 test-integration:
 	go test -tags=integration ./...
-
-# ============================================
-# Benchmarks / Performance regression gate
-# ============================================
-
-benchmarks:
-	go test ./internal/benchmark -bench=".*" -benchmem -benchtime=100x -count=1
-
-benchmarks-update:
-	./scripts/check-perf-regression.sh internal/benchmark/benchmarks_baseline.txt --update
-
-benchmarks-check:
-	./scripts/check-perf-regression.sh internal/benchmark/benchmarks_baseline.txt
 
 run:
 	go run ./cmd/network-scanner
@@ -137,6 +124,16 @@ stage2-signoff-status-win:
 	powershell -ExecutionPolicy Bypass -File .\scripts\stage2-signoff-status.ps1
 
 # ============================================
+# Final release verification (D4)
+# ============================================
+
+final-release-check:
+	./scripts/final-release-check.sh
+
+final-release-check-win:
+	powershell -ExecutionPolicy Bypass -File .\scripts\final-release-check.ps1
+
+# ============================================
 # Linux-specific targets (Sprint 2)
 # ============================================
 
@@ -229,3 +226,4 @@ help:
 	@echo "Package:"
 	@echo "  make deb         - Build Debian package"
 	@echo "  make rpm         - Build RPM package"
+

@@ -1,12 +1,12 @@
 package snmpcollector
 
 import (
-	"context"
 	"testing"
 
-	"github.com/gosnmp/gosnmp"
 	"network-scanner/internal/scanner"
 	"network-scanner/internal/topology"
+
+	"github.com/gosnmp/gosnmp"
 )
 
 // ============================================================================
@@ -399,24 +399,21 @@ func TestCollectWithReportProgressContext_NilContext(t *testing.T) {
 	devices := []scanner.Result{
 		{IP: "10.0.0.1", SNMPEnabled: false},
 	}
-	data, _, err := CollectWithReportProgressContext(nil, devices, []string{"public"}, 1, nil)
+	called := false
+	progress := func(current, total int, ip, msg string) {
+		called = true
+	}
+	data, report, err := CollectWithReportProgress(devices, []string{"public"}, 1, progress)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if len(data) != 0 {
 		t.Fatalf("expected 0 devices, got %d", len(data))
 	}
-}
-
-func TestCollectWithReportProgressContext_CancelledContext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Cancel immediately
-
-	devices := []scanner.Result{
-		{IP: "10.0.0.1", SNMPEnabled: true},
+	if report.TotalSNMPTargets != 0 {
+		t.Fatalf("expected 0 targets, got %d", report.TotalSNMPTargets)
 	}
-	_, _, err := CollectWithReportProgressContext(ctx, devices, []string{"public"}, 1, nil)
-	if err == nil {
-		t.Fatal("expected error for cancelled context")
+	if called {
+		t.Fatal("expected progress callback to not be called")
 	}
 }

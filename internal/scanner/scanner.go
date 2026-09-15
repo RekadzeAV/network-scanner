@@ -259,7 +259,7 @@ func NewNetworkScanner(networkCIDR string, timeout time.Duration, portRange stri
 		portRange,
 		threads,
 		showClosed,
-		network.DefaultNetworkProber{Timeout: timeout},
+		network.NewDefaultNetworkProber(timeout),
 		network.TCPPortScanner{Timeout: timeout},
 		nil,
 	)

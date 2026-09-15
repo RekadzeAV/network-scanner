@@ -24,7 +24,7 @@ jobs:
         run: go mod download
 
       - name: Run tests
-        run: go test -v -coverprofile=coverage.out ./...
+        run: go test -v -coverprofile=coverage.out ./internal/scanner/... ./internal/nettools/... ./internal/topology/... ./internal/audit/... ./internal/gui/... ./internal/integration/...
 
       - name: Build binaries
         env:

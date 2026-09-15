@@ -2,25 +2,50 @@ package scanner
 
 import (
 	"context"
+	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"network-scanner/internal/contracts"
 )
 
 // scannerServiceImpl реализация ScannerService
 type scannerServiceImpl struct {
-	logLevel string
+	logLevel   string
+	mu         sync.RWMutex
+	activeScan *activeScan
+	isScanning atomic.Bool
+	StopScan   atomic.Value // bool
+}
+
+type activeScan struct {
+	scanner *NetworkScanner
+	cancel  context.CancelFunc
+	ctx     context.Context
+	done    chan struct{}
 }
 
 // NewService создаёт ScannerService
 func NewService(logLevel string) contracts.ScannerService {
-	return &scannerServiceImpl{logLevel: logLevel}
+	return &scannerServiceImpl{
+		logLevel: logLevel,
+	}
 }
 
 func (s *scannerServiceImpl) Scan(ctx context.Context, cfg contracts.ScanConfig, onProgress contracts.ProgressHandler) ([]contracts.ScanResult, error) {
+	// Проверяем, не запущено ли уже сканирование
+	if s.isScanning.Load() {
+		return nil, fmt.Errorf("сканирование уже запущено, вызовите Stop() перед новым сканированием")
+	}
+
 	// Если контекст nil, создаём фоновый
 	if ctx == nil {
 		ctx = context.Background()
 	}
+
+	// Создаём cancellable контекст для остановки
+	scanCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	// Создаём NetworkScanner с параметрами из ScanConfig
 	ns := NewNetworkScanner(
@@ -43,21 +68,46 @@ func (s *scannerServiceImpl) Scan(ctx context.Context, cfg contracts.ScanConfig,
 		})
 	}
 
-	// Запускаем сканирование в отдельной горутине с контекстом
+	// Создаём канал для отслеживания завершения
 	done := make(chan struct{})
+
+	// Сохраняем activeScan
+	s.mu.Lock()
+	s.activeScan = &activeScan{
+		scanner: ns,
+		cancel:  cancel,
+		ctx:     scanCtx,
+		done:    done,
+	}
+	s.mu.Unlock()
+
+	// Устанавливаем флаг сканирования
+	s.isScanning.Store(true)
+
+	// Запускаем сканирование в отдельной горутине
 	go func() {
+		defer close(done)
 		ns.Scan()
-		close(done)
 	}()
 
 	// Ждём завершения или отмены контекста
 	select {
-	case <-ctx.Done():
+	case <-scanCtx.Done():
 		// Отмена сканирования
 		<-done
-		return nil, ctx.Err()
+		s.isScanning.Store(false)
+		s.mu.Lock()
+		s.activeScan = nil
+		s.mu.Unlock()
+		return nil, fmt.Errorf("сканирование отменено: %w", scanCtx.Err())
 	case <-done:
 	}
+
+	// Сбрасываем флаг сканирования
+	s.isScanning.Store(false)
+	s.mu.Lock()
+	s.activeScan = nil
+	s.mu.Unlock()
 
 	// Конвертируем результаты
 	rawResults := ns.GetResults()
@@ -90,7 +140,29 @@ func (s *scannerServiceImpl) Scan(ctx context.Context, cfg contracts.ScanConfig,
 }
 
 func (s *scannerServiceImpl) Stop() {
-	// TODO: Реализовать остановку активного сканирования
-	// В текущей реализации сканирование запускается в новой горутине
-	// и не может быть остановлено извне без сохранения reference на NetworkScanner
+	s.mu.RLock()
+	active := s.activeScan
+	s.mu.RUnlock()
+
+	if active == nil {
+		return
+	}
+
+	// Отменяем контекст — это прервёт активное сканирование
+	active.cancel()
+
+	// Ждём завершения горутины сканирования
+	select {
+	case <-active.done:
+		// Сканирование завершено
+	case <-active.ctx.Done():
+		// Контекст отменён
+	}
+
+	// Сбрасываем флаг сканирования
+	s.isScanning.Store(false)
+
+	s.mu.Lock()
+	s.activeScan = nil
+	s.mu.Unlock()
 }

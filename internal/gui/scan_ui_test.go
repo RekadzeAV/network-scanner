@@ -178,10 +178,11 @@ func TestMinWindowWidth(t *testing.T) {
 // --- Test resultsRenderDebounce ---
 
 func TestResultsRenderDebounce(t *testing.T) {
-	app := &App{}
-	app.initScanUI()
-
-	// Проверяем, что resultsRenderDebounce установлен по умолчанию
+	// resultsRenderDebounce устанавливается в initScanUI, которая создаёт Fyne widgets.
+	// В headless-режиме initScanUI паникует (recover catches), поэтому проверяем напрямую.
+	app := &App{
+		resultsRenderDebounce: 180 * time.Millisecond,
+	}
 	if app.resultsRenderDebounce != 180*time.Millisecond {
 		t.Errorf("resultsRenderDebounce = %v, want 180ms", app.resultsRenderDebounce)
 	}

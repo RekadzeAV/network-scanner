@@ -1,6 +1,8 @@
 package nettools
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestParsePingStatsUnix(t *testing.T) {
 	raw := `PING google.com (142.250.74.14): 56 data bytes
@@ -83,5 +85,116 @@ func TestParseTracerouteNoHops(t *testing.T) {
 	hops := parseTraceroute(raw)
 	if len(hops) != 0 {
 		t.Fatalf("expected 0 hops, got %d", len(hops))
+	}
+}
+
+func TestParsePingStats_Empty(t *testing.T) {
+	stats := parsePingStats("", 0)
+	if stats.Sent != 0 || stats.Received != 0 {
+		t.Fatalf("expected zero stats, got %+v", stats)
+	}
+}
+
+func TestParsePingStats_CountOverride(t *testing.T) {
+	stats := parsePingStats("", 10)
+	if stats.Sent != 10 {
+		t.Fatalf("expected sent=10, got %d", stats.Sent)
+	}
+}
+
+func TestParsePingStats_UnixLoss(t *testing.T) {
+	raw := `10 packets transmitted, 5 received, 50.0% packet loss`
+	stats := parsePingStats(raw, 0)
+	if stats.Sent != 10 || stats.Received != 5 || stats.PacketLoss != 50.0 {
+		t.Fatalf("unexpected unix loss stats: %+v", stats)
+	}
+}
+
+func TestParsePingStats_WindowsLossOnly(t *testing.T) {
+	raw := `Lost = 3 (30% loss)`
+	stats := parsePingStats(raw, 0)
+	if stats.Sent != 3 || stats.Received != 0 || stats.PacketLoss != 30 {
+		t.Fatalf("unexpected windows loss stats: %+v", stats)
+	}
+}
+
+func TestParseTraceroute_MixedTimeoutAndRTT(t *testing.T) {
+	raw := ` 1  192.168.1.1  1.000 ms
+ 2  * * *
+ 3  10.0.0.1  5.000 ms  6.000 ms  7.000 ms`
+	hops := parseTraceroute(raw)
+	if len(hops) != 3 {
+		t.Fatalf("expected 3 hops, got %d", len(hops))
+	}
+	if !hops[1].IsTimeout {
+		t.Error("hop2 should be timeout")
+	}
+	if hops[2].RTTMin <= 0 || hops[2].RTTMax <= 0 {
+		t.Error("hop3 should have RTT values")
+	}
+}
+
+func TestParseTraceroute_OnlyTimeouts(t *testing.T) {
+	raw := ` 1  * * *
+ 2  * * *`
+	hops := parseTraceroute(raw)
+	if len(hops) != 2 {
+		t.Fatalf("expected 2 hops, got %d", len(hops))
+	}
+	for i, hop := range hops {
+		if !hop.IsTimeout {
+			t.Errorf("hop%d should be timeout", i)
+		}
+	}
+}
+
+func TestParseTraceroute_Empty(t *testing.T) {
+	hops := parseTraceroute("")
+	if len(hops) != 0 {
+		t.Fatalf("expected 0 hops, got %d", len(hops))
+	}
+}
+
+func TestParseTraceroute_NoHopPrefix(t *testing.T) {
+	raw := `some random line
+another line`
+	hops := parseTraceroute(raw)
+	if len(hops) != 0 {
+		t.Fatalf("expected 0 hops, got %d", len(hops))
+	}
+}
+
+func TestParseFloatMs_Valid(t *testing.T) {
+	d := parseFloatMs("10.5")
+	if d != 10500000 { // 10.5ms в наносекундах
+		t.Fatalf("expected 10.5ms, got %v", d)
+	}
+}
+
+func TestParseFloatMs_Zero(t *testing.T) {
+	d := parseFloatMs("0")
+	if d != 0 {
+		t.Fatalf("expected 0, got %v", d)
+	}
+}
+
+func TestParseFloatMs_Negative(t *testing.T) {
+	d := parseFloatMs("-5")
+	if d != 0 {
+		t.Fatalf("expected 0 for negative, got %v", d)
+	}
+}
+
+func TestParseFloatMs_Invalid(t *testing.T) {
+	d := parseFloatMs("abc")
+	if d != 0 {
+		t.Fatalf("expected 0 for invalid, got %v", d)
+	}
+}
+
+func TestParseFloatMs_Empty(t *testing.T) {
+	d := parseFloatMs("")
+	if d != 0 {
+		t.Fatalf("expected 0 for empty, got %v", d)
 	}
 }

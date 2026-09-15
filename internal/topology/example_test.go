@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"network-scanner/internal/scanner"
 	"network-scanner/internal/topology"
@@ -51,8 +52,15 @@ func ExampleBuildTopology() {
 	fmt.Printf("Устройств: %d\n", len(topo.Devices))
 	fmt.Printf("Связей: %d\n", len(topo.Links))
 
-	// Выводим устройства
+	// Выводим устройства (отсортировано для детерминированного вывода)
+	devices := make([]*topology.Device, 0, len(topo.Devices))
 	for _, dev := range topo.Devices {
+		devices = append(devices, dev)
+	}
+	sort.Slice(devices, func(i, j int) bool {
+		return devices[i].Hostname < devices[j].Hostname
+	})
+	for _, dev := range devices {
 		fmt.Printf("  - %s (%s) [%s]\n", dev.Hostname, dev.IP, dev.Type)
 	}
 

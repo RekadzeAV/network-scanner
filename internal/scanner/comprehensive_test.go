@@ -14,7 +14,7 @@ import (
 // --- Конструкторы и настройки ---
 
 func TestNewScannerWithDI(t *testing.T) {
-	prober := network.DefaultNetworkProber{Timeout: 1 * time.Second}
+	prober := network.NewDefaultNetworkProber(1 * time.Second)
 	portScanner := network.TCPPortScanner{Timeout: 1 * time.Second}
 
 	ns := NewScanner(
@@ -461,7 +461,7 @@ func TestScanTCPPortNilScanner(t *testing.T) {
 
 func TestContextNetworkProberInterface(t *testing.T) {
 	// Проверяем, что DefaultNetworkProber реализует ContextNetworkProber
-	var _ ContextNetworkProber = network.DefaultNetworkProber{}
+	var _ ContextNetworkProber = (*network.DefaultNetworkProber)(nil)
 }
 
 // --- ScanHost with empty ports ---
@@ -730,7 +730,7 @@ func TestShowClosedTrue(t *testing.T) {
 // --- ResultPresenter interface ---
 
 func TestResultPresenterNil(t *testing.T) {
-	prober := network.DefaultNetworkProber{Timeout: 1 * time.Second}
+	prober := network.NewDefaultNetworkProber(1 * time.Second)
 	portScanner := network.TCPPortScanner{Timeout: 1 * time.Second}
 
 	ns := NewScanner(
