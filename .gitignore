@@ -58,3 +58,8 @@ internal/api/nonexistent/
 /.tmp/
 /*.log
 /update_plan.py
+
+# Local lint/test scratch artifacts (never commit)
+/.tmp_*
+/.lint-issues*.txt
+/.test-*.log
