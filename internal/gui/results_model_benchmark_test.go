@@ -46,4 +46,3 @@ func makeBenchmarkResults(n int) []scanner.Result {
 	}
 	return out
 }
-

@@ -87,4 +87,3 @@ func TestSelectedTypeFiltersStableOrder(t *testing.T) {
 		}
 	}
 }
-

@@ -226,12 +226,12 @@ func TestIntegrationSecurityService_ResultWithVersionInfo(t *testing.T) {
 			Hostname: "versioned-host",
 			Ports: []contracts.PortInfo{
 				{
-					Port:    22,
-					State:   "open",
+					Port:     22,
+					State:    "open",
 					Protocol: "tcp",
-					Service: "ssh",
-					Version: "OpenSSH_8.9",
-					Banner:  "SSH-2.0-OpenSSH_8.9",
+					Service:  "ssh",
+					Version:  "OpenSSH_8.9",
+					Banner:   "SSH-2.0-OpenSSH_8.9",
 				},
 			},
 		},
@@ -276,8 +276,8 @@ func TestIntegrationSecurityService_ResultWithMAC(t *testing.T) {
 
 	results := []contracts.ScanResult{
 		{
-			IP:   "192.168.1.1",
-			MAC:  "aa:bb:cc:dd:ee:ff",
+			IP:  "192.168.1.1",
+			MAC: "aa:bb:cc:dd:ee:ff",
 			Ports: []contracts.PortInfo{
 				{Port: 445, State: "open", Protocol: "tcp", Service: "smb"},
 			},
@@ -590,7 +590,7 @@ func TestIntegrationNewService_ImplementsInterface(t *testing.T) {
 
 func TestIntegrationAnalyzeRun_NilContext(t *testing.T) {
 	svc := NewService()
-	report, err := svc.AnalyzeRun(nil, []contracts.ScanResult{})
+	report, err := svc.AnalyzeRun(context.TODO(), []contracts.ScanResult{})
 	if err != nil {
 		t.Fatalf("expected no error for nil context, got %v", err)
 	}
@@ -624,7 +624,7 @@ func TestIntegrationAnalyzeRun_EmptyResults(t *testing.T) {
 	if report.Score != 100 {
 		t.Errorf("expected score 100 for empty results, got %d", report.Score)
 	}
-	if report.PortAudit != nil && len(report.PortAudit) != 0 {
+	if len(report.PortAudit) != 0 {
 		t.Errorf("expected 0 port audit findings, got %d", len(report.PortAudit))
 	}
 }

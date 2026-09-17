@@ -269,8 +269,8 @@ func TestIntegrationRunCmd_InvalidCommand(t *testing.T) {
 
 func TestIntegrationDNSResult_Empty(t *testing.T) {
 	result := &DNSResult{}
-	if result == nil {
-		t.Error("expected non-nil DNSResult")
+	if len(result.ForwardIPs) != 0 {
+		t.Errorf("expected empty forward IPs, got %v", result.ForwardIPs)
 	}
 }
 
@@ -291,8 +291,8 @@ func TestIntegrationDNSResult_WithData(t *testing.T) {
 
 func TestIntegrationPingResult_Empty(t *testing.T) {
 	result := &PingResult{}
-	if result == nil {
-		t.Error("expected non-nil PingResult")
+	if result.Stats.Sent != 0 {
+		t.Errorf("expected zero sent, got %d", result.Stats.Sent)
 	}
 }
 
@@ -320,8 +320,8 @@ func TestIntegrationPingResult_WithStats(t *testing.T) {
 
 func TestIntegrationTracerouteResult_Empty(t *testing.T) {
 	result := &TracerouteResult{}
-	if result == nil {
-		t.Error("expected non-nil TracerouteResult")
+	if len(result.Hops) != 0 {
+		t.Errorf("expected empty hops, got %v", result.Hops)
 	}
 }
 
@@ -344,8 +344,8 @@ func TestIntegrationTracerouteResult_WithHops(t *testing.T) {
 
 func TestIntegrationWiFiInfo_Empty(t *testing.T) {
 	info := map[string]string{}
-	if info == nil {
-		t.Error("expected non-nil map")
+	if len(info) != 0 {
+		t.Errorf("expected empty map, got %v", info)
 	}
 }
 
@@ -463,7 +463,7 @@ func TestIntegrationRunPingStructured(t *testing.T) {
 		_ = result
 	} else {
 		if result == nil {
-			t.Error("expected non-nil result")
+			t.Fatal("expected non-nil result")
 		}
 		if result.Stats.Sent < 0 {
 			t.Error("expected non-negative sent count")

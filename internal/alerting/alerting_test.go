@@ -1,4 +1,4 @@
-﻿package alerting
+package alerting
 
 import (
 	"os"
@@ -125,12 +125,7 @@ func TestGetAlertsBySeverity(t *testing.T) {
 	highAlerts := engine.GetAlertsBySeverity(SeverityHigh)
 	mediumAlerts := engine.GetAlertsBySeverity(SeverityMedium)
 
-	if len(highAlerts) < 0 {
-		t.Error("expected non-negative count for HIGH alerts")
-	}
-	if len(mediumAlerts) < 0 {
-		t.Error("expected non-negative count for MEDIUM alerts")
-	}
+	t.Logf("alerts: HIGH=%d MEDIUM=%d", len(highAlerts), len(mediumAlerts))
 }
 
 func TestClearAlerts(t *testing.T) {
@@ -190,4 +185,3 @@ func TestFileHandler_OnAlert(t *testing.T) {
 var testTime = func() time.Time {
 	return time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 }()
-

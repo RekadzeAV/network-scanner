@@ -144,7 +144,7 @@ func (a *App) copyScanDiagnostics() {
 		dialog.ShowInformation("Информация", "Диагностика сканирования пока недоступна", a.myWindow)
 		return
 	}
-	a.myWindow.Clipboard().SetContent(text)
+	a.myApp.Clipboard().SetContent(text)
 	dialog.ShowInformation("Готово", "Диагностика сканирования скопирована в буфер обмена", a.myWindow)
 }
 

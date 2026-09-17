@@ -36,7 +36,7 @@ func TestHandleScan(t *testing.T) {
 	router := NewRouter(cfg)
 
 	body, _ := json.Marshal(map[string]interface{}{
-		"network": "192.168.1.0/24",
+		"network":    "192.168.1.0/24",
 		"port_range": "1-1000",
 	})
 

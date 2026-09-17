@@ -65,5 +65,3 @@ func (h *Handler) compareHandler(w http.ResponseWriter, r *http.Request) {
 
 	h.writeJSON(w, http.StatusOK, result)
 }
-
-

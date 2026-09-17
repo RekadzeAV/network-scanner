@@ -12,7 +12,6 @@ type MobileLayout struct {
 	smallScreen        bool
 	currentOrientation string // "portrait" или "landscape"
 	mainTabs           *container.AppTabs
-	tabs               []*container.TabItem
 }
 
 // NewMobileLayout создает новый адаптивный лейаут
@@ -50,16 +49,9 @@ func (ml *MobileLayout) applyMobileLayout() {
 		return
 	}
 
-	// В портретном режиме показываем только 2 вкладки вместо 3
-	if ml.currentOrientation == "portrait" && len(ml.tabs) > 2 {
-		// Скрываем третью вкладку на маленьких экранах
-	}
+	// TODO: в портретном режиме скрывать третью вкладку на маленьких экранах
 
-	// Уменьшаем размеры шрифтов для маленьких экранов
-	if ml.smallScreen {
-		// Применяем компактные стили
-		// TODO: Уменьшить размеры шрифтов через theme
-	}
+	// TODO: компактные стили (размеры шрифтов) для маленьких экранов
 }
 
 // GetLayoutMode возвращает текущий режим layout

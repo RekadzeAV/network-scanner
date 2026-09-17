@@ -18,8 +18,8 @@ const (
 )
 
 var (
-	logFile   *os.File
-	logMutex  sync.Mutex
+	logFile     *os.File
+	logMutex    sync.Mutex
 	initialized bool
 )
 
@@ -37,13 +37,13 @@ func Init(appName, version string) error {
 	if err != nil {
 		workDir = "неизвестно"
 	}
-	
+
 	// Формируем имя файла лога: LOG-название приложения-версия релиза.txt
 	logFileName := fmt.Sprintf("LOG-%s-%s.txt", appName, version)
-	
+
 	// Получаем полный путь к файлу лога
 	logFilePath := filepath.Join(workDir, logFileName)
-	
+
 	// Открываем файл для записи (создаем если не существует, добавляем если существует)
 	file, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
@@ -91,7 +91,7 @@ func writeLog(message string) {
 
 	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
 	logLine := fmt.Sprintf("[%s] %s\n", timestamp, message)
-	
+
 	// Записываем в UTF-8
 	logFile.WriteString(logLine)
 }

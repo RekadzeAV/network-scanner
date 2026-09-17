@@ -32,7 +32,7 @@ type resultsViewImpl struct {
 // NewResultsView создаёт новую реализацию ResultsView.
 func NewResultsView(app *App) ResultsView {
 	return &resultsViewImpl{
-		app: app,
+		app:  app,
 		mode: "таблица",
 	}
 }

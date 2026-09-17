@@ -9,27 +9,27 @@ import (
 
 // DiffReport contains the differences between two scan results.
 type DiffReport struct {
-	NewHosts    []scanner.HostResult // Hosts found in current but not in previous
-	GoneHosts   []scanner.HostResult // Hosts found in previous but not in current
-	ChangedHosts []ChangedHost       // Hosts present in both but with differences
-	TotalNew    int
-	TotalGone   int
+	NewHosts     []scanner.HostResult // Hosts found in current but not in previous
+	GoneHosts    []scanner.HostResult // Hosts found in previous but not in current
+	ChangedHosts []ChangedHost        // Hosts present in both but with differences
+	TotalNew     int
+	TotalGone    int
 	TotalChanged int
 }
 
 // ChangedHost represents a host that exists in both scans but with differences.
 type ChangedHost struct {
-	IP        string
-	Previous  scanner.HostResult
-	Current   scanner.HostResult
-	Changes   []Change
+	IP       string
+	Previous scanner.HostResult
+	Current  scanner.HostResult
+	Changes  []Change
 }
 
 // Change represents a single difference between previous and current state.
 type Change struct {
-	Field     string
-	Previous  string
-	Current   string
+	Field    string
+	Previous string
+	Current  string
 }
 
 // CompareScanResults compares two scan results and returns a diff report.
@@ -95,45 +95,45 @@ func detectChanges(prev, curr scanner.HostResult) []Change {
 	// Check hostname
 	if prev.Hostname != curr.Hostname {
 		changes = append(changes, Change{
-			Field:     "Hostname",
-			Previous:  prev.Hostname,
-			Current:   curr.Hostname,
+			Field:    "Hostname",
+			Previous: prev.Hostname,
+			Current:  curr.Hostname,
 		})
 	}
 
 	// Check MAC
 	if prev.MAC != curr.MAC {
 		changes = append(changes, Change{
-			Field:     "MAC",
-			Previous:  prev.MAC,
-			Current:   curr.MAC,
+			Field:    "MAC",
+			Previous: prev.MAC,
+			Current:  curr.MAC,
 		})
 	}
 
 	// Check device type
 	if prev.DeviceType != curr.DeviceType {
 		changes = append(changes, Change{
-			Field:     "DeviceType",
-			Previous:  prev.DeviceType,
-			Current:   curr.DeviceType,
+			Field:    "DeviceType",
+			Previous: prev.DeviceType,
+			Current:  curr.DeviceType,
 		})
 	}
 
 	// Check device vendor
 	if prev.DeviceVendor != curr.DeviceVendor {
 		changes = append(changes, Change{
-			Field:     "DeviceVendor",
-			Previous:  prev.DeviceVendor,
-			Current:   curr.DeviceVendor,
+			Field:    "DeviceVendor",
+			Previous: prev.DeviceVendor,
+			Current:  curr.DeviceVendor,
 		})
 	}
 
 	// Check SNMP
 	if prev.SNMPEnabled != curr.SNMPEnabled {
 		changes = append(changes, Change{
-			Field:     "SNMP",
-			Previous:  fmt.Sprintf("%v", prev.SNMPEnabled),
-			Current:   fmt.Sprintf("%v", curr.SNMPEnabled),
+			Field:    "SNMP",
+			Previous: fmt.Sprintf("%v", prev.SNMPEnabled),
+			Current:  fmt.Sprintf("%v", curr.SNMPEnabled),
 		})
 	}
 
@@ -174,9 +174,9 @@ func detectChanges(prev, curr scanner.HostResult) []Change {
 		prevPortsStr := portsToString(prevPorts)
 		currPortsStr := portsToString(currPorts)
 		changes = append(changes, Change{
-			Field:     "OpenPorts",
-			Previous:  prevPortsStr,
-			Current:   currPortsStr,
+			Field:    "OpenPorts",
+			Previous: prevPortsStr,
+			Current:  currPortsStr,
 		})
 	}
 

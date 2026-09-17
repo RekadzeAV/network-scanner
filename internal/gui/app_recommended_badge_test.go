@@ -20,9 +20,9 @@ func TestLoadScanSettings_RestoresRecommendedBadgeFromClass(t *testing.T) {
 	p.SetString(prefRecommendedBadge, "legacy text should be ignored")
 
 	a := &App{
-		myApp:                  myApp,
-		scanUDPCheck:           widget.NewCheck("", nil),
-		statusLabel:            widget.NewLabel(""),
+		myApp:                   myApp,
+		scanUDPCheck:            widget.NewCheck("", nil),
+		statusLabel:             widget.NewLabel(""),
 		recommendedProfileBadge: canvas.NewText("Профиль: не выбран", color.Black),
 	}
 
@@ -45,9 +45,9 @@ func TestLoadScanSettings_RestoresRecommendedBadgeFromLegacyText(t *testing.T) {
 	p.SetString(prefRecommendedBadge, "Профиль: legacy fallback")
 
 	a := &App{
-		myApp:                  myApp,
-		scanUDPCheck:           widget.NewCheck("", nil),
-		statusLabel:            widget.NewLabel(""),
+		myApp:                   myApp,
+		scanUDPCheck:            widget.NewCheck("", nil),
+		statusLabel:             widget.NewLabel(""),
 		recommendedProfileBadge: canvas.NewText("Профиль: не выбран", color.Black),
 	}
 
@@ -89,9 +89,9 @@ func TestLoadScanSettings_InvalidRecommendedBadgeClass_FallbackToLegacy(t *testi
 	p.SetString(prefRecommendedBadge, "Профиль: legacy fallback")
 
 	a := &App{
-		myApp:                  myApp,
-		scanUDPCheck:           widget.NewCheck("", nil),
-		statusLabel:            widget.NewLabel(""),
+		myApp:                   myApp,
+		scanUDPCheck:            widget.NewCheck("", nil),
+		statusLabel:             widget.NewLabel(""),
 		recommendedProfileBadge: canvas.NewText("Профиль: не выбран", color.Black),
 	}
 

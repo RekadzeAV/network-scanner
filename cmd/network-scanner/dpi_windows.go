@@ -31,5 +31,5 @@ func SetProcessDPIAwareness() {
 		return
 	}
 
-	proc.Call()
+	_, _, _ = proc.Call()
 }

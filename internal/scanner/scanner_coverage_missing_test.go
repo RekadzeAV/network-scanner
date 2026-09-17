@@ -15,7 +15,7 @@ import (
 // TestReadMACFromLinuxARP_FileNotFound — ветка: файл не найден
 func TestReadMACFromLinuxARP_FileNotFound(t *testing.T) {
 	ns := NewNetworkScanner("192.0.2.0/24", 100*time.Millisecond, "", 10, false)
-	
+
 	// На Linux этот файл существует, но на Windows его нет
 	// Тестируем ошибку открытия файла
 	mac, err := ns.readMACFromLinuxARP("192.0.2.1")
@@ -30,7 +30,7 @@ func TestReadMACFromLinuxARP_ValidEntry(t *testing.T) {
 	// Создаём временный файл с содержимым /proc/net/arp
 	tmpDir := t.TempDir()
 	arpFile := filepath.Join(tmpDir, "arp")
-	
+
 	content := `IP address       HW type     Flags       HW address            Mask     Device
 192.0.2.1        0x1         0x2         aa:bb:cc:dd:ee:ff     *        eth0
 192.0.2.2        0x1         0x2         11:22:33:44:55:66     *        eth0
@@ -39,9 +39,9 @@ func TestReadMACFromLinuxARP_ValidEntry(t *testing.T) {
 	if err != nil {
 		t.Skipf("cannot create temp file: %v", err)
 	}
-	
+
 	ns := NewNetworkScanner("192.0.2.0/24", 100*time.Millisecond, "", 10, false)
-	
+
 	// В реальном коде функция читает из /proc/net/arp
 	// Здесь мы тестируем логику парсинга
 	// На Windows файл не существует, поэтому ожидаем ошибку
@@ -55,7 +55,7 @@ func TestReadMACFromLinuxARP_ValidEntry(t *testing.T) {
 func TestReadMACFromLinuxARP_Incomplete(t *testing.T) {
 	tmpDir := t.TempDir()
 	arpFile := filepath.Join(tmpDir, "arp")
-	
+
 	content := `IP address       HW type     Flags       HW address            Mask     Device
 192.0.2.1        0x1         0x0         <incomplete>          *        eth0
 `
@@ -63,9 +63,9 @@ func TestReadMACFromLinuxARP_Incomplete(t *testing.T) {
 	if err != nil {
 		t.Skipf("cannot create temp file: %v", err)
 	}
-	
+
 	ns := NewNetworkScanner("192.0.2.0/24", 100*time.Millisecond, "", 10, false)
-	
+
 	mac, err := ns.readMACFromLinuxARP("192.0.2.1")
 	if err == nil {
 		t.Logf("unexpected success: mac=%s", mac)
@@ -76,7 +76,7 @@ func TestReadMACFromLinuxARP_Incomplete(t *testing.T) {
 // TestReadMACFromDarwinARP_CommandNotFound — ветка: команда не найдена
 func TestReadMACFromDarwinARP_CommandNotFound(t *testing.T) {
 	ns := NewNetworkScanner("192.0.2.0/24", 100*time.Millisecond, "", 10, false)
-	
+
 	// На macOS команда arp существует, на Windows — нет
 	mac, err := ns.readMACFromDarwinARP("192.0.2.1")
 	if err == nil {
@@ -88,7 +88,7 @@ func TestReadMACFromDarwinARP_CommandNotFound(t *testing.T) {
 // TestReadMACFromDarwinARP_Timeout — ветка: таймаут выполнения
 func TestReadMACFromDarwinARP_Timeout(t *testing.T) {
 	ns := NewNetworkScanner("192.0.2.0/24", 100*time.Millisecond, "", 10, false)
-	
+
 	// Создаём контекст с очень коротким таймаутом
 	// Команда arp -n на несуществующем хосте может зависнуть
 	mac, err := ns.readMACFromDarwinARP("192.0.2.254")
@@ -101,7 +101,7 @@ func TestReadMACFromDarwinARP_Timeout(t *testing.T) {
 // TestReadMACFromARPTable_NoMatchingIP — ветка: IP не найден в таблице
 func TestReadMACFromARPTable_NoMatchingIP(t *testing.T) {
 	ns := NewNetworkScanner("192.0.2.0/24", 100*time.Millisecond, "", 10, false)
-	
+
 	// На Windows/не-Linux система вернёт ошибку или пустой результат
 	mac, err := ns.readMACFromARPTable(net.ParseIP("192.0.2.254"))
 	if err == nil && mac == "" {
@@ -119,7 +119,7 @@ func TestReadMACFromARPTable_NoMatchingIP(t *testing.T) {
 func TestScanHostUDP_NoResponse(t *testing.T) {
 	ns := NewNetworkScanner("192.0.2.0/24", 50*time.Millisecond, "", 10, false)
 	ns.SetScanUDP(true)
-	
+
 	// UDP сканирование на несуществующем хосте
 	ns.Scan()
 	t.Log("scan completed without hang")
@@ -128,7 +128,7 @@ func TestScanHostUDP_NoResponse(t *testing.T) {
 // TestGetDiagnosticsSummary_Empty — ветка: пустая диагностика
 func TestGetDiagnosticsSummary_Empty(t *testing.T) {
 	ns := NewNetworkScanner("192.0.2.0/24", 50*time.Millisecond, "", 10, false)
-	
+
 	summary := ns.GetDiagnosticsSummary()
 	if summary == "" {
 		t.Error("expected non-empty diagnostics summary")
@@ -138,7 +138,7 @@ func TestGetDiagnosticsSummary_Empty(t *testing.T) {
 // TestSetProgressCallback_Nil — ветка: nil callback
 func TestSetProgressCallback_Nil(t *testing.T) {
 	ns := NewNetworkScanner("192.0.2.0/24", 50*time.Millisecond, "", 10, false)
-	
+
 	// Передача nil callback должна быть безопасной
 	ns.SetProgressCallback(nil)
 }

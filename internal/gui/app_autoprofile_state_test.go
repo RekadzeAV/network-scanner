@@ -60,4 +60,3 @@ func TestRefreshAutoProfileStateLabel_NilSafe(t *testing.T) {
 	// Должно отработать без panic даже при неполной инициализации.
 	a.refreshAutoProfileStateLabel()
 }
-

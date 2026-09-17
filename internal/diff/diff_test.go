@@ -101,7 +101,7 @@ func TestCompareScanResults_Complete(t *testing.T) {
 	}
 	curr := []scanner.HostResult{
 		{IP: "192.168.1.1", Hostname: "host1-new", DeviceType: "Server"}, // changed
-		{IP: "192.168.1.3", Hostname: "host3", DeviceType: "Unknown"},     // new
+		{IP: "192.168.1.3", Hostname: "host3", DeviceType: "Unknown"},    // new
 	}
 
 	report := CompareScanResults(prev, curr)
@@ -203,8 +203,8 @@ func TestFormatReport(t *testing.T) {
 				},
 			},
 		},
-		TotalNew:    1,
-		TotalGone:   1,
+		TotalNew:     1,
+		TotalGone:    1,
 		TotalChanged: 1,
 	}
 
@@ -234,9 +234,9 @@ func TestSortHosts(t *testing.T) {
 
 func TestPortsToString(t *testing.T) {
 	tests := []struct {
-		name   string
-		ports  map[int]bool
-		want   string
+		name  string
+		ports map[int]bool
+		want  string
 	}{
 		{
 			name:  "empty",

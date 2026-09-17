@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
 
 	"network-scanner/internal/banner"
 	"network-scanner/internal/logger"
@@ -201,9 +200,6 @@ const (
 	minPerHostPortThreads = 8
 	maxPerHostPortThreads = 64
 
-	// UDP порты для сканирования
-	knownUDPPorts = 9
-
 	// Магические числа для сканирования
 	udpSemaphoreSize       = 50
 	udpResultBufferSize    = 9 // равно knownUDPPorts
@@ -235,12 +231,6 @@ const (
 
 	// Common ports для проверки живости хоста
 	commonHostPorts = 6
-
-	// MAC OUI prefix length
-	macOUIPrefixLength = 8
-
-	// Windows ARP MAC format length
-	windowsMACFormatLength = 17
 
 	// PCAP buffer size
 	pcapBufferSize = 1024
@@ -797,15 +787,11 @@ func (ns *NetworkScanner) scanHost(ip net.IP, ports []int) {
 	portResults := make(chan PortInfo, len(ports))
 	portWg := sync.WaitGroup{}
 
-	cancelledBeforeLaunch := false
 	// Запускаем параллельное сканирование портов
 	for _, port := range ports {
 		// Если контекст отменен, не запускаем новые горутины
 		if ns.ctx.Err() != nil {
-			if !cancelledBeforeLaunch {
-				atomic.AddInt64(&ns.tcpCancelBefore, 1)
-				cancelledBeforeLaunch = true
-			}
+			atomic.AddInt64(&ns.tcpCancelBefore, 1)
 			break
 		}
 
@@ -1047,18 +1033,13 @@ func (ns *NetworkScanner) scanHostUDP(ipStr string, result *Result) {
 	udpResults := make(chan PortInfo, udpResultBufferSize)
 	udpDone := make(chan struct{})
 
-	udpScanCancelled := false
 udpPortLoop:
 	for _, udpPort := range udpPorts {
 		select {
 		case <-ns.ctx.Done():
 			atomic.AddInt64(&ns.udpCancelHosts, 1)
-			udpScanCancelled = true
 			break udpPortLoop
 		default:
-		}
-		if udpScanCancelled {
-			break udpPortLoop
 		}
 
 		udpSem <- struct{}{}
@@ -1414,7 +1395,7 @@ func (ns *NetworkScanner) getMACViaARPRequest(ip net.IP) (string, error) {
 		}
 
 		// Пытаемся открыть интерфейс (может требовать root прав)
-		handle, err := pcap.OpenLive(iface.Name, pcapBufferSize, true, pcap.BlockForever)
+		handle, err := openLivePcap(iface.Name, pcapBufferSize, true)
 		if err != nil {
 			// Если не получилось (нет прав), пропускаем
 			continue

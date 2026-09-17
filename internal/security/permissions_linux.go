@@ -12,12 +12,12 @@ import (
 
 // PermissionCheckResult содержит результат проверки прав
 type PermissionCheckResult struct {
-	HasRoot          bool
-	HasNetRaw        bool
-	HasSysAdmin      bool
-	RecommendedMode  string // "root", "setcap", "user"
-	Suggestions      []string
-	Warnings         []string
+	HasRoot         bool
+	HasNetRaw       bool
+	HasSysAdmin     bool
+	RecommendedMode string // "root", "setcap", "user"
+	Suggestions     []string
+	Warnings        []string
 }
 
 // CheckPermissions проверяет права, необходимые для сетевого сканирования

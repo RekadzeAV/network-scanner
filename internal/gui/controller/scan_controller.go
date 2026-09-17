@@ -253,7 +253,6 @@ func (c *ScanController) StartScan(results []scanner.Result) {
 			c.ui.StatusLabel.SetText("Параметр threads скорректирован до 1")
 		}
 		if threads > maxScanThreadsGUI {
-			threads = maxScanThreadsGUI
 			c.ui.ThreadsEntry.SetText(strconv.Itoa(maxScanThreadsGUI))
 			c.ui.StatusLabel.SetText(fmt.Sprintf("Параметр threads скорректирован до %d", maxScanThreadsGUI))
 		}
@@ -381,7 +380,7 @@ func (c *ScanController) CopyScanDiagnostics(diagnosticsText string) {
 		dialog.ShowInformation("Информация", "Диагностика сканирования пока недоступна", c.ui.Window)
 		return
 	}
-	c.ui.Window.Clipboard().SetContent(diagnosticsText)
+	fyne.CurrentApp().Clipboard().SetContent(diagnosticsText)
 	dialog.ShowInformation("Готово", "Диагностика сканирования скопирована в буфер обмена", c.ui.Window)
 }
 

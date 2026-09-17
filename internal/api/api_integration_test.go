@@ -14,9 +14,6 @@ import (
 	"network-scanner/internal/scanner"
 )
 
-// apiMu защищает scanStoreInstance от параллельного доступа в тестах
-var apiMu sync.Mutex
-
 // testMu защищает тесты от параллельного доступа к scanStoreInstance
 var testMu sync.Mutex
 

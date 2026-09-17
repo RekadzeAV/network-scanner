@@ -213,7 +213,7 @@ func (a *App) buildResultsContainer() *fyne.Container {
 	a.showRawBanners = false
 	a.resultsState = resultsStateIdle
 	a.resultsRenderDebounce = resultsRenderDebounceDefault
-	a.resultsBody = container.NewMax(widget.NewLabel("Результаты сканирования появятся здесь после запуска."))
+	a.resultsBody = container.NewStack(widget.NewLabel("Результаты сканирования появятся здесь после запуска."))
 	a.resultsModeSel = widget.NewRadioGroup([]string{"Таблица", "Карточки"}, func(value string) {
 		if strings.TrimSpace(value) == "" {
 			return
@@ -310,9 +310,9 @@ func (a *App) buildResultsContainer() *fyne.Container {
 	})
 	a.resultsPortStateSel.SetSelected("Все")
 	a.filtersInfoLabel = widget.NewLabel("Активных фильтров: 0")
-	a.filtersInfoLabel.Wrapping = fyne.TextTruncate
+	a.filtersInfoLabel.Truncation = fyne.TextTruncateClip
 	a.resultsPerfLabel = widget.NewLabel("Рендер: n/a")
-	a.resultsPerfLabel.Wrapping = fyne.TextTruncate
+	a.resultsPerfLabel.Truncation = fyne.TextTruncateClip
 	a.filterPresetSel = widget.NewSelect([]string{"1", "2", "3"}, nil)
 	a.filterPresetSel.SetSelected("1")
 	a.saveFilterPresetBtn = widget.NewButton("Сохранить пресет", func() {

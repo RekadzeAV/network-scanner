@@ -50,10 +50,10 @@ type ProgressHandler func(stage string, current, total int, message string)
 
 // TopologyOptions опции построения топологии
 type TopologyOptions struct {
-	SNMPEnabled     bool
-	Community       string
-	Timeout         time.Duration
-	PartialSNMP     map[string]struct{}
+	SNMPEnabled bool
+	Community   string
+	Timeout     time.Duration
+	PartialSNMP map[string]struct{}
 }
 
 // TopologyService интерфейс для топологии
@@ -89,10 +89,10 @@ type Link struct {
 
 // SecurityReport отчёт безопасности
 type SecurityReport struct {
-	PortAudit   []Finding
-	RiskSig     []Finding
-	CVEs        []CVE
-	Score       int
+	PortAudit []Finding
+	RiskSig   []Finding
+	CVEs      []CVE
+	Score     int
 }
 
 // Finding finding безопасности
@@ -117,15 +117,15 @@ type SecurityService interface {
 
 // RemoteExecRequest запрос удалённого выполнения
 type RemoteExecRequest struct {
-	Transport     string
-	Target        string
-	User          string
-	Password      string
-	Command       string
-	Policy        PolicyConfig
-	Consent       string
-	DryRun        bool
-	Timeout       time.Duration
+	Transport string
+	Target    string
+	User      string
+	Password  string
+	Command   string
+	Policy    PolicyConfig
+	Consent   string
+	DryRun    bool
+	Timeout   time.Duration
 }
 
 // PolicyConfig конфигурация политики безопасности

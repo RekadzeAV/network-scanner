@@ -12,13 +12,13 @@ const (
 
 func main() {
 	// Инициализируем логирование (работает только в debug версии)
-	logger.Init(AppName, AppVersion)
+	_ = logger.Init(AppName, AppVersion)
 	defer logger.Close()
 
 	logger.Log("Запуск GUI приложения")
-	
+
 	app := gui.NewApp()
 	app.Run()
-	
+
 	logger.Log("GUI приложение завершено")
 }

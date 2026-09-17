@@ -10,9 +10,9 @@ import (
 
 func TestCurrentDisplayedResultsCombinedFilters(t *testing.T) {
 	a := &App{
-		resultsSort:         "IP",
-		resultsFilterQuery:  "router",
-		onlyWithOpenPorts:   true,
+		resultsSort:          "IP",
+		resultsFilterQuery:   "router",
+		onlyWithOpenPorts:    true,
 		resultsPortStateMode: "has_open",
 		resultsCidrFilterEnt: widget.NewEntry(),
 		quickTypeChecks: map[string]*widget.Check{

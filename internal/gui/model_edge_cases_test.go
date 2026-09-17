@@ -92,7 +92,7 @@ func TestAppModel_ResultsWithoutPorts(t *testing.T) {
 		t.Fatalf("Expected 1 result, got %d", len(results))
 	}
 
-	if results[0].Ports != nil && len(results[0].Ports) != 0 {
+	if len(results[0].Ports) != 0 {
 		t.Errorf("Expected 0 ports, got %d", len(results[0].Ports))
 	}
 }

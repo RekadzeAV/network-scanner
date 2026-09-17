@@ -52,4 +52,3 @@ func TestPartialSNMPKeysFromReport_EmptyResult(t *testing.T) {
 		t.Fatalf("expected nil keys when no valid identifiers")
 	}
 }
-

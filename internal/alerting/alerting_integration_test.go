@@ -278,15 +278,7 @@ func TestIntegrationGetAlertsBySeverity_High(t *testing.T) {
 	mediumAlerts := engine.GetAlertsBySeverity(SeverityMedium)
 	lowAlerts := engine.GetAlertsBySeverity(SeverityLow)
 
-	if len(highAlerts) < 0 {
-		t.Error("expected non-negative HIGH alerts count")
-	}
-	if len(mediumAlerts) < 0 {
-		t.Error("expected non-negative MEDIUM alerts count")
-	}
-	if len(lowAlerts) < 0 {
-		t.Error("expected non-negative LOW alerts count")
-	}
+	t.Logf("alerts: HIGH=%d MEDIUM=%d LOW=%d", len(highAlerts), len(mediumAlerts), len(lowAlerts))
 }
 
 // === Integration: ClearAlerts ===
@@ -365,9 +357,8 @@ func TestIntegrationFileHandler_InvalidPath(t *testing.T) {
 	}
 
 	err := handler.OnAlert(alert)
-	if err == nil {
-		// On some systems, this might succeed or fail differently
-		// Just verify the alert structure is valid
+	if err != nil {
+		t.Logf("OnAlert may depend on environment: %v", err)
 	}
 }
 
@@ -448,9 +439,7 @@ func TestIntegrationFullAlertingPipeline(t *testing.T) {
 
 	// Step 5: Фильтрация по severity
 	highAlerts := engine.GetAlertsBySeverity(SeverityHigh)
-	if len(highAlerts) < 0 {
-		t.Error("expected non-negative HIGH alerts")
-	}
+	t.Logf("HIGH alerts count: %d", len(highAlerts))
 
 	// Step 6: Проверка сохранения в файл
 	data, err := os.ReadFile(logPath)

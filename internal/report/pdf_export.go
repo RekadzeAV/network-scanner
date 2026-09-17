@@ -3,8 +3,8 @@ package report
 import (
 	"fmt"
 
-	"network-scanner/internal/contracts"
 	"github.com/jung-kurt/gofpdf/v2"
+	"network-scanner/internal/contracts"
 )
 
 // PDFReport генерирует PDF отчёт со сканированием
@@ -140,5 +140,3 @@ func DefaultHTMLReportOptions() HTMLReportOptions {
 		RedactSensitive:    false,
 	}
 }
-
-

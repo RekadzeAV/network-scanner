@@ -294,8 +294,6 @@ CREATE TABLE IF NOT EXISTS snapshots (
 	return nil
 }
 
-
-
 // GetScanHistory возвращает историю сканирований с metadata
 func (s *Store) GetScanHistory(limit int) ([]comparator.ScanHistoryEntry, []scanner.Result, error) {
 	if s == nil || s.db == nil {

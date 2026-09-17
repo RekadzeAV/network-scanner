@@ -211,8 +211,8 @@ func TestIntegrationScanResult_Collection(t *testing.T) {
 
 func TestIntegrationError_NilScanner(t *testing.T) {
 	var ns *NetworkScanner
-	if ns == nil {
-		// Expected - nil scanner
+	if ns != nil {
+		t.Fatal("expected nil scanner")
 	}
 
 	// Stop on nil should not panic

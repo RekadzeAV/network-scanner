@@ -2,7 +2,6 @@ package gui
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"image"
 	"image/color"
@@ -15,7 +14,6 @@ import (
 	"network-scanner/internal/logger"
 	"network-scanner/internal/network"
 	"network-scanner/internal/scanner"
-	scand "network-scanner/internal/scanner/daemon"
 	"network-scanner/internal/snmpcollector"
 	"network-scanner/internal/topology"
 	"os"
@@ -29,21 +27,6 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// scanUpdate содержит результаты сканирования для обновления UI
-type scanUpdate struct {
-	results     []scanner.Result
-	diagnostics string
-}
-
-// progressUpdate содержит информацию о прогрессе сканирования
-type progressUpdate struct {
-	stage   string
-	current int
-	total   int
-	message string
-	percent float64
-}
-
 type topologyBuildMetrics struct {
 	snmpDuration  time.Duration
 	buildDuration time.Duration
@@ -55,7 +38,6 @@ type App struct {
 	myApp                       fyne.App
 	myWindow                    fyne.Window
 	scanResults                 []scanner.Result
-	scanRunner                  *scand.Runner
 	networkEntry                *widget.Entry
 	portRangeEntry              *widget.Entry
 	timeoutEntry                *widget.Entry
@@ -169,7 +151,6 @@ type App struct {
 	refreshPreviewBtn           *widget.Button
 	zoomSelect                  *widget.Select
 	openPreviewBtn              *widget.Button
-	topologyCancel              context.CancelFunc
 	toolsHostEntry              *widget.Entry
 	toolsPingCountEnt           *widget.Entry
 	toolsTimeoutEnt             *widget.Entry
@@ -248,11 +229,6 @@ type App struct {
 	topoCtrl    *controller.TopologyController
 	toolsCtrl   *controller.ToolsController
 	settingsMgr *controller.SettingsManager
-
-	// Mobile Support (L3)
-	mobileLayout   *MobileLayout
-	touchGestures  *TouchGestures
-	isMobileDevice bool
 }
 
 const (
@@ -323,10 +299,9 @@ const (
 )
 
 var (
-	chipBgColor        = color.RGBA{R: 222, G: 234, B: 255, A: 255}
-	tableRowBgColor    = color.RGBA{R: 250, G: 251, B: 253, A: 255}
-	tableHeaderBgColor = color.RGBA{R: 229, G: 236, B: 247, A: 255}
-	piePalette         = []color.RGBA{
+	chipBgColor     = color.RGBA{R: 222, G: 234, B: 255, A: 255}
+	tableRowBgColor = color.RGBA{R: 250, G: 251, B: 253, A: 255}
+	piePalette      = []color.RGBA{
 		{R: 37, G: 99, B: 235, A: 255},
 		{R: 59, G: 130, B: 246, A: 255},
 		{R: 14, G: 165, B: 233, A: 255},

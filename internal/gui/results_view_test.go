@@ -137,7 +137,7 @@ func TestSelectedTypeFilters_Empty(t *testing.T) {
 	os.Setenv("FYNE_SCALE", "1")
 	app := NewApp()
 	filters := app.selectedTypeFilters()
-	if filters != nil && len(filters) != 0 {
+	if len(filters) != 0 {
 		t.Fatalf("expected empty filters, got %v", filters)
 	}
 }

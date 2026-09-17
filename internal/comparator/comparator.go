@@ -11,34 +11,34 @@ import (
 
 // ScanHistoryEntry запись в истории сканирований
 type ScanHistoryEntry struct {
-	ID        string            `json:"id"`
-	Network   string            `json:"network"`
-	HostCount int               `json:"host_count"`
-	StartedAt time.Time         `json:"started_at"`
-	Completed time.Time         `json:"completed"`
-	Ports     map[string]int    `json:"ports"`
-	OSMap     map[string]int    `json:"os_map"`
-	VendorMap map[string]int    `json:"vendor_map"`
+	ID        string         `json:"id"`
+	Network   string         `json:"network"`
+	HostCount int            `json:"host_count"`
+	StartedAt time.Time      `json:"started_at"`
+	Completed time.Time      `json:"completed"`
+	Ports     map[string]int `json:"ports"`
+	OSMap     map[string]int `json:"os_map"`
+	VendorMap map[string]int `json:"vendor_map"`
 }
 
 // ComparisonResult результат сравнения двух сканирований
 type ComparisonResult struct {
-	ScanIDA      string             `json:"scan_id_a"`
-	ScanIDB      string             `json:"scan_id_b"`
-	NewHosts     []scanner.Result   `json:"new_hosts"`
-	RemovedHosts []scanner.Result   `json:"removed_hosts"`
-	ChangedHosts []ChangedHost      `json:"changed_hosts"`
-	PortChanges  []PortChange       `json:"port_changes"`
-	TotalDiff    int                `json:"total_diff"`
+	ScanIDA      string           `json:"scan_id_a"`
+	ScanIDB      string           `json:"scan_id_b"`
+	NewHosts     []scanner.Result `json:"new_hosts"`
+	RemovedHosts []scanner.Result `json:"removed_hosts"`
+	ChangedHosts []ChangedHost    `json:"changed_hosts"`
+	PortChanges  []PortChange     `json:"port_changes"`
+	TotalDiff    int              `json:"total_diff"`
 }
 
 // ChangedHost изменённый хост
 type ChangedHost struct {
-	IP        string           `json:"ip"`
-	Hostname  string           `json:"hostname"`
-	Before    scanner.Result   `json:"before"`
-	After     scanner.Result   `json:"after"`
-	ChangedIn []string         `json:"changed_in"`
+	IP        string         `json:"ip"`
+	Hostname  string         `json:"hostname"`
+	Before    scanner.Result `json:"before"`
+	After     scanner.Result `json:"after"`
+	ChangedIn []string       `json:"changed_in"`
 }
 
 // PortChange изменение портов

@@ -98,4 +98,3 @@ func TestResolveBroadcastAddrHostWithoutPort(t *testing.T) {
 		t.Fatalf("unexpected target: got %q, want %q", got, "not-an-ip:9")
 	}
 }
-

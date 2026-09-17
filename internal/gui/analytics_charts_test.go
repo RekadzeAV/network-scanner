@@ -120,7 +120,7 @@ func TestAngleInSector_AfterEnd(t *testing.T) {
 func TestAngleInSector_WideRange(t *testing.T) {
 	// 360° mod 2π = 0, так что 180 в [0, 0] — false
 	if angleInSector(180, 0, 360) {
-		// 180 в [0, 0] после mod — false
+		t.Error("expected angleInSector(180,0,360) == false")
 	}
 	// Но 0 в [0, 360] (после mod 360→0) — true
 	if !angleInSector(0, 0, 360) {

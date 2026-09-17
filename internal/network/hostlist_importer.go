@@ -27,11 +27,11 @@ const (
 
 // HostEntry представляет одну запись в списке хостов
 type HostEntry struct {
-	IP        string `json:"ip"`
-	Hostname  string `json:"hostname,omitempty"`
-	Comment   string `json:"comment,omitempty"`
-	IsCIDR    bool   `json:"is_cidr,omitempty"`
-	IsIPv6    bool   `json:"is_ipv6,omitempty"`
+	IP       string `json:"ip"`
+	Hostname string `json:"hostname,omitempty"`
+	Comment  string `json:"comment,omitempty"`
+	IsCIDR   bool   `json:"is_cidr,omitempty"`
+	IsIPv6   bool   `json:"is_ipv6,omitempty"`
 }
 
 // HostListImporter импортирует списки хостов из файлов
@@ -419,11 +419,11 @@ func expandCIDR(entry HostEntry) ([]HostEntry, error) {
 
 		ip = ipCopy
 		entries = append(entries, HostEntry{
-			IP:        ipCopy.String(),
-			Hostname:  entry.Hostname,
-			Comment:   fmt.Sprintf("%s (из %s)", entry.Comment, entry.IP),
-			IsCIDR:    false,
-			IsIPv6:    ipCopy.To4() == nil,
+			IP:       ipCopy.String(),
+			Hostname: entry.Hostname,
+			Comment:  fmt.Sprintf("%s (из %s)", entry.Comment, entry.IP),
+			IsCIDR:   false,
+			IsIPv6:   ipCopy.To4() == nil,
 		})
 	}
 

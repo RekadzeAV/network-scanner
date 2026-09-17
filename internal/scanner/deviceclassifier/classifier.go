@@ -3,16 +3,16 @@ package deviceclassifier
 import "strings"
 
 const (
-	CategoryUnknown        = "Unknown"
-	CategoryRouterSwitch   = "Router/Switch"
-	CategoryAccessPoint    = "Access Point"
-	CategoryPrinter        = "Printer"
-	CategoryCamera         = "Camera"
-	CategoryNAS            = "NAS"
-	CategoryIoT            = "IoT"
-	CategoryDesktopLaptop  = "Desktop/Laptop"
-	CategoryServer         = "Server"
-	CategoryPhoneTablet    = "Phone/Tablet"
+	CategoryUnknown       = "Unknown"
+	CategoryRouterSwitch  = "Router/Switch"
+	CategoryAccessPoint   = "Access Point"
+	CategoryPrinter       = "Printer"
+	CategoryCamera        = "Camera"
+	CategoryNAS           = "NAS"
+	CategoryIoT           = "IoT"
+	CategoryDesktopLaptop = "Desktop/Laptop"
+	CategoryServer        = "Server"
+	CategoryPhoneTablet   = "Phone/Tablet"
 )
 
 type Port struct {

@@ -272,10 +272,10 @@ func TestGetErrorRateEmpty(t *testing.T) {
 func TestAdaptNoAdaptTooFewProbes(t *testing.T) {
 	ns := NewNetworkScanner("127.0.0.1/32", 200*time.Millisecond, "1-5", 5, false)
 	config := AdaptiveConfig{
-		MinBudget:      64,
-		MaxBudget:      1024,
-		InitialBudget:  512,
-		AdaptInterval:  0, // Отключаем интервал для теста
+		MinBudget:     64,
+		MaxBudget:     1024,
+		InitialBudget: 512,
+		AdaptInterval: 0, // Отключаем интервал для теста
 	}
 
 	scanner := NewAdaptiveScanner(ns, config)
@@ -322,10 +322,10 @@ func TestAdaptHighErrorRate(t *testing.T) {
 func TestAdaptLowOpenRate(t *testing.T) {
 	ns := NewNetworkScanner("127.0.0.1/32", 200*time.Millisecond, "1-5", 5, false)
 	config := AdaptiveConfig{
-		MinBudget:      64,
-		MaxBudget:      1024,
-		InitialBudget:  512,
-		AdaptInterval:  0,
+		MinBudget:     64,
+		MaxBudget:     1024,
+		InitialBudget: 512,
+		AdaptInterval: 0,
 	}
 
 	scanner := NewAdaptiveScanner(ns, config)

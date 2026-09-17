@@ -196,9 +196,9 @@ func RenderSecurityHTMLWithRiskOptions(results []scanner.Result, findings []cve.
 			PolicyVersion:  strings.TrimSpace(opts.PolicyVersion),
 			UnsafeConsent:  "no",
 		},
-		Results:     results,
-		Findings:    findings,
-		Risks:       risks,
+		Results:  results,
+		Findings: findings,
+		Risks:    risks,
 	}
 	if data.Metadata.GenerationMode == "" {
 		data.Metadata.GenerationMode = "manual"

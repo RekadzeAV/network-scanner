@@ -40,7 +40,7 @@ func (t *Topology) ValidateJSONSchema() *SchemaCheck {
 		return check
 	}
 
-	if t.Devices == nil || len(t.Devices) == 0 {
+	if len(t.Devices) == 0 {
 		check.Valid = false
 		check.Errors = append(check.Errors, "devices map is empty or nil")
 	}
@@ -200,9 +200,7 @@ func (t *Topology) GraphMLEquivalence() *EquivalenceCheck {
 	gmlDevices, gmlLinks, gmlErrors := parseGraphMLOrder(gmlData)
 	if len(gmlErrors) > 0 {
 		check.Match = false
-		for _, e := range gmlErrors {
-			check.Errors = append(check.Errors, e)
-		}
+		check.Errors = append(check.Errors, gmlErrors...)
 		return check
 	}
 

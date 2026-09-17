@@ -174,6 +174,7 @@ func TestThemeSwitcherUI_New(t *testing.T) {
 // TestThemeSwitcherUI_Toggle — ветка: переключение через UI
 func TestThemeSwitcherUI_Toggle(t *testing.T) {
 	tm := NewThemeManager(nil)
+	before := tm.GetThemeMode()
 
 	toggleCalled := false
 	ui := NewThemeSwitcherUI(tm, func(mode ThemeMode) {
@@ -185,14 +186,9 @@ func TestThemeSwitcherUI_Toggle(t *testing.T) {
 		t.Error("expected toggle callback to be called")
 	}
 
-	// Проверяем что тема изменилась
 	// Тема должна переключиться с текущей на противоположную
-	_ = ThemeModeDark
-	if tm.GetThemeMode() == ThemeModeLight {
-		_ = ThemeModeLight
-	}
-	if tm.GetThemeMode() == tm.GetThemeMode() {
-		// Тема переключилась
+	if tm.GetThemeMode() == before {
+		t.Errorf("expected theme mode to change from %v", before)
 	}
 }
 

@@ -101,7 +101,7 @@ func TestNetworkScanner_Stop(t *testing.T) {
 func TestNetworkScanner_GetResults_Empty(t *testing.T) {
 	ns := NewNetworkScanner("192.168.1.0/24", 3*time.Second, "1-1000", 100, false)
 	results := ns.GetResults()
-	if results != nil && len(results) != 0 {
+	if len(results) != 0 {
 		t.Errorf("GetResults() = %d results, want 0", len(results))
 	}
 }

@@ -7,15 +7,15 @@ import (
 
 // Flag представляет один feature-flag с именем, описанием и состоянием.
 type Flag struct {
-	name        string
-	description string
-	enabled     atomic.Bool
+	name           string
+	description    string
+	enabled        atomic.Bool
 	defaultEnabled bool
 }
 
 // Manager управляет набором feature-flags.
 type Manager struct {
-	mu   sync.RWMutex
+	mu    sync.RWMutex
 	flags map[string]*Flag
 }
 

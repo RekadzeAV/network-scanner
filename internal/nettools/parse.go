@@ -8,15 +8,15 @@ import (
 )
 
 var (
-	reWindowsLoss = regexp.MustCompile(`Lost\s*=\s*(\d+)\s*\((\d+)%\s*loss\)`)
-	reWindowsRTT  = regexp.MustCompile(`Minimum\s*=\s*(\d+)ms,\s*Maximum\s*=\s*(\d+)ms,\s*Average\s*=\s*(\d+)ms`)
+	reWindowsLoss   = regexp.MustCompile(`Lost\s*=\s*(\d+)\s*\((\d+)%\s*loss\)`)
+	reWindowsRTT    = regexp.MustCompile(`Minimum\s*=\s*(\d+)ms,\s*Maximum\s*=\s*(\d+)ms,\s*Average\s*=\s*(\d+)ms`)
 	reWindowsLossRU = regexp.MustCompile(`(?i)потеряно\s*=\s*(\d+)\s*\((\d+)%\s*потерь\)`)
 	reWindowsRTTRU  = regexp.MustCompile(`Минимальное\s*=\s*(\d+)мсек,\s*Максимальное\s*=\s*(\d+)мсек,\s*Среднее\s*=\s*(\d+)мсек`)
-	reUnixLoss    = regexp.MustCompile(`(\d+)\s+packets transmitted,\s+(\d+)\s+(?:packets )?received,\s+([0-9.]+)%\s+packet loss`)
-	reUnixRTT     = regexp.MustCompile(`(?:round-trip|rtt)\s+min/avg/max(?:/[a-z]+)?\s*=\s*([0-9.]+)/([0-9.]+)/([0-9.]+)`)
-	reHopPrefix   = regexp.MustCompile(`^\s*(\d+)\s+`)
-	reIPv4        = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
-	reMSFloat     = regexp.MustCompile(`([0-9]+(?:\.[0-9]+)?)\s*ms`)
+	reUnixLoss      = regexp.MustCompile(`(\d+)\s+packets transmitted,\s+(\d+)\s+(?:packets )?received,\s+([0-9.]+)%\s+packet loss`)
+	reUnixRTT       = regexp.MustCompile(`(?:round-trip|rtt)\s+min/avg/max(?:/[a-z]+)?\s*=\s*([0-9.]+)/([0-9.]+)/([0-9.]+)`)
+	reHopPrefix     = regexp.MustCompile(`^\s*(\d+)\s+`)
+	reIPv4          = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b`)
+	reMSFloat       = regexp.MustCompile(`([0-9]+(?:\.[0-9]+)?)\s*ms`)
 )
 
 // PingStats содержит нормализованные метрики ping.
@@ -37,13 +37,13 @@ type PingResult struct {
 
 // TracerouteHop содержит данные одного hop.
 type TracerouteHop struct {
-	Index       int
-	Address     string
-	RTTMin      time.Duration
-	RTTAvg      time.Duration
-	RTTMax      time.Duration
-	IsTimeout   bool
-	RawLine     string
+	Index        int
+	Address      string
+	RTTMin       time.Duration
+	RTTAvg       time.Duration
+	RTTMax       time.Duration
+	IsTimeout    bool
+	RawLine      string
 	Measurements int
 }
 

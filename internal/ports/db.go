@@ -214,7 +214,7 @@ func formatIANAServiceName(raw string) string {
 	// Несколько слов без дефиса в реестре — защищённый вызов
 	if !strings.Contains(raw, "-") && len(raw) > 3 {
 		result := func() string {
-			defer func() { recover() }()
+			defer func() { _ = recover() }()
 			return titleEn.String(strings.ToLower(raw))
 		}()
 		if result != "" {

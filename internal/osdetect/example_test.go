@@ -41,7 +41,7 @@ func Example_guessFromHostAndPorts_activeMode() {
 	fmt.Printf("%s (%s): %s\n", osName, conf, reason)
 
 	// Non-detectable
-	osName, conf, reason = osdetect.GuessFromHostAndPorts("unknown-device", []int{8080}, true)
+	osName, _, _ = osdetect.GuessFromHostAndPorts("unknown-device", []int{8080}, true)
 	fmt.Printf("'%s' (нет данных)\n", osName)
 
 	// Output:

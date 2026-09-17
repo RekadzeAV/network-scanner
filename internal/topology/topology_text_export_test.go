@@ -10,10 +10,10 @@ func TestWriteTextBasic(t *testing.T) {
 	topo := &Topology{
 		Devices: map[string]*Device{
 			"dev1": {
-				IP:       "192.168.1.1",
-				MAC:      "aa:bb:cc:dd:ee:01",
-				Hostname: "switch1",
-				Type:     DeviceTypeSwitch,
+				IP:          "192.168.1.1",
+				MAC:         "aa:bb:cc:dd:ee:01",
+				Hostname:    "switch1",
+				Type:        DeviceTypeSwitch,
 				SNMPEnabled: true,
 			},
 			"dev2": {

@@ -10,79 +10,9 @@ import (
 
 	"fyne.io/fyne/v2/dialog"
 
-	"network-scanner/internal/audit"
 	"network-scanner/internal/devicecontrol"
 	"network-scanner/internal/nettools"
-	"network-scanner/internal/risksignature"
-	"network-scanner/internal/wol"
 )
-
-// --- Инструменты: Audit & Risk ---
-
-// runPortAuditTool запускает аудит открытых портов.
-func (a *App) runPortAuditTool() {
-	a.runToolOperation("Port Audit", "Выполняется аудит портов...", func(ctx context.Context) (string, error) {
-		findings := audit.EvaluateOpenPorts(a.scanResults)
-		minSeverity := "all"
-		if a.toolsAuditMinSeveritySel != nil {
-			if norm, ok := audit.NormalizeSeverity(strings.TrimSpace(a.toolsAuditMinSeveritySel.Selected)); ok {
-				minSeverity = norm
-			}
-		}
-		findings = audit.FilterByMinSeverity(findings, minSeverity)
-		var sb strings.Builder
-		sb.WriteString("### Аудит открытых портов\n\n")
-		sb.WriteString(fmt.Sprintf("- Min severity: `%s`\n\n", minSeverity))
-		if len(findings) == 0 {
-			sb.WriteString("- Рисков по базовым правилам не найдено.")
-			return sb.String(), nil
-		}
-		sb.WriteString("```text\n")
-		sb.WriteString(audit.FormatFindings(findings))
-		sb.WriteString("\n```")
-		return sb.String(), nil
-	})
-}
-
-// runRiskSignaturesTool запускает проверку по сигнатурам рисков.
-func (a *App) runRiskSignaturesTool() {
-	a.runToolOperation("Risk Signatures", "Запуск Risk Signatures...", func(ctx context.Context) (string, error) {
-		var sb strings.Builder
-		sb.WriteString("### Risk Signatures\n\n")
-		if len(a.scanResults) == 0 {
-			sb.WriteString("- Сначала выполните сканирование сети.")
-			return sb.String(), nil
-		}
-		db, err := risksignature.LoadDefault()
-		if err != nil {
-			return fmt.Sprintf("### Risk Signatures\n\nОшибка загрузки сигнатур: `%v`", err), err
-		}
-		findings := risksignature.Evaluate(a.scanResults, db)
-		sb.WriteString(fmt.Sprintf("- DB version: `%s`\n", strings.TrimSpace(db.Version)))
-		if len(findings) == 0 {
-			sb.WriteString("- Findings: нет\n")
-			return sb.String(), nil
-		}
-		sb.WriteString(fmt.Sprintf("- Findings: `%d`\n\n", len(findings)))
-		for _, f := range findings {
-			sb.WriteString(fmt.Sprintf("- [%s] `%s` `%s` host `%s`\n",
-				strings.ToUpper(strings.TrimSpace(f.Severity)),
-				strings.TrimSpace(f.Title),
-				strings.TrimSpace(f.SignatureID),
-				strings.TrimSpace(f.HostIP)))
-			if strings.TrimSpace(f.Reason) != "" {
-				sb.WriteString(fmt.Sprintf("  - reason: %s\n", strings.TrimSpace(f.Reason)))
-			}
-			if strings.TrimSpace(f.Recommendation) != "" {
-				sb.WriteString(fmt.Sprintf("  - recommendation: %s\n", strings.TrimSpace(f.Recommendation)))
-			}
-			if strings.TrimSpace(f.ReferenceURL) != "" {
-				sb.WriteString(fmt.Sprintf("  - reference: %s\n", strings.TrimSpace(f.ReferenceURL)))
-			}
-		}
-		return sb.String(), nil
-	})
-}
 
 // runDeviceControlTool запускает управление устройством.
 func (a *App) runDeviceControlTool(action string) {
@@ -307,44 +237,6 @@ func (a *App) runDNSTool() {
 		if len(res.ForwardIPs) == 0 && len(res.ReverseNames) == 0 {
 			sb.WriteString("- Ответ пустой.\n")
 		}
-		return sb.String(), nil
-	})
-}
-
-// --- Инструменты: WOL ---
-
-// runWOLTool запускает Wake-on-LAN.
-func (a *App) runWOLTool() {
-	if a == nil || a.toolsWOLMacEntry == nil {
-		return
-	}
-	mac := strings.TrimSpace(a.toolsWOLMacEntry.Text)
-	if mac == "" {
-		dialog.ShowInformation("Wake-on-LAN", "Введите MAC адрес", a.myWindow)
-		return
-	}
-	broadcast := ""
-	if a.toolsWOLBcastEntry != nil {
-		broadcast = strings.TrimSpace(a.toolsWOLBcastEntry.Text)
-	}
-	iface := ""
-	if a.toolsWOLIfaceEntry != nil {
-		iface = strings.TrimSpace(a.toolsWOLIfaceEntry.Text)
-	}
-
-	a.runToolOperation("Wake-on-LAN", "Отправка Wake-on-LAN magic packet...", func(ctx context.Context) (string, error) {
-		target, err := wol.SendMagicPacketWithInterface(mac, broadcast, iface)
-		if err != nil {
-			return fmt.Sprintf("### Wake-on-LAN\n\nОшибка: `%v`", err), err
-		}
-		var sb strings.Builder
-		sb.WriteString("### Wake-on-LAN\n\n")
-		sb.WriteString(fmt.Sprintf("- MAC: `%s`\n", mac))
-		sb.WriteString(fmt.Sprintf("- Broadcast: `%s`\n", target))
-		if strings.TrimSpace(iface) != "" {
-			sb.WriteString(fmt.Sprintf("- Interface: `%s`\n", iface))
-		}
-		sb.WriteString("- Статус: magic packet отправлен")
 		return sb.String(), nil
 	})
 }

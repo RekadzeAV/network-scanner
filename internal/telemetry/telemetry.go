@@ -233,9 +233,6 @@ func (t *Telemetry) send(metrics []Metric) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		// Успешно отправлено
-	}
 }
 
 // generateID генерирует уникальный ID для метрики

@@ -24,23 +24,23 @@ const (
 
 // Rule тип правила алертинга
 type Rule struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Type        RuleType  `json:"type"`
-	Severity    Severity  `json:"severity"`
-	Enabled     bool      `json:"enabled"`
-	Description string    `json:"description"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Type        RuleType `json:"type"`
+	Severity    Severity `json:"severity"`
+	Enabled     bool     `json:"enabled"`
+	Description string   `json:"description"`
 }
 
 // RuleType тип правила
 type RuleType string
 
 const (
-	RuleTypeNewHost       RuleType = "new_host"
-	RuleTypeNewPort       RuleType = "new_port"
-	RuleTypePortClosed    RuleType = "port_closed"
-	RuleTypeDeviceRemoved RuleType = "device_removed"
-	RuleTypeOSChanged     RuleType = "os_changed"
+	RuleTypeNewHost         RuleType = "new_host"
+	RuleTypeNewPort         RuleType = "new_port"
+	RuleTypePortClosed      RuleType = "port_closed"
+	RuleTypeDeviceRemoved   RuleType = "device_removed"
+	RuleTypeOSChanged       RuleType = "os_changed"
 	RuleTypeHostnameChanged RuleType = "hostname_changed"
 )
 
@@ -83,9 +83,9 @@ type ConsoleHandler struct{}
 // NewEngine создаёт новый движок алертинга
 func NewEngine(logFile string) *Engine {
 	return &Engine{
-		rules:    defaultRules(),
-		alerts:   make([]Alert, 0),
-		logFile:  logFile,
+		rules:   defaultRules(),
+		alerts:  make([]Alert, 0),
+		logFile: logFile,
 		handlers: []AlertHandler{
 			&FileHandler{Path: logFile},
 			&ConsoleHandler{},

@@ -69,10 +69,10 @@ type CollectReport struct {
 
 // DeviceQuerySummary помогает понять, почему топология пустая: FDB/LLDP и текст ошибок.
 type DeviceQuerySummary struct {
-	IP              string
-	MACEntries      int
-	LLDPNeighbors   int
-	QueryErrors     string
+	IP            string
+	MACEntries    int
+	LLDPNeighbors int
+	QueryErrors   string
 }
 
 type ProgressCallback func(current int, total int, ip string, message string)

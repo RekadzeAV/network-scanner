@@ -33,12 +33,12 @@ func main() {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.SetAutoPageBreak(true, 15)
 	pdf.AddPage()
-	
+
 	// В gofpdf v2 стандартные шрифты (helvetica, arial) не поддерживают кириллицу
 	// Для правильной работы с кириллицей нужно использовать шрифт с поддержкой Unicode
 	// Пока используем helvetica, но текст будет правильно обработан как UTF-8
 	pdf.SetFont("helvetica", "", 12)
-	
+
 	// Парсим и добавляем содержимое
 	parseMarkdown(pdf, lines)
 
@@ -87,7 +87,7 @@ func parseMarkdown(pdf *gofpdf.Fpdf, lines []string) {
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		if line == "" {
 			y += lineHeight * 0.5
 			continue
@@ -158,7 +158,7 @@ func cleanMarkdown(text string) string {
 	text = strings.ReplaceAll(text, "**", "")
 	text = strings.ReplaceAll(text, "`", "")
 	text = strings.ReplaceAll(text, "*", "")
-	
+
 	// Обрабатываем ссылки [текст](url) - оставляем только текст
 	for strings.Contains(text, "[") && strings.Contains(text, "](") {
 		start := strings.Index(text, "[")
@@ -175,7 +175,7 @@ func cleanMarkdown(text string) string {
 			break
 		}
 	}
-	
+
 	return text
 }
 
@@ -188,23 +188,8 @@ func convertUTF8ForPDF(text string) string {
 	// Для правильной работы с кириллицей нужно добавить шрифт с поддержкой кириллицы
 	// Пока возвращаем текст как есть (UTF-8) - это позволит правильно обработать UTF-8
 	// когда будет добавлен шрифт с поддержкой кириллицы
-	
+
 	// Важно: текст должен быть в UTF-8, не конвертируем его в другие кодировки
 	// Это позволит правильно обработать кириллицу при использовании правильного шрифта
 	return text
-}
-
-// replaceUnsupportedChars заменяет специальные символы на ASCII эквиваленты
-func replaceUnsupportedChars(text string) string {
-	// Заменяем специальные символы на ASCII эквиваленты для лучшей совместимости
-	replacer := strings.NewReplacer(
-		"€", "EUR",
-		"•", "*",
-		"—", "-",
-		"–", "-",
-		"«", "\"",
-		"»", "\"",
-		"…", "...",
-	)
-	return replacer.Replace(text)
 }

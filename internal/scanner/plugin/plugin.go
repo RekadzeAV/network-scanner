@@ -103,15 +103,15 @@ type ProbeHandler func(probeName string, result *ProbeResult, host string, port 
 
 // Registry управляет реестром probe плагинов
 type Registry struct {
-	mu      sync.RWMutex
-	probes  []Probe
+	mu       sync.RWMutex
+	probes   []Probe
 	handlers []ProbeHandler
 }
 
 // NewRegistry создает новый реестр probe
 func NewRegistry() *Registry {
 	return &Registry{
-		probes:  make([]Probe, 0),
+		probes:   make([]Probe, 0),
 		handlers: make([]ProbeHandler, 0),
 	}
 }

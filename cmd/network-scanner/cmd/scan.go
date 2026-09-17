@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -51,12 +52,12 @@ func RunScan(cfg builder.Config, args ...string) error {
 			}
 		case "--timeout", "-t":
 			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &timeout)
+				_, _ = fmt.Sscanf(args[i+1], "%d", &timeout)
 				i++
 			}
 		case "--threads":
 			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &threads)
+				_, _ = fmt.Sscanf(args[i+1], "%d", &threads)
 				i++
 			}
 		case "--show-closed":
@@ -89,7 +90,7 @@ func RunScan(cfg builder.Config, args ...string) error {
 			}
 		case "--snmp-timeout":
 			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &snmptTimeout)
+				_, _ = fmt.Sscanf(args[i+1], "%d", &snmptTimeout)
 				i++
 			}
 		case "--hosts-file":
@@ -139,7 +140,7 @@ func RunScan(cfg builder.Config, args ...string) error {
 	// Запуск сканирования
 	fmt.Printf("Сканирование сети: %s\n", networkCIDR)
 
-	results, err := scannerService.Scan(nil, contracts.ScanConfig{
+	results, err := scannerService.Scan(context.TODO(), contracts.ScanConfig{
 		NetworkCIDR: networkCIDR,
 		PortRange:   portRange,
 		Timeout:     time.Duration(timeout) * time.Second,

@@ -500,8 +500,6 @@ func TestClearAlertsHandler_Success(t *testing.T) {
 func TestTriggerAlertHandler_EmptyIDs(t *testing.T) {
 	_ = httptest.NewRecorder()
 	// Симулируем пустые ID — код проходит
-	if "" == "" {
-	}
 }
 
 // ============================================================================

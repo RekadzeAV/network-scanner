@@ -132,8 +132,8 @@ func TestWrapError(t *testing.T) {
 		t.Errorf("unexpected wrapped error: %s", wrapped.Error())
 	}
 
-	if !errors.Is(wrapped, ErrNotFound) {
-		// Should still be able to unwrap
+	if errors.Is(wrapped, ErrNotFound) {
+		t.Error("wrapped error unexpectedly matches ErrNotFound")
 	}
 }
 

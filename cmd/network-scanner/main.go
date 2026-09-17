@@ -1,4 +1,4 @@
-﻿//go:build !gui_only
+//go:build !gui_only && !unix
 
 package main
 

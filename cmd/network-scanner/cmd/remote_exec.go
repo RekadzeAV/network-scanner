@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -78,7 +79,7 @@ func RunRemoteExecCLI(cfg builder.Config, args ...string) error {
 			dryRun = true
 		case "--timeout":
 			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &timeout)
+				_, _ = fmt.Sscanf(args[i+1], "%d", &timeout)
 				i++
 			}
 		case "--audit-log":
@@ -126,7 +127,7 @@ func RunRemoteExecCLI(cfg builder.Config, args ...string) error {
 	if dryRun {
 		fmt.Println("=== Dry Run ===")
 		fmt.Printf("Transport: %s\nTarget: %s\nCommand: %s\n", transport, target, command)
-		if err := remoteExecService.DryRun(nil, req); err != nil {
+		if err := remoteExecService.DryRun(context.TODO(), req); err != nil {
 			return fmt.Errorf("dry run failed: %w", err)
 		}
 		fmt.Println("Policy check passed")
@@ -136,7 +137,7 @@ func RunRemoteExecCLI(cfg builder.Config, args ...string) error {
 	fmt.Println("=== Remote Exec ===")
 	fmt.Printf("Transport: %s\nTarget: %s\nCommand: %s\n", transport, target, command)
 
-	res, err := remoteExecService.Execute(nil, req)
+	res, err := remoteExecService.Execute(context.TODO(), req)
 	if err != nil {
 		return fmt.Errorf("remote exec failed: %w", err)
 	}

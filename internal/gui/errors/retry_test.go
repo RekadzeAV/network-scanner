@@ -67,11 +67,11 @@ func TestExecuteWithRetry_AllFail(t *testing.T) {
 		attempts++
 		return errors.New("permanent error")
 	}, RetryConfig{
-		MaxAttempts:  3,
-		BaseDelay:    1 * time.Millisecond,
-		MaxDelay:     10 * time.Millisecond,
+		MaxAttempts:   3,
+		BaseDelay:     1 * time.Millisecond,
+		MaxDelay:      10 * time.Millisecond,
 		BackoffFactor: 1.0,
-		Jitter:       false,
+		Jitter:        false,
 	})
 	if err == nil {
 		t.Error("expected non-nil error")
@@ -89,11 +89,11 @@ func TestExecuteWithRetry_ContextCancelled(t *testing.T) {
 		attempts++
 		return errors.New("error")
 	}, RetryConfig{
-		MaxAttempts:  5,
-		BaseDelay:    1 * time.Millisecond,
-		MaxDelay:     10 * time.Millisecond,
+		MaxAttempts:   5,
+		BaseDelay:     1 * time.Millisecond,
+		MaxDelay:      10 * time.Millisecond,
 		BackoffFactor: 1.0,
-		Jitter:       false,
+		Jitter:        false,
 	})
 	if err == nil {
 		t.Error("expected context error")
@@ -155,11 +155,11 @@ func TestExecuteWithRetryAndCallback_OnRetryCalled(t *testing.T) {
 		}
 		_ = err
 	}, RetryConfig{
-		MaxAttempts:  3,
-		BaseDelay:    1 * time.Millisecond,
-		MaxDelay:     10 * time.Millisecond,
+		MaxAttempts:   3,
+		BaseDelay:     1 * time.Millisecond,
+		MaxDelay:      10 * time.Millisecond,
 		BackoffFactor: 1.0,
-		Jitter:       false,
+		Jitter:        false,
 	})
 	if err != nil {
 		t.Errorf("expected nil error, got %v", err)
@@ -176,11 +176,11 @@ func TestExecuteWithRetryAndCallback_NilCallback(t *testing.T) {
 		attempts++
 		return errors.New("error")
 	}, nil, RetryConfig{
-		MaxAttempts:  2,
-		BaseDelay:    1 * time.Millisecond,
-		MaxDelay:     10 * time.Millisecond,
+		MaxAttempts:   2,
+		BaseDelay:     1 * time.Millisecond,
+		MaxDelay:      10 * time.Millisecond,
 		BackoffFactor: 1.0,
-		Jitter:       false,
+		Jitter:        false,
 	})
 	if err == nil {
 		t.Error("expected non-nil error")

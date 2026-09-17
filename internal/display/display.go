@@ -99,14 +99,14 @@ func formatPorts(ports []scanner.PortInfo) string {
 	maxPorts := 50 // Максимальное количество портов для отображения
 	openPortsCount := 0
 	totalOpenPorts := 0
-	
+
 	// Сначала считаем общее количество открытых портов
 	for _, p := range ports {
 		if p.State == "open" {
 			totalOpenPorts++
 		}
 	}
-	
+
 	for _, p := range ports {
 		if p.State == "open" {
 			if openPortsCount >= maxPorts {
@@ -625,17 +625,17 @@ func SaveResultsToJSON(results []scanner.Result, filename string) error {
 	}
 
 	type JSONResult struct {
-		IP           string     `json:"ip"`
-		MAC          string     `json:"mac"`
-		Hostname     string     `json:"hostname"`
-		Ports        []JSONPort `json:"ports"`
-		Protocols    []string   `json:"protocols"`
-		DeviceType   string     `json:"device_type"`
-		DeviceVendor string     `json:"device_vendor"`
-		IsAlive      bool       `json:"is_alive"`
-		GuessOS      string     `json:"guess_os,omitempty"`
-		GuessOSConfidence string `json:"guess_os_confidence,omitempty"`
-		GuessOSReason string    `json:"guess_os_reason,omitempty"`
+		IP                string     `json:"ip"`
+		MAC               string     `json:"mac"`
+		Hostname          string     `json:"hostname"`
+		Ports             []JSONPort `json:"ports"`
+		Protocols         []string   `json:"protocols"`
+		DeviceType        string     `json:"device_type"`
+		DeviceVendor      string     `json:"device_vendor"`
+		IsAlive           bool       `json:"is_alive"`
+		GuessOS           string     `json:"guess_os,omitempty"`
+		GuessOSConfidence string     `json:"guess_os_confidence,omitempty"`
+		GuessOSReason     string     `json:"guess_os_reason,omitempty"`
 	}
 
 	type JSONAnalytics struct {
@@ -647,10 +647,10 @@ func SaveResultsToJSON(results []scanner.Result, filename string) error {
 	}
 
 	type JSONExport struct {
-		ScanDate     string          `json:"scan_date"`
-		TotalDevices int             `json:"total_devices"`
-		Devices      []JSONResult    `json:"devices"`
-		Analytics    JSONAnalytics   `json:"analytics"`
+		ScanDate     string        `json:"scan_date"`
+		TotalDevices int           `json:"total_devices"`
+		Devices      []JSONResult  `json:"devices"`
+		Analytics    JSONAnalytics `json:"analytics"`
 	}
 
 	// Преобразуем результаты
@@ -694,17 +694,17 @@ func SaveResultsToJSON(results []scanner.Result, filename string) error {
 		}
 
 		jsonResults = append(jsonResults, JSONResult{
-			IP:           result.IP,
-			MAC:          result.MAC,
-			Hostname:     result.Hostname,
-			Ports:        jsonPorts,
-			Protocols:    result.Protocols,
-			DeviceType:   result.DeviceType,
-			DeviceVendor: result.DeviceVendor,
-			IsAlive:      result.IsAlive,
-			GuessOS:      strings.TrimSpace(result.GuessOS),
+			IP:                result.IP,
+			MAC:               result.MAC,
+			Hostname:          result.Hostname,
+			Ports:             jsonPorts,
+			Protocols:         result.Protocols,
+			DeviceType:        result.DeviceType,
+			DeviceVendor:      result.DeviceVendor,
+			IsAlive:           result.IsAlive,
+			GuessOS:           strings.TrimSpace(result.GuessOS),
 			GuessOSConfidence: strings.TrimSpace(result.GuessOSConfidence),
-			GuessOSReason: strings.TrimSpace(result.GuessOSReason),
+			GuessOSReason:     strings.TrimSpace(result.GuessOSReason),
 		})
 	}
 

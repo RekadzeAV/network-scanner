@@ -370,8 +370,8 @@ func NewScanCompletedEvent(hostCount int, openPorts int, duration string) *ScanC
 // HostFoundEvent — найден новый хост
 type HostFoundEvent struct {
 	*BaseEvent
-	IP    string
-	MAC   string
+	IP       string
+	MAC      string
 	Hostname string
 }
 
@@ -410,10 +410,10 @@ func NewPortOpenedEvent(ip string, port int, protocol string, service string) *P
 // DeviceDetectedEvent — обнаружено устройство
 type DeviceDetectedEvent struct {
 	*BaseEvent
-	IP         string
-	DeviceType string
+	IP           string
+	DeviceType   string
 	DeviceVendor string
-	OS         string
+	OS           string
 }
 
 // NewDeviceDetectedEvent создает событие обнаружения устройства

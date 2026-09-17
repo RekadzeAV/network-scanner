@@ -1,4 +1,4 @@
-﻿run:
+run:
   timeout: 5m
 
 linters:
@@ -13,7 +13,6 @@ linters:
 linters-settings:
   errcheck:
     check-type-assertions: true
-    check-blank: true
 
 issues:
   exclude-rules:

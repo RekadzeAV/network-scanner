@@ -420,7 +420,7 @@ func IsUDPPortOpen(host string, port int, timeout time.Duration) bool {
 	defer conn.Close()
 
 	// Устанавливаем таймаут для чтения
-	conn.SetReadDeadline(time.Now().Add(timeout))
+	_ = conn.SetReadDeadline(time.Now().Add(timeout))
 
 	// Отправляем пустой пакет (для некоторых сервисов это может вызвать ответ)
 	_, err = conn.Write([]byte{})
@@ -431,7 +431,7 @@ func IsUDPPortOpen(host string, port int, timeout time.Duration) bool {
 
 	// Пытаемся прочитать ответ
 	buffer := make([]byte, 1024)
-	conn.SetReadDeadline(time.Now().Add(timeout))
+	_ = conn.SetReadDeadline(time.Now().Add(timeout))
 	_, err = conn.Read(buffer)
 
 	// Если получили ответ, порт открыт

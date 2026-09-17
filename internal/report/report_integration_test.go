@@ -208,15 +208,6 @@ func TestIntegrationGenerateScanReportData_Empty(t *testing.T) {
 }
 
 func TestIntegrationGenerateScanReportData_WithResults(t *testing.T) {
-	// Mock scan results using the contracts interface
-	type mockScanResult struct {
-		IP       string
-		Hostname string
-		Ports    int
-		OS       string
-		Vendor   string
-	}
-
 	// Generate data directly
 	data := &ScanReportData{
 		ScanID:    "scan-002",

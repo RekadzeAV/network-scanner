@@ -100,4 +100,3 @@ func TestGuessFromHostAndPorts_EmptyInput(t *testing.T) {
 		t.Fatalf("expected empty guess for empty input, got os=%q conf=%q reason=%q", osName, confidence, reason)
 	}
 }
-

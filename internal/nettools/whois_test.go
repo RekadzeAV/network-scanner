@@ -143,4 +143,3 @@ func TestRunWhoisRDAPHandlesHTTPError(t *testing.T) {
 		t.Fatalf("expected HTTP status in error, got: %v", err)
 	}
 }
-

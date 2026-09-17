@@ -386,8 +386,8 @@ func TestValidateConfig_StringLength(t *testing.T) {
 // TestValidateConfig_NonRequiredMissing — ветка: необязательное поле
 func TestValidateConfig_NonRequiredMissing(t *testing.T) {
 	schema := Schema{
-		"port":   FieldRule{Required: true},
-		"host":   FieldRule{Required: false},
+		"port": FieldRule{Required: true},
+		"host": FieldRule{Required: false},
 	}
 
 	config := map[string]interface{}{

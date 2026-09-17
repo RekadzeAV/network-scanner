@@ -156,7 +156,7 @@ func (t *ModernTheme) ApplyAccentPreset(name string, isDark bool) {
 }
 
 // lightAccent акцентные цвета для светлой темы
-var lightAccent = DefaultAccentColorsLight()
+//nolint:unused // kept as package-level default accessor
 
 // darkAccent акцентные цвета для темной темы
-var darkAccent = DefaultAccentColorsDark()
+//nolint:unused // kept as package-level default accessor

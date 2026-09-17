@@ -177,9 +177,9 @@ func BenchmarkEventBus_ConcurrentPublish(b *testing.B) {
 // BenchmarkConfigValidation_Schema — бенчмарк валидации по схеме
 func BenchmarkConfigValidation_Schema(b *testing.B) {
 	schema := configvalidation.Schema{
-		"port":   configvalidation.FieldRule{Required: true, Min: 1, Max: 65535},
-		"host":   configvalidation.FieldRule{Required: true},
-		"cidr":   configvalidation.FieldRule{Required: false},
+		"port":     configvalidation.FieldRule{Required: true, Min: 1, Max: 65535},
+		"host":     configvalidation.FieldRule{Required: true},
+		"cidr":     configvalidation.FieldRule{Required: false},
 		"logLevel": configvalidation.FieldRule{Allowed: []string{"debug", "info", "warn", "error"}},
 	}
 
@@ -212,8 +212,8 @@ func BenchmarkConfigValidation_Specific(b *testing.B) {
 // BenchmarkConfigValidation_InvalidConfig — бенчмарк валидации невалидной config
 func BenchmarkConfigValidation_InvalidConfig(b *testing.B) {
 	schema := configvalidation.Schema{
-		"port":   configvalidation.FieldRule{Required: true, Min: 1, Max: 65535},
-		"host":   configvalidation.FieldRule{Required: true},
+		"port": configvalidation.FieldRule{Required: true, Min: 1, Max: 65535},
+		"host": configvalidation.FieldRule{Required: true},
 	}
 
 	config := map[string]interface{}{

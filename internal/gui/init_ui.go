@@ -42,7 +42,7 @@ func (a *App) initUI() {
 	a.topologyImage = canvas.NewImageFromResource(nil)
 	a.topologyImage.FillMode = canvas.ImageFillContain
 	a.topologyImage.SetMinSize(fyne.NewSize(0, 200))
-	a.topologyImgBox = container.NewMax(a.topologyImage)
+	a.topologyImgBox = container.NewStack(a.topologyImage)
 	a.topologyImgScroll = container.NewScroll(a.topologyImgBox)
 	a.zoomSelect = widget.NewSelect([]string{"Fit", "100%", "150%", "200%"}, nil)
 	a.zoomSelect.SetSelected("Fit")

@@ -10,7 +10,7 @@ import (
 
 // TelemetrySettingsManager управляет настройками телеметрии
 type TelemetrySettingsManager struct {
-	telemetry  *telemetry.Telemetry
+	telemetry    *telemetry.Telemetry
 	enabledCheck *widget.Check
 	onChanged    func(bool)
 }
@@ -74,13 +74,13 @@ func (tsm *TelemetrySettingsManager) GetStatus() string {
 	if tsm.telemetry == nil {
 		return "Недоступна"
 	}
-	
+
 	stats := tsm.telemetry.GetStats()
 	queueSize := 0
 	if qs, ok := stats["queue_size"].(int); ok {
 		queueSize = qs
 	}
-	
-	return "Включена" + 
+
+	return "Включена" +
 		" | Очередь: " + string(rune(queueSize+'0')) + " метрик"
 }

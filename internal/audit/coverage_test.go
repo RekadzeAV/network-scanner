@@ -193,9 +193,9 @@ func TestEvaluateOpenPorts_SortingBySeverity(t *testing.T) {
 		{
 			IP: "192.168.1.10",
 			Ports: []scanner.PortInfo{
-				{Port: 21, Protocol: "tcp", State: "open"},   // medium
-				{Port: 23, Protocol: "tcp", State: "open"},   // high
-				{Port: 445, Protocol: "tcp", State: "open"},  // high
+				{Port: 21, Protocol: "tcp", State: "open"},  // medium
+				{Port: 23, Protocol: "tcp", State: "open"},  // high
+				{Port: 445, Protocol: "tcp", State: "open"}, // high
 			},
 		},
 	}
@@ -242,8 +242,8 @@ func TestEvaluateOpenPorts_SortingByPort(t *testing.T) {
 		{
 			IP: "192.168.1.10",
 			Ports: []scanner.PortInfo{
-				{Port: 445, Protocol: "tcp", State: "open"},  // high
-				{Port: 23, Protocol: "tcp", State: "open"},   // high
+				{Port: 445, Protocol: "tcp", State: "open"}, // high
+				{Port: 23, Protocol: "tcp", State: "open"},  // high
 			},
 		},
 	}

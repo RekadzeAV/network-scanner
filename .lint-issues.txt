@@ -1,0 +1,273 @@
+internal\cve\coverage_test.go:59:5: SA4024: builtin function len does not return negative values (staticcheck)
+	if len(matches) < 0 {
+	   ^
+internal\network\network.go:423:22: Error return value of `conn.SetReadDeadline` is not checked (errcheck)
+	conn.SetReadDeadline(time.Now().Add(timeout))
+	                    ^
+internal\network\network.go:434:22: Error return value of `conn.SetReadDeadline` is not checked (errcheck)
+	conn.SetReadDeadline(time.Now().Add(timeout))
+	                    ^
+internal\profiler\profiler.go:96:16: Error return value of `profiler.Stop` is not checked (errcheck)
+		profiler.Stop()
+		             ^
+internal\security\security_integration_test.go:627:5: S1009: should omit nil check; len() for nil slices is defined as zero (gosimple)
+	if report.PortAudit != nil && len(report.PortAudit) != 0 {
+	   ^
+internal\security\security_integration_test.go:593:32: SA1012: do not pass a nil Context, even if a function permits it; pass context.TODO if you are unsure about which Context to use (staticcheck)
+	report, err := svc.AnalyzeRun(nil, []contracts.ScanResult{})
+	                              ^
+internal\ports\db.go:217:26: Error return value is not checked (errcheck)
+			defer func() { recover() }()
+			                      ^
+internal\scanner\scanner.go:204:2: const `knownUDPPorts` is unused (unused)
+	knownUDPPorts = 9
+	^
+internal\scanner\scanner.go:239:2: const `macOUIPrefixLength` is unused (unused)
+	macOUIPrefixLength = 8
+	^
+internal\scanner\scanner.go:242:2: const `windowsMACFormatLength` is unused (unused)
+	windowsMACFormatLength = 17
+	^
+internal\scanner\scanner_coverage_extend_test.go:104:5: S1009: should omit nil check; len() for nil slices is defined as zero (gosimple)
+	if results != nil && len(results) != 0 {
+	   ^
+internal\scanner\scanner.go:806:5: ineffectual assignment to cancelledBeforeLaunch (ineffassign)
+				cancelledBeforeLaunch = true
+				^
+internal\scanner\scanner.go:1055:4: ineffectual assignment to udpScanCancelled (ineffassign)
+			udpScanCancelled = true
+			^
+internal\scanner\scanner_integration_test.go:214:2: SA9003: empty branch (staticcheck)
+	if ns == nil {
+	^
+internal\batch\snmp_batch.go:209:10: Error return value is not checked (errcheck)
+		req := task.Payload.(SNMPRequest)
+		       ^
+internal\batch\snmp_batch.go:242:19: Error return value is not checked (errcheck)
+			responses[i] = r.Output.(SNMPResponse)
+			               ^
+internal\nettools\whois.go:23:6: type `rdapVCardItem` is unused (unused)
+type rdapVCardItem struct {
+     ^
+internal\nettools\nettools_integration_test.go:272:5: SA4031: this nil check is never true (staticcheck)
+	if result == nil {
+	   ^
+internal\nettools\nettools_integration_test.go:271:13: SA4031(related information): this is the value of result (staticcheck)
+	result := &DNSResult{}
+	           ^
+internal\nettools\nettools_integration_test.go:294:5: SA4031: this nil check is never true (staticcheck)
+	if result == nil {
+	   ^
+internal\nettools\nettools_integration_test.go:293:13: SA4031(related information): this is the value of result (staticcheck)
+	result := &PingResult{}
+	           ^
+internal\nettools\nettools_integration_test.go:323:5: SA4031: this nil check is never true (staticcheck)
+	if result == nil {
+	   ^
+internal\nettools\nettools_integration_test.go:322:13: SA4031(related information): this is the value of result (staticcheck)
+	result := &TracerouteResult{}
+	           ^
+internal\nettools\nettools_integration_test.go:346:10: SA4031(related information): this is the value of info (staticcheck)
+	info := map[string]string{}
+	        ^
+internal\nettools\nettools_integration_test.go:468:13: SA5011: possible nil pointer dereference (staticcheck)
+		if result.Stats.Sent < 0 {
+		          ^
+internal\nettools\nettools_integration_test.go:465:6: SA5011(related information): this check suggests that the pointer can be nil (staticcheck)
+		if result == nil {
+		   ^
+internal\api\handlers.go:39:27: Error return value of `(*encoding/json.Encoder).Encode` is not checked (errcheck)
+	json.NewEncoder(w).Encode(data)
+	                         ^
+internal\api\topology_handlers.go:187:10: Error return value of `w.Write` is not checked (errcheck)
+		w.Write(data)
+		       ^
+internal\api\topology_handlers.go:191:13: Error return value of `topo.ToDOT` is not checked (errcheck)
+		topo.ToDOT(w)
+		          ^
+internal\api\topology_handlers.go:200:10: Error return value of `w.Write` is not checked (errcheck)
+		w.Write(data)
+		       ^
+internal\api\topology_handlers.go:220:12: Error return value of `topo.ToDOT` is not checked (errcheck)
+	topo.ToDOT(w)
+	          ^
+internal\api\api_integration_test.go:18:5: var `apiMu` is unused (unused)
+var apiMu sync.Mutex
+    ^
+internal\api\api_coverage_extended_test.go:503:5: SA4000: identical expressions on the left and right side of the '==' operator (staticcheck)
+	if "" == "" {
+	   ^
+internal\gui\controller\tools_controller.go:474:12: Error return value of `fmt.Sscanf` is not checked (errcheck)
+	fmt.Sscanf(s, "%d", &v)
+	          ^
+internal\gui\controller\tools_controller.go:84:3: S1021: should merge variable declaration with assignment on next line (gosimple)
+		var err error
+		^
+internal\gui\controller\tools_controller.go:116:3: S1021: should merge variable declaration with assignment on next line (gosimple)
+		var err error
+		^
+internal\gui\controller\tools_controller.go:220:3: S1021: should merge variable declaration with assignment on next line (gosimple)
+		var wolErr error
+		^
+internal\gui\controller\scan_controller.go:256:4: ineffectual assignment to threads (ineffassign)
+			threads = maxScanThreadsGUI
+			^
+internal\gui\controller\scan_profile.go:55:2: ineffectual assignment to profileName (ineffassign)
+	profileName := "╤Б╤В╨░╨╜╨┤╨░╤А╤В"
+	^
+internal\gui\controller\scan_controller.go:384:2: SA1019: c.ui.Window.Clipboard is deprecated: use App.Clipboard() instead. (staticcheck)
+	c.ui.Window.Clipboard().SetContent(diagnosticsText)
+	^
+internal\gui\controller\topology_controller.go:217:2: SA1019: window.Clipboard is deprecated: use App.Clipboard() instead. (staticcheck)
+	window.Clipboard().SetContent(reportText)
+	^
+cmd\md2pdf\main.go:198:6: func `replaceUnsupportedChars` is unused (unused)
+func replaceUnsupportedChars(text string) string {
+     ^
+internal\report\report_integration_test.go:212:7: type `mockScanResult` is unused (unused)
+	type mockScanResult struct {
+	     ^
+internal\telemetry\telemetry.go:236:2: SA9003: empty branch (staticcheck)
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	^
+cmd\gui\main.go:15:13: Error return value of `logger.Init` is not checked (errcheck)
+	logger.Init(AppName, AppVersion)
+	           ^
+cmd\network-scanner\cmd\device_control.go:52:15: Error return value of `fmt.Sscanf` is not checked (errcheck)
+				fmt.Sscanf(args[i+1], "%d", &timeout)
+				          ^
+cmd\network-scanner\cmd\remote_exec.go:81:15: Error return value of `fmt.Sscanf` is not checked (errcheck)
+				fmt.Sscanf(args[i+1], "%d", &timeout)
+				          ^
+cmd\network-scanner\cmd\scan_cobra.go:61:31: Error return value of `(*github.com/spf13/pflag.FlagSet).SetAnnotation` is not checked (errcheck)
+	scanCmd.Flags().SetAnnotation("network", "category", []string{"network"})
+	                             ^
+cmd\network-scanner\cmd\scan_cobra.go:62:31: Error return value of `(*github.com/spf13/pflag.FlagSet).SetAnnotation` is not checked (errcheck)
+	scanCmd.Flags().SetAnnotation("ports", "category", []string{"network"})
+	                             ^
+cmd\network-scanner\cmd\scan_cobra.go:63:31: Error return value of `(*github.com/spf13/pflag.FlagSet).SetAnnotation` is not checked (errcheck)
+	scanCmd.Flags().SetAnnotation("hosts-file", "category", []string{"network"})
+	                             ^
+cmd\network-scanner\cmd\remote_exec.go:129:38: SA1012: do not pass a nil Context, even if a function permits it; pass context.TODO if you are unsure about which Context to use (staticcheck)
+		if err := remoteExecService.DryRun(nil, req); err != nil {
+		                                   ^
+cmd\network-scanner\cmd\remote_exec.go:139:40: SA1012: do not pass a nil Context, even if a function permits it; pass context.TODO if you are unsure about which Context to use (staticcheck)
+	res, err := remoteExecService.Execute(nil, req)
+	                                      ^
+cmd\network-scanner\dpi_windows.go:34:11: Error return value of `proc.Call` is not checked (errcheck)
+	proc.Call()
+	         ^
+internal\osdetect\example_test.go:44:10: ineffectual assignment to conf (ineffassign)
+	osName, conf, reason = osdetect.GuessFromHostAndPorts("unknown-device", []int{8080}, true)
+	        ^
+internal\topology\schema_validate.go:43:5: S1009: should omit nil check; len() for nil maps is defined as zero (gosimple)
+	if t.Devices == nil || len(t.Devices) == 0 {
+	   ^
+internal\topology\schema_validate.go:203:3: S1011: should replace loop with `check.Errors = append(check.Errors, gmlErrors...)` (gosimple)
+		for _, e := range gmlErrors {
+		^
+internal\gui\accent_colors.go:159:5: var `lightAccent` is unused (unused)
+var lightAccent = DefaultAccentColorsLight()
+    ^
+internal\gui\accent_colors.go:162:5: var `darkAccent` is unused (unused)
+var darkAccent = DefaultAccentColorsDark()
+    ^
+internal\gui\app.go:33:6: type `scanUpdate` is unused (unused)
+type scanUpdate struct {
+     ^
+internal\gui\app.go:39:6: type `progressUpdate` is unused (unused)
+type progressUpdate struct {
+     ^
+internal\gui\app.go:58:2: field `scanRunner` is unused (unused)
+	scanRunner                  *scand.Runner
+	^
+internal\gui\app.go:172:2: field `topologyCancel` is unused (unused)
+	topologyCancel              context.CancelFunc
+	^
+internal\gui\app.go:253:2: field `mobileLayout` is unused (unused)
+	mobileLayout   *MobileLayout
+	^
+internal\gui\app.go:254:2: field `touchGestures` is unused (unused)
+	touchGestures  *TouchGestures
+	^
+internal\gui\app.go:255:2: field `isMobileDevice` is unused (unused)
+	isMobileDevice bool
+	^
+internal\gui\app.go:328:2: var `tableHeaderBgColor` is unused (unused)
+	tableHeaderBgColor = color.RGBA{R: 229, G: 236, B: 247, A: 255}
+	^
+internal\gui\tools_ui.go:23:15: func `(*App).runPortAuditTool` is unused (unused)
+func (a *App) runPortAuditTool() {
+              ^
+internal\gui\tools_ui.go:48:15: func `(*App).runRiskSignaturesTool` is unused (unused)
+func (a *App) runRiskSignaturesTool() {
+              ^
+internal\gui\tools_ui.go:317:15: func `(*App).runWOLTool` is unused (unused)
+func (a *App) runWOLTool() {
+              ^
+internal\gui\ui_errors.go:12:15: func `(*App).showError` is unused (unused)
+func (a *App) showError(title, message string, err error) {
+              ^
+internal\gui\ui_errors.go:27:15: func `(*App).showErrorRaw` is unused (unused)
+func (a *App) showErrorRaw(title string, err error) {
+              ^
+internal\gui\ui_errors.go:38:15: func `(*App).showInfo` is unused (unused)
+func (a *App) showInfo(title, message string) {
+              ^
+internal\gui\ui_errors.go:46:15: func `(*App).showConfirm` is unused (unused)
+func (a *App) showConfirm(title, message string, callback func(bool)) {
+              ^
+internal\gui\ui_errors.go:54:15: func `(*App).handleGUIError` is unused (unused)
+func (a *App) handleGUIError(handler *errors.ErrorHandler, err error, title string) {
+              ^
+internal\gui\ui_errors.go:68:15: func `(*App).safeExec` is unused (unused)
+func (a *App) safeExec(label string, fn func()) {
+              ^
+internal\gui\model_edge_cases_test.go:95:5: S1009: should omit nil check; len() for nil slices is defined as zero (gosimple)
+	if results[0].Ports != nil && len(results[0].Ports) != 0 {
+	   ^
+internal\gui\init_ui.go:45:21: SA1019: container.NewMax is deprecated: Use container.NewStack() instead. (staticcheck)
+	a.topologyImgBox = container.NewMax(a.topologyImage)
+	                   ^
+internal\gui\results_settings_ui.go:147:2: SA1019: a.myWindow.Clipboard is deprecated: use App.Clipboard() instead. (staticcheck)
+	a.myWindow.Clipboard().SetContent(text)
+	^
+internal\gui\results_table_view.go:202:12: SA1019: container.NewMax is deprecated: Use container.NewStack() instead. (staticcheck)
+				return container.NewMax(bg, container.NewPadded(card))
+				       ^
+internal\gui\results_view_render.go:216:4: SA1019: a.mainTabs.SelectTabIndex is deprecated: Use `AppTabs.SelectIndex(int)` instead. (staticcheck)
+			a.mainTabs.SelectTabIndex(2)
+			^
+internal\gui\results_view_render.go:223:4: SA1019: a.mainTabs.SelectTabIndex is deprecated: Use `AppTabs.SelectIndex(int)` instead. (staticcheck)
+			a.mainTabs.SelectTabIndex(2)
+			^
+internal\gui\results_view_render.go:230:4: SA1019: a.mainTabs.SelectTabIndex is deprecated: Use `AppTabs.SelectIndex(int)` instead. (staticcheck)
+			a.mainTabs.SelectTabIndex(2)
+			^
+internal\gui\results_view_render.go:294:21: SA1019: container.NewMax is deprecated: Use container.NewStack() instead. (staticcheck)
+		row = append(row, container.NewMax(bg, container.NewPadded(t)))
+		                  ^
+internal\gui\scan_ui.go:313:32: SA1019: fyne.TextTruncate is deprecated: Use [TextTruncateClip] value of the widget `Truncation` field instead (staticcheck)
+	a.filtersInfoLabel.Wrapping = fyne.TextTruncate
+	                              ^
+internal\gui\scan_ui.go:315:32: SA1019: fyne.TextTruncate is deprecated: Use [TextTruncateClip] value of the widget `Truncation` field instead (staticcheck)
+	a.resultsPerfLabel.Wrapping = fyne.TextTruncate
+	                              ^
+internal\gui\theme_manager_test.go:194:5: SA4000: identical expressions on the left and right side of the '==' operator (staticcheck)
+	if tm.GetThemeMode() == tm.GetThemeMode() {
+	   ^
+internal\gui\mobile_layout.go:54:2: SA9003: empty branch (staticcheck)
+	if ml.currentOrientation == "portrait" && len(ml.tabs) > 2 {
+	^
+internal\scanner\plugin\builtin_probes.go:224:22: Error return value of `conn.SetReadDeadline` is not checked (errcheck)
+	conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	                    ^
+internal\scanner\plugin\builtin_probes.go:283:23: Error return value of `conn.SetWriteDeadline` is not checked (errcheck)
+	conn.SetWriteDeadline(time.Now().Add(500 * time.Millisecond))
+	                     ^
+internal\alerting\alerting_integration_test.go:281:5: SA4024: builtin function len does not return negative values (staticcheck)
+	if len(highAlerts) < 0 {
+	   ^
+internal\alerting\alerting_integration_test.go:284:5: SA4024: builtin function len does not return negative values (staticcheck)
+	if len(mediumAlerts) < 0 {
+	   ^

@@ -81,9 +81,8 @@ func (c *ToolsController) RunPingTool() {
 
 	go func() {
 		var output string
-		var err error
 
-		err = errors.ExecuteWithRetry(context.Background(), func() error {
+		err := errors.ExecuteWithRetry(context.Background(), func() error {
 			var runErr error
 			output, runErr = nettools.RunPing(context.Background(), host, count, timeout)
 			return runErr
@@ -113,9 +112,8 @@ func (c *ToolsController) RunTracerouteTool() {
 
 	go func() {
 		var output string
-		var err error
 
-		err = errors.ExecuteWithRetry(context.Background(), func() error {
+		err := errors.ExecuteWithRetry(context.Background(), func() error {
 			var runErr error
 			output, runErr = nettools.RunTraceroute(context.Background(), host, time.Duration(maxHops)*time.Second)
 			return runErr
@@ -217,9 +215,7 @@ func (c *ToolsController) RunWOLTool() {
 	c.setOutputMarkdown(fmt.Sprintf("Отправка WoL-пакета на MAC %s...", mac))
 
 	go func() {
-		var wolErr error
-
-		wolErr = errors.ExecuteWithRetry(context.Background(), func() error {
+		wolErr := errors.ExecuteWithRetry(context.Background(), func() error {
 			return wol.SendMagicPacket(mac, bcast)
 		}, errors.RetryConfig{
 			MaxAttempts:   2,
@@ -324,9 +320,8 @@ func (c *ToolsController) RunDeviceControlTool(action string) {
 
 	go func() {
 		var resp devicecontrol.Response
-		var ctrlErr error
 
-		ctrlErr = errors.ExecuteWithRetry(context.Background(), func() error {
+		ctrlErr := errors.ExecuteWithRetry(context.Background(), func() error {
 			var runErr error
 			resp, runErr = devicecontrol.Execute(context.Background(), devicecontrol.Request{
 				Action:    action,
@@ -364,9 +359,8 @@ func (c *ToolsController) RunWhoisTool() {
 
 	go func() {
 		var output string
-		var err error
 
-		err = errors.ExecuteWithRetry(context.Background(), func() error {
+		err := errors.ExecuteWithRetry(context.Background(), func() error {
 			var runErr error
 			output, runErr = nettools.RunWhois(context.Background(), host, timeout)
 			return runErr
@@ -398,9 +392,8 @@ func (c *ToolsController) RunWiFiTool() {
 
 	go func() {
 		var output string
-		var err error
 
-		err = errors.ExecuteWithRetry(context.Background(), func() error {
+		err := errors.ExecuteWithRetry(context.Background(), func() error {
 			var runErr error
 			output, runErr = nettools.GetWiFiInfo(context.Background(), timeout)
 			return runErr
@@ -471,7 +464,7 @@ func parseIntOrDefault(s string, def int) int {
 		return def
 	}
 	var v int
-	fmt.Sscanf(s, "%d", &v)
+	_, _ = fmt.Sscanf(s, "%d", &v)
 	if v <= 0 {
 		return def
 	}

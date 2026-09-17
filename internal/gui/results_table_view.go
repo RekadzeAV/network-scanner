@@ -65,7 +65,10 @@ func (a *App) buildTableView(data []scanner.Result) fyne.CanvasObject {
 			return widget.NewLabel("")
 		},
 		func(id widget.TableCellID, obj fyne.CanvasObject) {
-			l := obj.(*widget.Label)
+			l, _ := obj.(*widget.Label)
+			if l == nil {
+				return
+			}
 			l.TextStyle = fyne.TextStyle{}
 			if id.Row == 0 {
 				l.TextStyle = fyne.TextStyle{Bold: true}
@@ -199,7 +202,7 @@ func (a *App) buildCardsView(data []scanner.Result) fyne.CanvasObject {
 				card := container.NewVBox(title, sub, vendor, os, portsLabel, chipsHolder, openBtn, widget.NewSeparator())
 				bg := canvas.NewRectangle(tableRowBgColor)
 				bg.CornerRadius = 4
-				return container.NewMax(bg, container.NewPadded(card))
+				return container.NewStack(bg, container.NewPadded(card))
 			})
 		},
 		func(id widget.ListItemID, obj fyne.CanvasObject) {
@@ -207,13 +210,27 @@ func (a *App) buildCardsView(data []scanner.Result) fyne.CanvasObject {
 				return
 			}
 			r := viewData[id]
-			itemBox := obj.(*fyne.Container).Objects[1].(*fyne.Container).Objects[0].(*fyne.Container)
-			title := itemBox.Objects[0].(*widget.Label)
-			sub := itemBox.Objects[1].(*widget.Label)
-			vendor := itemBox.Objects[2].(*widget.Label)
-			os := itemBox.Objects[3].(*widget.Label)
-			chipsHolder := itemBox.Objects[5].(*fyne.Container)
-			openBtn := itemBox.Objects[6].(*widget.Button)
+			outer, ok1 := obj.(*fyne.Container)
+			if !ok1 || len(outer.Objects) < 2 {
+				return
+			}
+			mid, ok2 := outer.Objects[1].(*fyne.Container)
+			if !ok2 || len(mid.Objects) < 1 {
+				return
+			}
+			itemBox, ok3 := mid.Objects[0].(*fyne.Container)
+			if !ok3 || len(itemBox.Objects) < 7 {
+				return
+			}
+			title, _ := itemBox.Objects[0].(*widget.Label)
+			sub, _ := itemBox.Objects[1].(*widget.Label)
+			vendor, _ := itemBox.Objects[2].(*widget.Label)
+			os, _ := itemBox.Objects[3].(*widget.Label)
+			chipsHolder, _ := itemBox.Objects[5].(*fyne.Container)
+			openBtn, _ := itemBox.Objects[6].(*widget.Button)
+			if chipsHolder == nil || openBtn == nil || title == nil || sub == nil || vendor == nil || os == nil {
+				return
+			}
 
 			rowTitle := strings.TrimSpace(r.Hostname)
 			if rowTitle == "" {

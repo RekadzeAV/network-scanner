@@ -126,7 +126,10 @@ func (a *App) buildSecurityFindingsTable(portFindings []audit.Finding, signature
 		func() (int, int) { return tableRows, 4 },
 		func() fyne.CanvasObject { return widget.NewLabel("") },
 		func(id widget.TableCellID, obj fyne.CanvasObject) {
-			l := obj.(*widget.Label)
+			l, ok := obj.(*widget.Label)
+			if !ok || l == nil {
+				return
+			}
 			if id.Row == 0 {
 				headers := []string{"Source", "Severity", "Host", "Title"}
 				l.TextStyle = fyne.TextStyle{Bold: true}

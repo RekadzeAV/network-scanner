@@ -52,7 +52,7 @@ func (c *ScanController) ApplyRecommendedProfile(networkStr string) {
 			hosts = h
 		}
 	}
-	profileName := "стандарт"
+	var profileName string
 	switch {
 	case hosts >= 2048:
 		c.ui.PortRangeEntry.SetText("22,80,443,445,3389")

@@ -49,7 +49,7 @@ func RunDeviceControl(cfg builder.Config, args ...string) error {
 			}
 		case "--timeout":
 			if i+1 < len(args) {
-				fmt.Sscanf(args[i+1], "%d", &timeout)
+				_, _ = fmt.Sscanf(args[i+1], "%d", &timeout)
 				i++
 			}
 		case "--audit-log":

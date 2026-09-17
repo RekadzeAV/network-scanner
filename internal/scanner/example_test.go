@@ -9,14 +9,14 @@ import (
 // Example_result демонстрирует структуру результата сканирования.
 func Example_result() {
 	result := scanner.Result{
-		IP:              "192.168.1.1",
-		Hostname:        "gateway.local",
-		MAC:             "AA:BB:CC:DD:EE:FF",
-		DeviceType:      "Router",
-		DeviceVendor:    "Cisco Systems",
-		SNMPEnabled:     true,
-		IsAlive:         true,
-		GuessOS:         "Linux",
+		IP:                "192.168.1.1",
+		Hostname:          "gateway.local",
+		MAC:               "AA:BB:CC:DD:EE:FF",
+		DeviceType:        "Router",
+		DeviceVendor:      "Cisco Systems",
+		SNMPEnabled:       true,
+		IsAlive:           true,
+		GuessOS:           "Linux",
 		GuessOSConfidence: "высокая",
 		Ports: []scanner.PortInfo{
 			{Port: 22, State: "open", Protocol: "tcp", Service: "SSH", Version: "OpenSSH 8.9"},

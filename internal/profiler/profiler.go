@@ -21,25 +21,25 @@ func NewProfiler(profileDir string) (*Profiler, error) {
 	if profileDir == "" {
 		profileDir = "profile"
 	}
-	
+
 	if err := os.MkdirAll(profileDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create profile directory: %w", err)
 	}
-	
+
 	cpuPath := fmt.Sprintf("%s/cpu.profile", profileDir)
 	memPath := fmt.Sprintf("%s/memory.profile", profileDir)
-	
+
 	cpuFile, err := os.Create(cpuPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CPU profile file: %w", err)
 	}
-	
+
 	memFile, err := os.Create(memPath)
 	if err != nil {
 		cpuFile.Close()
 		return nil, fmt.Errorf("failed to create memory profile file: %w", err)
 	}
-	
+
 	return &Profiler{
 		cpuFile:    cpuFile,
 		memFile:    memFile,
@@ -60,24 +60,24 @@ func (p *Profiler) Start() error {
 // Stop останавливает profiling и сохраняет данные
 func (p *Profiler) Stop() error {
 	duration := time.Since(p.startTime)
-	
+
 	pprof.StopCPUProfile()
-	
+
 	// Memory profile
 	runtime.GC()
 	if err := pprof.WriteHeapProfile(p.memFile); err != nil {
 		p.memFile.Close()
 		return fmt.Errorf("failed to write memory profile: %w", err)
 	}
-	
+
 	p.cpuFile.Close()
 	p.memFile.Close()
-	
+
 	fmt.Printf("Profile saved to %s/\n", p.profileDir)
 	fmt.Printf("  - CPU: %s/cpu.profile\n", p.profileDir)
 	fmt.Printf("  - Memory: %s/memory.profile\n", p.profileDir)
 	fmt.Printf("Duration: %v\n", duration)
-	
+
 	return nil
 }
 
@@ -87,14 +87,14 @@ func QuickProfile(profileDir string) (*Profiler, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	
+
 	if err := profiler.Start(); err != nil {
 		return nil, nil, err
 	}
-	
+
 	stop := func() {
-		profiler.Stop()
+		_ = profiler.Stop()
 	}
-	
+
 	return profiler, stop, nil
 }

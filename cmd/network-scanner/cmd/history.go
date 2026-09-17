@@ -1,4 +1,4 @@
-﻿package cmd
+package cmd
 
 import (
 	"fmt"
@@ -127,5 +127,3 @@ func min(a, b int) int {
 	}
 	return b
 }
-
-

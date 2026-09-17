@@ -14,12 +14,12 @@ import (
 type ToolErrorCode string
 
 const (
-	ToolErrorNotInstalled    ToolErrorCode = "not_installed"
+	ToolErrorNotInstalled     ToolErrorCode = "not_installed"
 	ToolErrorPermissionDenied ToolErrorCode = "permission_denied"
-	ToolErrorTimeout         ToolErrorCode = "timeout"
-	ToolErrorNetwork         ToolErrorCode = "network_error"
-	ToolErrorParse           ToolErrorCode = "parse_error"
-	ToolErrorUnknown         ToolErrorCode = "unknown"
+	ToolErrorTimeout          ToolErrorCode = "timeout"
+	ToolErrorNetwork          ToolErrorCode = "network_error"
+	ToolErrorParse            ToolErrorCode = "parse_error"
+	ToolErrorUnknown          ToolErrorCode = "unknown"
 )
 
 // ToolError содержит нормализованную ошибку для CLI/GUI.

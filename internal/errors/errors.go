@@ -8,13 +8,13 @@ import (
 
 // Common error types
 var (
-	ErrNotFound       = errors.New("resource not found")
-	ErrTimeout        = errors.New("operation timed out")
-	ErrPermission     = errors.New("permission denied")
-	ErrInvalidInput   = errors.New("invalid input")
-	ErrAlreadyExists  = errors.New("resource already exists")
-	ErrConflict       = errors.New("conflict detected")
-	ErrInternal       = errors.New("internal server error")
+	ErrNotFound      = errors.New("resource not found")
+	ErrTimeout       = errors.New("operation timed out")
+	ErrPermission    = errors.New("permission denied")
+	ErrInvalidInput  = errors.New("invalid input")
+	ErrAlreadyExists = errors.New("resource already exists")
+	ErrConflict      = errors.New("conflict detected")
+	ErrInternal      = errors.New("internal server error")
 )
 
 // NotFoundError represents a resource not found error
@@ -47,9 +47,9 @@ func (e *TimeoutError) Unwrap() error {
 
 // PermissionError represents a permission denied error
 type PermissionError struct {
-	User    string
+	User     string
 	Resource string
-	Action  string
+	Action   string
 }
 
 func (e *PermissionError) Error() string {

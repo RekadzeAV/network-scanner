@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,7 +14,6 @@ import (
 	"network-scanner/internal/builder"
 	"network-scanner/internal/contracts"
 	"network-scanner/internal/display"
-	"network-scanner/internal/gui"
 	"network-scanner/internal/network"
 	"network-scanner/internal/presenter"
 	"network-scanner/internal/scanner"
@@ -59,21 +59,21 @@ func init() {
 	scanCmd.Flags().Bool("json", false, "Вывод результатов в JSON формате")
 
 	// Группировка флагов
-	scanCmd.Flags().SetAnnotation("network", "category", []string{"network"})
-	scanCmd.Flags().SetAnnotation("ports", "category", []string{"network"})
-	scanCmd.Flags().SetAnnotation("hosts-file", "category", []string{"network"})
-	scanCmd.Flags().SetAnnotation("udp", "category", []string{"scan"})
-	scanCmd.Flags().SetAnnotation("grab-banners", "category", []string{"scan"})
-	scanCmd.Flags().SetAnnotation("os-detect-active", "category", []string{"scan"})
-	scanCmd.Flags().SetAnnotation("timeout", "category", []string{"scan"})
-	scanCmd.Flags().SetAnnotation("threads", "category", []string{"scan"})
-	scanCmd.Flags().SetAnnotation("show-closed", "category", []string{"scan"})
-	scanCmd.Flags().SetAnnotation("security", "category", []string{"post-scan"})
-	scanCmd.Flags().SetAnnotation("topology", "category", []string{"post-scan"})
-	scanCmd.Flags().SetAnnotation("snmp", "category", []string{"post-scan"})
-	scanCmd.Flags().SetAnnotation("inventory-save", "category", []string{"post-scan"})
-	scanCmd.Flags().SetAnnotation("export-html", "category", []string{"export"})
-	scanCmd.Flags().SetAnnotation("export-xml", "category", []string{"export"})
+	_ = scanCmd.Flags().SetAnnotation("network", "category", []string{"network"})
+	_ = scanCmd.Flags().SetAnnotation("ports", "category", []string{"network"})
+	_ = scanCmd.Flags().SetAnnotation("hosts-file", "category", []string{"network"})
+	_ = scanCmd.Flags().SetAnnotation("udp", "category", []string{"scan"})
+	_ = scanCmd.Flags().SetAnnotation("grab-banners", "category", []string{"scan"})
+	_ = scanCmd.Flags().SetAnnotation("os-detect-active", "category", []string{"scan"})
+	_ = scanCmd.Flags().SetAnnotation("timeout", "category", []string{"scan"})
+	_ = scanCmd.Flags().SetAnnotation("threads", "category", []string{"scan"})
+	_ = scanCmd.Flags().SetAnnotation("show-closed", "category", []string{"scan"})
+	_ = scanCmd.Flags().SetAnnotation("security", "category", []string{"post-scan"})
+	_ = scanCmd.Flags().SetAnnotation("topology", "category", []string{"post-scan"})
+	_ = scanCmd.Flags().SetAnnotation("snmp", "category", []string{"post-scan"})
+	_ = scanCmd.Flags().SetAnnotation("inventory-save", "category", []string{"post-scan"})
+	_ = scanCmd.Flags().SetAnnotation("export-html", "category", []string{"export"})
+	_ = scanCmd.Flags().SetAnnotation("export-xml", "category", []string{"export"})
 }
 
 // scanCommandRun — обработчик команды scan
@@ -141,7 +141,7 @@ func RunScanCobra(c *cobra.Command, cfg builder.Config) error {
 	// Запуск сканирования
 	fmt.Printf("Сканирование сети: %s\n", networkCIDR)
 
-	results, err := scannerService.Scan(nil, contracts.ScanConfig{
+	results, err := scannerService.Scan(context.TODO(), contracts.ScanConfig{
 		NetworkCIDR: networkCIDR,
 		PortRange:   portRange,
 		Timeout:     time.Duration(timeout) * time.Second,
@@ -161,14 +161,14 @@ func RunScanCobra(c *cobra.Command, cfg builder.Config) error {
 	// Вывод результатов
 	internalResults := ConvertToInternalResults(results)
 	display.SetShowRawBanners(false)
-	
+
 	// JSON output
 	if jsonOutput {
 		jsonData, err := json.MarshalIndent(map[string]interface{}{
-			"network":    networkCIDR,
-			"hosts":      len(internalResults),
-			"scan_time":  time.Now().UTC().Format(time.RFC3339),
-			"results":    internalResults,
+			"network":   networkCIDR,
+			"hosts":     len(internalResults),
+			"scan_time": time.Now().UTC().Format(time.RFC3339),
+			"results":   internalResults,
 		}, "", "  ")
 		if err != nil {
 			return fmt.Errorf("ошибка формирования JSON: %w", err)
@@ -176,7 +176,7 @@ func RunScanCobra(c *cobra.Command, cfg builder.Config) error {
 		fmt.Println(string(jsonData))
 		return nil
 	}
-	
+
 	display.DisplayResults(internalResults)
 	display.DisplayAnalytics(internalResults)
 
@@ -322,18 +322,6 @@ var deviceControlCmd = &cobra.Command{
 	Long:  "Управление сетевыми устройствами через HTTP API.",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Device control: требуется указать параметры через флаги")
-	},
-}
-
-// guiCmd — запуск GUI
-var guiCmd = &cobra.Command{
-	Use:   "gui",
-	Short: "Запустить GUI приложение",
-	Long:  "Запуск графического интерфейса Network Scanner.",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Запуск GUI приложения...")
-		a := gui.NewApp()
-		a.Run()
 	},
 }
 

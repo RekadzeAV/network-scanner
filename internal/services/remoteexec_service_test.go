@@ -10,7 +10,7 @@ import (
 func TestRemoteExecService_DryRun(t *testing.T) {
 	svc := &RemoteExecService{}
 	ctx := context.Background()
-	
+
 	req := contracts.RemoteExecRequest{
 		Transport: "ssh",
 		Target:    "192.168.1.1",
@@ -24,7 +24,7 @@ func TestRemoteExecService_DryRun(t *testing.T) {
 		},
 		Consent: "I_UNDERSTAND",
 	}
-	
+
 	// DryRun должен проверить policy и вернуть ошибку если target не в allowlist
 	err := svc.DryRun(ctx, req)
 	// Ожидаем ошибку потому что policy strict и нет policy file
@@ -37,14 +37,14 @@ func TestRemoteExecService_DryRun(t *testing.T) {
 func TestRemoteExecService_Execute_InvalidTransport(t *testing.T) {
 	svc := &RemoteExecService{}
 	ctx := context.Background()
-	
+
 	req := contracts.RemoteExecRequest{
 		Transport: "invalid",
 		Target:    "192.168.1.1",
 		Command:   "hostname",
 		DryRun:    false,
 	}
-	
+
 	_, err := svc.Execute(ctx, req)
 	if err == nil {
 		t.Fatal("expected error for invalid transport")
@@ -54,9 +54,9 @@ func TestRemoteExecService_Execute_InvalidTransport(t *testing.T) {
 func TestRemoteExecService_EmptyRequest(t *testing.T) {
 	svc := &RemoteExecService{}
 	ctx := context.Background()
-	
+
 	req := contracts.RemoteExecRequest{}
-	
+
 	err := svc.DryRun(ctx, req)
 	// Должна быть ошибка из-за пустого target
 	if err == nil {

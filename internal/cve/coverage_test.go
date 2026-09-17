@@ -56,9 +56,7 @@ func TestAnalyzeResults_NoBanner(t *testing.T) {
 
 	matches := AnalyzeResults(results, NewDefaultCatalog(), Options{})
 	// Should match because version is present
-	if len(matches) < 0 {
-		t.Fatal("matches should not be negative")
-	}
+	t.Logf("matches: %d", len(matches))
 }
 
 func TestAnalyzeResults_MinCVSSFilter(t *testing.T) {
@@ -144,7 +142,7 @@ func TestAnalyzeResults_SortingByCVSS(t *testing.T) {
 		MaxAgeDays: 2000,
 		Now:        time.Date(2026, 4, 23, 0, 0, 0, 0, time.UTC),
 	})
-	
+
 	// Should be sorted by CVSS descending
 	if len(matches) >= 2 {
 		if matches[0].Entry.CVSS < matches[1].Entry.CVSS {
@@ -371,18 +369,18 @@ func TestNormalizeService_Whitespace(t *testing.T) {
 func TestFormatMatches_MultipleMatches(t *testing.T) {
 	matches := []Match{
 		{
-			HostIP:    "192.168.1.10",
-			HostName:  "server1",
-			Port:      80,
-			Service:   "http",
-			Entry:     Entry{ID: "CVE-2023-44487", CVSS: 7.5},
+			HostIP:   "192.168.1.10",
+			HostName: "server1",
+			Port:     80,
+			Service:  "http",
+			Entry:    Entry{ID: "CVE-2023-44487", CVSS: 7.5},
 		},
 		{
-			HostIP:    "192.168.1.20",
-			HostName:  "server2",
-			Port:      22,
-			Service:   "ssh",
-			Entry:     Entry{ID: "CVE-2023-38408", CVSS: 9.8},
+			HostIP:   "192.168.1.20",
+			HostName: "server2",
+			Port:     22,
+			Service:  "ssh",
+			Entry:    Entry{ID: "CVE-2023-38408", CVSS: 9.8},
 		},
 	}
 
@@ -401,11 +399,11 @@ func TestFormatMatches_MultipleMatches(t *testing.T) {
 func TestFormatMatches_WithHostName(t *testing.T) {
 	matches := []Match{
 		{
-			HostIP:     "192.168.1.10",
-			HostName:   "myserver.local",
-			Port:       80,
-			Service:    "http",
-			Entry:      Entry{ID: "CVE-2023-44487", CVSS: 7.5},
+			HostIP:   "192.168.1.10",
+			HostName: "myserver.local",
+			Port:     80,
+			Service:  "http",
+			Entry:    Entry{ID: "CVE-2023-44487", CVSS: 7.5},
 		},
 	}
 
@@ -482,7 +480,7 @@ func TestNewDefaultCatalog_NotEmpty(t *testing.T) {
 
 func TestNewDefaultCatalog_CVEStructure(t *testing.T) {
 	catalog := NewDefaultCatalog()
-	
+
 	// Проверяем структуру первой записи
 	entry := catalog.entries[0]
 	if entry.ID != "CVE-2023-44487" {
@@ -498,12 +496,12 @@ func TestNewDefaultCatalog_CVEStructure(t *testing.T) {
 
 func TestNewDefaultCatalog_AllCVEs(t *testing.T) {
 	catalog := NewDefaultCatalog()
-	
+
 	cveIDs := make(map[string]bool)
 	for _, entry := range catalog.entries {
 		cveIDs[entry.ID] = true
 	}
-	
+
 	expectedIDs := []string{"CVE-2023-44487", "CVE-2023-38408", "CVE-2021-44228"}
 	for _, id := range expectedIDs {
 		if !cveIDs[id] {
@@ -514,13 +512,13 @@ func TestNewDefaultCatalog_AllCVEs(t *testing.T) {
 
 func TestNewDefaultCatalog_CVSSValues(t *testing.T) {
 	catalog := NewDefaultCatalog()
-	
+
 	expectedCVSS := map[string]float64{
 		"CVE-2023-44487": 7.5,
 		"CVE-2023-38408": 9.8,
 		"CVE-2021-44228": 10.0,
 	}
-	
+
 	for _, entry := range catalog.entries {
 		expected, ok := expectedCVSS[entry.ID]
 		if !ok {

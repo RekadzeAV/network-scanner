@@ -11,7 +11,7 @@ func TestVersionFlag(t *testing.T) {
 
 	// Test --version flag
 	os.Args = []string{"network-scanner", "--version"}
-	
+
 	// Capture output by redirecting
 	// Since main() calls os.Exit(0), we need to test differently
 	// Just verify the version variables are set
@@ -25,7 +25,7 @@ func TestVersionVariables(t *testing.T) {
 	if Version != "dev" {
 		t.Logf("Version is set to: %s (expected 'dev' for local build)", Version)
 	}
-	
+
 	// BuildTime and GitCommit are set by ldflags
 	t.Logf("BuildTime: %s", BuildTime)
 	t.Logf("GitCommit: %s", GitCommit)

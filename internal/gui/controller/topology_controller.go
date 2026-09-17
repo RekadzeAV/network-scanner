@@ -54,8 +54,8 @@ type topologyBuildMetrics struct {
 
 // TopologyController управляет построением топологии.
 type TopologyController struct {
-	ui      *TopologyUI
-	cancel  context.CancelFunc
+	ui          *TopologyUI
+	cancel      context.CancelFunc
 	lastTopo    *topology.Topology
 	lastReport  *snmpcollector.CollectReport
 	lastMetrics topologyBuildMetrics
@@ -214,7 +214,7 @@ func (c *TopologyController) CopyPerformanceReport(window fyne.Window) {
 		dialog.ShowInformation("Информация", "Отчет производительности пока недоступен", window)
 		return
 	}
-	window.Clipboard().SetContent(reportText)
+	fyne.CurrentApp().Clipboard().SetContent(reportText)
 	dialog.ShowInformation("Готово", "Отчет производительности скопирован в буфер обмена", window)
 }
 

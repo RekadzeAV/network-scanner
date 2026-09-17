@@ -25,8 +25,8 @@ type ScanResultRow struct {
 	IP       string
 	Hostname string
 	Ports    int
-	OS string
-	Vendor string
+	OS       string
+	Vendor   string
 }
 
 // SecurityFinding строка с находкой безопасности
@@ -49,7 +49,7 @@ type TopologySummary struct {
 type TopologyDevice struct {
 	IP       string
 	Hostname string
-	Vendor string
+	Vendor   string
 }
 
 // RenderScanHTML генерирует HTML отчёт о сканировании
@@ -233,5 +233,3 @@ const scanHTMLTemplate = `<!DOCTYPE html>
   </div>
 </body>
 </html>`
-
-

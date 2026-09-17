@@ -206,7 +206,10 @@ func (p *SNMPBatchProcessor) ProcessSNMPBatch(ctx context.Context, requests []SN
 	}
 
 	results, _ := p.ProcessBatch(ctx, tasks, func(ctx context.Context, task Task) (interface{}, error) {
-		req := task.Payload.(SNMPRequest)
+		req, ok := task.Payload.(SNMPRequest)
+		if !ok {
+			return SNMPResponse{}, fmt.Errorf("invalid task payload type: %T", task.Payload)
+		}
 
 		// Создаём SNMP клиент
 		client, err := NewSNMPClient(req.Host, req.Community, p.timeout)
@@ -238,8 +241,8 @@ func (p *SNMPBatchProcessor) ProcessSNMPBatch(ctx context.Context, requests []SN
 
 	responses := make([]SNMPResponse, len(results))
 	for i, r := range results {
-		if r.Output != nil {
-			responses[i] = r.Output.(SNMPResponse)
+		if sr, ok := r.Output.(SNMPResponse); ok {
+			responses[i] = sr
 		} else {
 			responses[i] = SNMPResponse{
 				Host:  requests[i].Host,

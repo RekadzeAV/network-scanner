@@ -10,12 +10,12 @@ import (
 
 func TestFilterPresetSaveApplyRoundtrip(t *testing.T) {
 	a := &App{
-		myApp:               fyneapp.New(),
-		statusLabel:         widget.NewLabel(""),
-		resultsFilterEnt:    widget.NewEntry(),
+		myApp:                fyneapp.New(),
+		statusLabel:          widget.NewLabel(""),
+		resultsFilterEnt:     widget.NewEntry(),
 		resultsCidrFilterEnt: widget.NewEntry(),
-		resultsPortStateSel: widget.NewSelect([]string{"Все", "Есть открытые", "Есть закрытые", "Есть фильтруемые"}, nil),
-		openPortsOnlyCheck:  widget.NewCheck("", nil),
+		resultsPortStateSel:  widget.NewSelect([]string{"Все", "Есть открытые", "Есть закрытые", "Есть фильтруемые"}, nil),
+		openPortsOnlyCheck:   widget.NewCheck("", nil),
 		quickTypeChecks: map[string]*widget.Check{
 			"Network Device": widget.NewCheck("Network Device", nil),
 			"Computer":       widget.NewCheck("Computer", nil),

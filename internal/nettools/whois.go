@@ -20,13 +20,6 @@ type rdapEvent struct {
 	EventDate   string `json:"eventDate"`
 }
 
-type rdapVCardItem struct {
-	Name   string
-	Type   any
-	Format string
-	Value  any
-}
-
 type rdapEntity struct {
 	Handle []string `json:"roles"`
 	VCard  []any    `json:"vcardArray"`

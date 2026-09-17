@@ -9,8 +9,7 @@ import (
 
 func TestMaybePersistFloatPref_NilPreferences(t *testing.T) {
 	var primed bool
-	var lastVal *float64
-	lastVal = new(float64)
+	lastVal := new(float64)
 	maybePersistFloatPref(nil, "key", 0.5, &primed, lastVal, nil)
 	if primed {
 		t.Error("expected primed=false for nil prefs")

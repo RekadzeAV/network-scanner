@@ -184,11 +184,11 @@ func (h *Handler) topologyExportHandler(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(data)
+		_, _ = w.Write(data)
 
 	case "dot":
 		w.Header().Set("Content-Type", "text/plain")
-		topo.ToDOT(w)
+		_ = topo.ToDOT(w)
 
 	case "graphml":
 		data, err := topo.SaveGraphMLToBytes()
@@ -197,7 +197,7 @@ func (h *Handler) topologyExportHandler(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		w.Header().Set("Content-Type", "application/xml")
-		w.Write(data)
+		_, _ = w.Write(data)
 	}
 }
 
@@ -217,7 +217,7 @@ func (h *Handler) topologyDOTHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
-	topo.ToDOT(w)
+	_ = topo.ToDOT(w)
 }
 
 // topologyStatsHandler обрабатывает GET /api/v1/topology/stats

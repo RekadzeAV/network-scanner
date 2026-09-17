@@ -221,11 +221,12 @@ func (p *SSHProbe) Execute(ctx context.Context, host string, port int) (*ProbeRe
 	defer conn.Close()
 
 	// Читаем banner
-	conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	_ = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 	buf := make([]byte, 1024)
 	n, err := conn.Read(buf)
 	if err != nil {
-		// Может быть timeout — это нормально
+		// timeout — нормально, banner может отсутствовать
+		n = 0
 	}
 
 	result := NewProbeResult()
@@ -280,13 +281,13 @@ func (p *HTTPProbe) Execute(ctx context.Context, host string, port int) (*ProbeR
 
 	// Отправляем HTTP request
 	req := "HEAD / HTTP/1.1\r\nHost: " + host + "\r\n\r\n"
-	conn.SetWriteDeadline(time.Now().Add(500 * time.Millisecond))
+	_ = conn.SetWriteDeadline(time.Now().Add(500 * time.Millisecond))
 	if _, err := conn.Write([]byte(req)); err != nil {
 		return NewProbeResult(), nil
 	}
 
 	// Читаем response
-	conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	_ = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 	buf := make([]byte, 4096)
 	n, err := conn.Read(buf)
 	if err != nil {

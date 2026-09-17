@@ -213,35 +213,35 @@ func (a *App) buildHostQuickActions(r scanner.Result, cols int) *fyne.Container 
 			if a.toolsHostEntry != nil {
 				a.toolsHostEntry.SetText(strings.TrimSpace(r.IP))
 			}
-			a.mainTabs.SelectTabIndex(2)
+			a.mainTabs.SelectIndex(2)
 			a.runPingTool()
 		}),
 		widget.NewButton("Traceroute", func() {
 			if a.toolsHostEntry != nil {
 				a.toolsHostEntry.SetText(strings.TrimSpace(r.IP))
 			}
-			a.mainTabs.SelectTabIndex(2)
+			a.mainTabs.SelectIndex(2)
 			a.runTracerouteTool()
 		}),
 		widget.NewButton("DNS", func() {
 			if a.toolsHostEntry != nil {
 				a.toolsHostEntry.SetText(strings.TrimSpace(r.IP))
 			}
-			a.mainTabs.SelectTabIndex(2)
+			a.mainTabs.SelectIndex(2)
 			a.runDNSTool()
 		}),
 		widget.NewButton("Whois", func() {
 			if a.toolsHostEntry != nil {
 				a.toolsHostEntry.SetText(strings.TrimSpace(r.IP))
 			}
-			a.mainTabs.SelectTabIndex(2)
+			a.mainTabs.SelectIndex(2)
 			a.toolsCtrl.RunWhoisTool()
 		}),
 		widget.NewButton("Wake-on-LAN", func() {
 			if a.toolsWOLMacEntry != nil {
 				a.toolsWOLMacEntry.SetText(strings.TrimSpace(r.MAC))
 			}
-			a.mainTabs.SelectTabIndex(2)
+			a.mainTabs.SelectIndex(2)
 		}),
 	)
 }
@@ -291,7 +291,7 @@ func (a *App) buildPortChips(r scanner.Result) fyne.CanvasObject {
 		t := widget.NewLabel(lbl)
 		bg := canvas.NewRectangle(chipBgColor)
 		bg.CornerRadius = 3
-		row = append(row, container.NewMax(bg, container.NewPadded(t)))
+		row = append(row, container.NewStack(bg, container.NewPadded(t)))
 	}
 	return container.NewHBox(row...)
 }

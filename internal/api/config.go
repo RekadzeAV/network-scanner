@@ -6,15 +6,15 @@ import (
 
 // Config РєРѕРЅС„РёРіСѓСЂР°С†РёСЏ API СЃРµСЂРІРµСЂР°
 type Config struct {
-	Port        int
-	Host        string
-	ReadTimeout time.Duration
-	WriteTimeout time.Duration
-	ShutdownTimeout time.Duration
-	EnableCORS  bool
-	AllowedOrigins []string
+	Port               int
+	Host               string
+	ReadTimeout        time.Duration
+	WriteTimeout       time.Duration
+	ShutdownTimeout    time.Duration
+	EnableCORS         bool
+	AllowedOrigins     []string
 	RateLimitPerSecond int
-	InventoryPath  string
+	InventoryPath      string
 }
 
 // DefaultConfig РІРѕР·РІСЂР°С‰Р°РµС‚ РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
@@ -28,7 +28,6 @@ func DefaultConfig() Config {
 		EnableCORS:         true,
 		AllowedOrigins:     []string{"http://localhost:3000", "http://localhost:8080"},
 		RateLimitPerSecond: 10,
-		InventoryPath:  "inventory.db",
+		InventoryPath:      "inventory.db",
 	}
 }
-
