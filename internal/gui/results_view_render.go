@@ -209,35 +209,35 @@ func (a *App) buildHostQuickActions(r scanner.Result, cols int) *fyne.Container 
 		cols = 1
 	}
 	return container.NewGridWithColumns(cols,
-		widget.NewButton("Ping", func() {
+		widget.NewButtonWithIcon("Ping", iconRefresh(), func() {
 			if a.toolsHostEntry != nil {
 				a.toolsHostEntry.SetText(strings.TrimSpace(r.IP))
 			}
 			a.mainTabs.SelectIndex(2)
 			a.runPingTool()
 		}),
-		widget.NewButton("Traceroute", func() {
+		widget.NewButtonWithIcon("Traceroute", iconRoute(), func() {
 			if a.toolsHostEntry != nil {
 				a.toolsHostEntry.SetText(strings.TrimSpace(r.IP))
 			}
 			a.mainTabs.SelectIndex(2)
 			a.runTracerouteTool()
 		}),
-		widget.NewButton("DNS", func() {
+		widget.NewButtonWithIcon("DNS", iconSearch(), func() {
 			if a.toolsHostEntry != nil {
 				a.toolsHostEntry.SetText(strings.TrimSpace(r.IP))
 			}
 			a.mainTabs.SelectIndex(2)
 			a.runDNSTool()
 		}),
-		widget.NewButton("Whois", func() {
+		widget.NewButtonWithIcon("Whois", iconAccount(), func() {
 			if a.toolsHostEntry != nil {
 				a.toolsHostEntry.SetText(strings.TrimSpace(r.IP))
 			}
 			a.mainTabs.SelectIndex(2)
 			a.toolsCtrl.RunWhoisTool()
 		}),
-		widget.NewButton("Wake-on-LAN", func() {
+		widget.NewButtonWithIcon("Wake-on-LAN", iconScan(), func() {
 			if a.toolsWOLMacEntry != nil {
 				a.toolsWOLMacEntry.SetText(strings.TrimSpace(r.MAC))
 			}
@@ -289,7 +289,7 @@ func (a *App) buildPortChips(r scanner.Result) fyne.CanvasObject {
 			lbl += " · " + truncateStr(p.Banner, 40)
 		}
 		t := widget.NewLabel(lbl)
-		bg := canvas.NewRectangle(chipBgColor)
+		bg := canvas.NewRectangle(a.chipBackground())
 		bg.CornerRadius = 3
 		row = append(row, container.NewStack(bg, container.NewPadded(t)))
 	}

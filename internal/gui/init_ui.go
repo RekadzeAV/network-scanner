@@ -34,7 +34,7 @@ func (a *App) initUI() {
 	a.topologyTypeFilterSel.SetSelected("all")
 	a.topologyConfidenceFilterSel = widget.NewSelect([]string{"all", "high", "medium", "low"}, nil)
 	a.topologyConfidenceFilterSel.SetSelected("all")
-	a.topologyResetMapBtn = widget.NewButton("Сброс карты", nil)
+	a.topologyResetMapBtn = widget.NewButtonWithIcon("Сброс карты", iconRestore(), nil)
 	a.topologyGraphBox = container.NewWithoutLayout()
 	a.topologyGraphBox.Resize(fyne.NewSize(1200, 800))
 	a.topologyGraphScroll = container.NewScroll(a.topologyGraphBox)
@@ -46,9 +46,9 @@ func (a *App) initUI() {
 	a.topologyImgScroll = container.NewScroll(a.topologyImgBox)
 	a.zoomSelect = widget.NewSelect([]string{"Fit", "100%", "150%", "200%"}, nil)
 	a.zoomSelect.SetSelected("Fit")
-	a.refreshPreviewBtn = widget.NewButton("Обновить превью", nil)
+	a.refreshPreviewBtn = widget.NewButtonWithIcon("Обновить превью", iconRefresh(), nil)
 	a.refreshPreviewBtn.Disable()
-	a.openPreviewBtn = widget.NewButton("Открыть PNG во внешнем окне", nil)
+	a.openPreviewBtn = widget.NewButtonWithIcon("Открыть PNG", iconFullScreen(), nil)
 	a.openPreviewBtn.Disable()
 	a.topologyStatus = widget.NewLabel("Топология не построена")
 	a.topologyStatus.Wrapping = fyne.TextWrapWord
@@ -120,16 +120,17 @@ func (a *App) initUI() {
 	a.toolsDeviceUserEntry.SetPlaceHolder("Username (опционально)")
 	a.toolsDevicePassEntry = widget.NewPasswordEntry()
 	a.toolsDevicePassEntry.SetPlaceHolder("Password (опционально)")
-	a.toolsPingBtn = widget.NewButton("Ping", nil)
-	a.toolsTraceBtn = widget.NewButton("Traceroute", nil)
-	a.toolsDNSBtn = widget.NewButton("DNS", nil)
-	a.toolsWhoisBtn = widget.NewButton("Whois", nil)
-	a.toolsWiFiBtn = widget.NewButton("Wi-Fi", nil)
-	a.toolsAuditBtn = widget.NewButton("Аудит портов", nil)
-	a.toolsRiskBtn = widget.NewButton("Risk Signatures", nil)
-	a.toolsWOLBtn = widget.NewButton("Wake-on-LAN", nil)
-	a.toolsDeviceStatusBtn = widget.NewButton("Device Status", nil)
-	a.toolsDeviceRebootBtn = widget.NewButton("Device Reboot", nil)
+	a.toolsPingBtn = widget.NewButtonWithIcon("Ping", iconRefresh(), nil)
+	a.toolsTraceBtn = widget.NewButtonWithIcon("Traceroute", iconRoute(), nil)
+	a.toolsDNSBtn = widget.NewButtonWithIcon("DNS", iconSearch(), nil)
+	a.toolsWhoisBtn = widget.NewButtonWithIcon("Whois", iconAccount(), nil)
+	a.toolsWiFiBtn = widget.NewButtonWithIcon("Wi-Fi", iconDevice(), nil)
+	a.toolsAuditBtn = widget.NewButtonWithIcon("Аудит портов", iconInspect(), nil)
+	a.toolsRiskBtn = widget.NewButtonWithIcon("Risk Signatures", iconSecurity(), nil)
+	a.toolsWOLBtn = widget.NewButtonWithIcon("Wake-on-LAN", iconScan(), nil)
+	a.toolsDeviceStatusBtn = widget.NewButtonWithIcon("Device Status", iconInfo(), nil)
+	a.toolsDeviceRebootBtn = widget.NewButtonWithIcon("Device Reboot", iconRefresh(), nil)
+	a.toolsDeviceRebootBtn.Importance = widget.DangerImportance
 	a.toolsOutput = widget.NewRichText()
 	a.toolsOutput.Wrapping = fyne.TextWrapWord
 	a.toolsOutput.ParseMarkdown("Введите хост/IP и выберите инструмент.")
@@ -146,7 +147,7 @@ func (a *App) initUI() {
 		a.refreshOperationActionsState()
 	})
 	a.operationsSelect.PlaceHolder = "Выберите операцию"
-	a.operationsRetryBtn = widget.NewButton("Retry", func() {
+	a.operationsRetryBtn = widget.NewButtonWithIcon("Retry", iconRefresh(), func() {
 		id := strings.TrimSpace(a.selectedOperationID)
 		if id == "" || a.operations == nil {
 			return
@@ -161,7 +162,7 @@ func (a *App) initUI() {
 			a.statusLabel.SetText("Операция отправлена в retry")
 		}
 	})
-	a.operationsCancelBtn = widget.NewButton("Cancel", func() {
+	a.operationsCancelBtn = widget.NewButtonWithIcon("Cancel", iconCancel(), func() {
 		id := strings.TrimSpace(a.selectedOperationID)
 		if id == "" || a.operations == nil {
 			return
@@ -253,30 +254,30 @@ func (a *App) initUI() {
 		}
 	}
 
-	// Тулбар с основными действиями
+	// Тулбар с основными действиями (иконки + подписи — всегда видимый текст)
 	a.mainToolbar = container.NewHBox(
 		widget.NewSeparator(),
-		widget.NewButton("▶ Сканирование", func() {
+		widget.NewButtonWithIcon("Сканирование", iconScan(), func() {
 			if a.scanCtrl != nil {
 				a.scanCtrl.StartScan(a.scanResults)
 			}
 		}),
-		widget.NewButton("⏹ Стоп", func() {
+		widget.NewButtonWithIcon("Стоп", iconStop(), func() {
 			if a.scanCtrl != nil {
 				a.scanCtrl.StopScan()
 			}
 		}),
 		widget.NewSeparator(),
-		widget.NewButton("💾 Сохранить", func() {
+		widget.NewButtonWithIcon("Сохранить", iconSave(), func() {
 			a.saveResults()
 		}),
-		widget.NewButton("🗺 Топология", func() {
+		widget.NewButtonWithIcon("Топология", iconTopology(), func() {
 			if a.topoCtrl != nil {
 				a.topoCtrl.BuildTopology(a.scanResults, a.myWindow)
 			}
 		}),
 		widget.NewSeparator(),
-		widget.NewButton("↺ Сброс UI", func() {
+		widget.NewButtonWithIcon("Сброс UI", iconRestore(), func() {
 			if a.settingsMgr != nil {
 				a.settingsMgr.ResetUIPanelLayoutWithFeedback(a.scanTabMainSplit, a.topologyMainSplit, a.toolsTabMainSplit, a.myWindow)
 			}

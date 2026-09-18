@@ -514,7 +514,7 @@ func TestParseTargetsFromFile_NonExistent(t *testing.T) {
 func writeTempFile(t *testing.T, dir, name, content string) string {
 	t.Helper()
 	path := dir + "/" + name
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 		t.Fatalf("failed to create temp file %s: %v", path, err)
 	}
 	return path

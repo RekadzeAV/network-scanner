@@ -42,7 +42,7 @@ func TestHostListImporter_ImportTXT(t *testing.T) {
 192.168.1.10 server-web
 10.0.0.1
 `
-	err := os.WriteFile(txtFile, []byte(content), 0644)
+	err := os.WriteFile(txtFile, []byte(content), 0o600)
 	if err != nil {
 		t.Skipf("cannot create temp file: %v", err)
 	}
@@ -82,7 +82,7 @@ func TestHostListImporter_ImportTXT_Comments(t *testing.T) {
 192.168.1.2 server
 
 `
-	err := os.WriteFile(txtFile, []byte(content), 0644)
+	err := os.WriteFile(txtFile, []byte(content), 0o600)
 	if err != nil {
 		t.Skipf("cannot create temp file: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestHostListImporter_ImportCSV(t *testing.T) {
 192.168.1.2,switch-core,Core switch
 192.168.1.10,server-web
 `
-	err := os.WriteFile(csvFile, []byte(content), 0644)
+	err := os.WriteFile(csvFile, []byte(content), 0o600)
 	if err != nil {
 		t.Skipf("cannot create temp file: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestHostListImporter_ImportJSON(t *testing.T) {
 		{"ip": "192.168.1.2", "hostname": "switch-core"},
 		{"ip": "192.168.1.10"}
 	]`
-	err := os.WriteFile(jsonFile, []byte(content), 0644)
+	err := os.WriteFile(jsonFile, []byte(content), 0o600)
 	if err != nil {
 		t.Skipf("cannot create temp file: %v", err)
 	}

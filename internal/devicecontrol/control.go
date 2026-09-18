@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -76,6 +77,42 @@ func resolveAdapter(vendor string) (adapter, error) {
 	}
 }
 
+// validateTargetURL строго проверяет URL устройства управления.
+//
+// Правила (защита от ввода произвольных/небезопасных целей):
+//   - разрешены только схемы http и https;
+//   - обязательны host и (для http/https) отсутствие user-info, чтобы учётные
+//     данные не попадали в URL/логи (для аутентификации используется SetBasicAuth);
+//   - запрещены управляющие символы и пробелы, которые ломают разбор адреса.
+func validateTargetURL(raw string) error {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return fmt.Errorf("target URL is required")
+	}
+	// Проверка управляющих символов идёт по исходной строке ДО TrimSpace:
+	// иначе перевод строки или табуляция на конце адреса будут молча срезаны
+	// и останутся незамеченными, хотя такой ввод считается небезопасным.
+	if strings.ContainsAny(raw, " \t\r\n") {
+		return fmt.Errorf("target URL must not contain whitespace")
+	}
+	raw = trimmed
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("invalid target URL: %w", err)
+	}
+	scheme := strings.ToLower(strings.TrimSpace(u.Scheme))
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("target URL must start with http:// or https://")
+	}
+	if strings.TrimSpace(u.Host) == "" {
+		return fmt.Errorf("target URL must contain a host")
+	}
+	if u.User != nil {
+		return fmt.Errorf("target URL must not contain credentials; use username/password fields")
+	}
+	return nil
+}
+
 // Execute runs a control action for known vendor adapters.
 func Execute(ctx context.Context, req Request) (Response, error) {
 	req.Action = strings.ToLower(strings.TrimSpace(req.Action))
@@ -93,8 +130,8 @@ func Execute(ctx context.Context, req Request) (Response, error) {
 	if req.TargetURL == "" {
 		return Response{}, fmt.Errorf("target URL is required")
 	}
-	if !strings.HasPrefix(strings.ToLower(req.TargetURL), "http://") && !strings.HasPrefix(strings.ToLower(req.TargetURL), "https://") {
-		return Response{}, fmt.Errorf("target URL must start with http:// or https://")
+	if err := validateTargetURL(req.TargetURL); err != nil {
+		return Response{}, err
 	}
 
 	ad, err := resolveAdapter(req.Vendor)
@@ -114,9 +151,14 @@ func Execute(ctx context.Context, req Request) (Response, error) {
 	httpClient := &http.Client{Timeout: req.Timeout}
 	// InsecureTLS — осознанный обход проверки сертификата для устройств с
 	// самоподписанными сертификатами (домашние роутеры, старые коммутаторы).
+	// По умолчанию выключен: GUI не включает его, поэтому обычные запросы
+	// проходят полную проверку цепочки. Минимум TLS 1.2.
 	if req.InsecureTLS {
 		httpClient.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // см. комментарий выше
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, //nolint:gosec // осознанно: самоподписанные сертификаты устройств; доступно только при явном InsecureTLS, GUI по умолчанию выключен
+				MinVersion:         tls.VersionTLS12,
+			},
 		}
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(bodyBytes))

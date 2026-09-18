@@ -102,8 +102,8 @@ func TestPluginRegistry_CloseAll(t *testing.T) {
 	p1 := &simplePlugin{info: Info{Name: "Plugin1"}}
 	p2 := &simplePlugin{info: Info{Name: "Plugin2"}}
 
-	registry.Register(p1)
-	registry.Register(p2)
+	_ = registry.Register(p1)
+	_ = registry.Register(p2)
 
 	err := registry.CloseAll()
 	if err != nil {
@@ -116,7 +116,7 @@ func TestPluginRegistry_CloseAllWithError(t *testing.T) {
 	registry := NewPluginRegistry()
 
 	failingPlugin := &failingPlugin{info: Info{Name: "FailingPlugin"}, closeErr: os.ErrPermission}
-	registry.Register(failingPlugin)
+	_ = registry.Register(failingPlugin)
 
 	err := registry.CloseAll()
 	if err == nil {
@@ -244,7 +244,7 @@ func TestPluginLoader_LoadInvalidExtension(t *testing.T) {
 	// Создаем временный файл с неверным расширением
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.txt")
-	os.WriteFile(tmpFile, []byte("test"), 0644)
+	_ = os.WriteFile(tmpFile, []byte("test"), 0o600)
 
 	_, err := loader.Load(tmpFile)
 	if err == nil {
@@ -293,7 +293,7 @@ func TestPluginLoader_LoadAllNotADirectory(t *testing.T) {
 	// Создаем временный файл
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "file.txt")
-	os.WriteFile(tmpFile, []byte("test"), 0644)
+	_ = os.WriteFile(tmpFile, []byte("test"), 0o600)
 
 	_, err := loader.LoadAll(tmpFile)
 	if err == nil {

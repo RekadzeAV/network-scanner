@@ -485,8 +485,8 @@ func TestIntegrationPluginRegistry_GetAll(t *testing.T) {
 	mockP1 := &mockPlugin{info: Info{Name: "Plugin1"}}
 	mockP2 := &mockPlugin{info: Info{Name: "Plugin2"}}
 
-	registry.Register(mockP1)
-	registry.Register(mockP2)
+	_ = registry.Register(mockP1)
+	_ = registry.Register(mockP2)
 
 	allPlugins := registry.GetAll()
 	if len(allPlugins) != 2 {
@@ -498,7 +498,7 @@ func TestIntegrationPluginRegistry_CloseAll(t *testing.T) {
 	registry := NewPluginRegistry()
 
 	mockP := &mockPlugin{info: Info{Name: "TestPlugin"}}
-	registry.Register(mockP)
+	_ = registry.Register(mockP)
 
 	err := registry.CloseAll()
 	if err != nil {
@@ -609,9 +609,9 @@ func TestIntegrationPluginRegistry_MultiplePlugins(t *testing.T) {
 	p2 := &mockPlugin{info: Info{Name: "PluginBeta", Type: TypeExporter}}
 	p3 := &mockPlugin{info: Info{Name: "PluginGamma", Type: TypeScanner}}
 
-	registry.Register(p1)
-	registry.Register(p2)
-	registry.Register(p3)
+	_ = registry.Register(p1)
+	_ = registry.Register(p2)
+	_ = registry.Register(p3)
 
 	all := registry.GetAll()
 	if len(all) != 3 {
@@ -658,8 +658,8 @@ func TestIntegrationPluginRegistry_CloseAllMultiple(t *testing.T) {
 	p1 := &mockPlugin{info: Info{Name: "Plugin1"}}
 	p2 := &mockPlugin{info: Info{Name: "Plugin2"}}
 
-	registry.Register(p1)
-	registry.Register(p2)
+	_ = registry.Register(p1)
+	_ = registry.Register(p2)
 
 	err := registry.CloseAll()
 	if err != nil {

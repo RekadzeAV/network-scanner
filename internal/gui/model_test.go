@@ -149,7 +149,7 @@ func TestIsScanningDirect(t *testing.T) {
 
 	// Сначала не сканируем (кнопка включена)
 	disabledVal := model.GetScanButtonDisabled()
-	disabledVal.Set(false)
+	_ = disabledVal.Set(false)
 
 	// Проверяем через binding
 	val, _ := disabledVal.Get()
@@ -158,7 +158,7 @@ func TestIsScanningDirect(t *testing.T) {
 	}
 
 	// Устанавливаем сканирование
-	disabledVal.Set(true)
+	_ = disabledVal.Set(true)
 
 	// Проверяем
 	val, _ = disabledVal.Get()

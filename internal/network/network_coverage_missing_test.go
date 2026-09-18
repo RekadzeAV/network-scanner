@@ -73,7 +73,7 @@ func TestNewDefaultARPCache_Refresh(t *testing.T) {
 	defer cache.Stop()
 
 	// Запускаем обновление
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	// Даем время на завершение
 	time.Sleep(100 * time.Millisecond)

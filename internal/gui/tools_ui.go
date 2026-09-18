@@ -3,7 +3,6 @@ package gui
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -62,7 +61,7 @@ func (a *App) runDeviceControlTool(action string) {
 		if err != nil && strings.TrimSpace(entry.Message) == "" {
 			entry.Message = err.Error()
 		}
-		auditPath := filepath.Join("audit", "device-actions.log")
+		auditPath := deviceAuditLogPath()
 		_ = devicecontrol.AppendAudit(auditPath, entry)
 		if err != nil {
 			return fmt.Sprintf("### Device Control\n\nОшибка: `%v`\n\n- audit: `%s`", err, auditPath), err

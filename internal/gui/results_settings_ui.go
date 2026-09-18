@@ -182,7 +182,7 @@ func (a *App) saveScanDiagnostics() {
 			}
 		} else {
 			_ = writer.Close()
-			if writeErr := os.WriteFile(normalizedPath, []byte(text), 0644); writeErr != nil {
+			if writeErr := os.WriteFile(normalizedPath, []byte(text), 0600); writeErr != nil {
 				dialog.ShowError(fmt.Errorf("ошибка при сохранении диагностики: %v", writeErr), a.myWindow)
 				return
 			}

@@ -31,7 +31,7 @@ func BenchmarkARPCacheGet(b *testing.B) {
 	}
 
 	cache := NewARPCache(5*time.Minute, refreshFunc)
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -50,7 +50,7 @@ func BenchmarkARPCacheGetBatch(b *testing.B) {
 	}
 
 	cache := NewARPCache(5*time.Minute, refreshFunc)
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	ips := make([]string, 100)
 	for i := 0; i < 100; i++ {
@@ -90,7 +90,7 @@ func BenchmarkARPCacheGetAll(b *testing.B) {
 	}
 
 	cache := NewARPCache(5*time.Minute, refreshFunc)
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -138,7 +138,7 @@ func BenchmarkARPCacheConcurrentGet(b *testing.B) {
 	}
 
 	cache := NewARPCache(5*time.Minute, refreshFunc)
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -159,7 +159,7 @@ func BenchmarkResolveMACBatch(b *testing.B) {
 	}
 
 	cache := NewARPCache(5*time.Minute, refreshFunc)
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	ips := make([]string, 100)
 	for i := 0; i < 100; i++ {

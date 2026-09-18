@@ -144,7 +144,7 @@ func TestHandleScanStatus_CheckValid(t *testing.T) {
 	router.GetRouter().ServeHTTP(w, req)
 
 	var resp scanResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 
 	// Теперь проверим статус
 	time.Sleep(100 * time.Millisecond)
@@ -158,7 +158,7 @@ func TestHandleScanStatus_CheckValid(t *testing.T) {
 	}
 
 	var status scanStatus
-	json.NewDecoder(w2.Body).Decode(&status)
+	_ = json.NewDecoder(w2.Body).Decode(&status)
 
 	if status.ID != resp.ID {
 		t.Errorf("expected scan ID %s, got %s", resp.ID, status.ID)
@@ -259,7 +259,7 @@ func TestWriteJSON_Success(t *testing.T) {
 	}
 
 	var resp map[string]string
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 
 	if resp["key"] != "value" {
 		t.Errorf("expected key 'value', got %q", resp["key"])
@@ -294,7 +294,7 @@ func TestWriteError_BadRequest(t *testing.T) {
 	}
 
 	var resp map[string]string
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 
 	if resp["error"] != "test error" {
 		t.Errorf("expected error 'test error', got %q", resp["error"])
@@ -330,7 +330,7 @@ func TestHandleHealth_Details(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 
 	if resp["status"] != "ok" {
 		t.Errorf("expected status 'ok', got %v", resp["status"])

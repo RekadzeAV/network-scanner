@@ -68,7 +68,8 @@ func SaveScanHTML(path string, data *ScanReportData) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, b, 0o644)
+	// 0600: отчёт может содержать чувствительные данные сети (gosec G306)
+	return os.WriteFile(path, b, 0o600)
 }
 
 // GenerateScanReportData генерирует данные для отчёта из результатов сканирования

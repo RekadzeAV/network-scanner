@@ -35,8 +35,8 @@ func TestCLIPresenter_DisplaySummary(t *testing.T) {
 
 func TestCLIPresenter_Export_JSON(t *testing.T) {
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
-	os.Chdir(t.TempDir())
+	defer func() { _ = os.Chdir(oldDir) }()
+	_ = os.Chdir(t.TempDir())
 
 	p := CLIPresenter{}
 	results := []scanner.HostResult{
@@ -50,8 +50,8 @@ func TestCLIPresenter_Export_JSON(t *testing.T) {
 
 func TestCLIPresenter_Export_CSV(t *testing.T) {
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
-	os.Chdir(t.TempDir())
+	defer func() { _ = os.Chdir(oldDir) }()
+	_ = os.Chdir(t.TempDir())
 
 	p := CLIPresenter{}
 	results := []scanner.HostResult{
@@ -65,8 +65,8 @@ func TestCLIPresenter_Export_CSV(t *testing.T) {
 
 func TestCLIPresenter_Export_TXT(t *testing.T) {
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
-	os.Chdir(t.TempDir())
+	defer func() { _ = os.Chdir(oldDir) }()
+	_ = os.Chdir(t.TempDir())
 
 	p := CLIPresenter{}
 	results := []scanner.HostResult{
@@ -99,8 +99,8 @@ func TestJSONPresenter_DisplaySummary(t *testing.T) {
 
 func TestJSONPresenter_Export(t *testing.T) {
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
-	os.Chdir(t.TempDir())
+	defer func() { _ = os.Chdir(oldDir) }()
+	_ = os.Chdir(t.TempDir())
 
 	p := JSONPresenter{}
 	results := []scanner.HostResult{
@@ -133,8 +133,8 @@ func TestHTMLPresenter_DisplaySummary(t *testing.T) {
 
 func TestHTMLPresenter_Export_Success(t *testing.T) {
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
-	os.Chdir(t.TempDir())
+	defer func() { _ = os.Chdir(oldDir) }()
+	_ = os.Chdir(t.TempDir())
 
 	p := HTMLPresenter{}
 	results := []scanner.HostResult{
@@ -171,8 +171,8 @@ func TestHTMLPresenter_Export_WrongFormat(t *testing.T) {
 
 func TestHTMLPresenter_Export_Empty(t *testing.T) {
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
-	os.Chdir(t.TempDir())
+	defer func() { _ = os.Chdir(oldDir) }()
+	_ = os.Chdir(t.TempDir())
 
 	p := HTMLPresenter{}
 	err := p.Export([]scanner.HostResult{}, "html")
@@ -202,8 +202,8 @@ func TestXMLPresenter_DisplaySummary(t *testing.T) {
 
 func TestXMLPresenter_Export_Success(t *testing.T) {
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
-	os.Chdir(t.TempDir())
+	defer func() { _ = os.Chdir(oldDir) }()
+	_ = os.Chdir(t.TempDir())
 
 	p := XMLPresenter{}
 	results := []scanner.HostResult{
@@ -239,8 +239,8 @@ func TestXMLPresenter_Export_WrongFormat(t *testing.T) {
 
 func TestXMLPresenter_Export_Empty(t *testing.T) {
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
-	os.Chdir(t.TempDir())
+	defer func() { _ = os.Chdir(oldDir) }()
+	_ = os.Chdir(t.TempDir())
 
 	p := XMLPresenter{}
 	err := p.Export([]scanner.HostResult{}, "xml")

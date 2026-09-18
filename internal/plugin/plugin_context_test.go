@@ -229,7 +229,7 @@ func TestPluginRegistry_CloseAll_Failing(t *testing.T) {
 		info:     Info{Name: "Failing"},
 		closeErr: closeErr,
 	}
-	registry.Register(failing)
+	_ = registry.Register(failing)
 
 	// CloseAll должен вернуть ошибку
 	err := registry.CloseAll()
@@ -244,8 +244,8 @@ func TestPluginRegistry_CloseAll_Failing(t *testing.T) {
 func TestPluginRegistry_CloseAll_Success(t *testing.T) {
 	registry := NewPluginRegistry()
 
-	registry.Register(&simplePlugin{info: Info{Name: "Plugin1"}})
-	registry.Register(&simplePlugin{info: Info{Name: "Plugin2"}})
+	_ = registry.Register(&simplePlugin{info: Info{Name: "Plugin1"}})
+	_ = registry.Register(&simplePlugin{info: Info{Name: "Plugin2"}})
 
 	err := registry.CloseAll()
 	if err != nil {
@@ -323,7 +323,7 @@ func BenchmarkPluginRegistry_Register(b *testing.B) {
 
 func BenchmarkPluginRegistry_Get(b *testing.B) {
 	registry := NewPluginRegistry()
-	registry.Register(&simplePlugin{info: Info{Name: "bench"}})
+	_ = registry.Register(&simplePlugin{info: Info{Name: "bench"}})
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = registry.Get("bench")

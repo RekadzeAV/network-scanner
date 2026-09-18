@@ -14,8 +14,58 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
+
+// currentThemeIsDark определяет активный вариант темы (для адаптивных цветов
+// рендера, задаваемых в коде, а не через fyne.Theme). Порядок определения:
+// 1) ModernTheme, установленный через applyTheme (прямая проверка isDark);
+// 2) вариант темы приложения (режим «системная»);
+// 3) светлый вариант по умолчанию.
+func (a *App) currentThemeIsDark() bool {
+	if a == nil {
+		return false
+	}
+	if a.myApp != nil {
+		if mt, ok := a.myApp.Settings().Theme().(*ModernTheme); ok {
+			return mt.isDark
+		}
+		if a.myApp.Settings().ThemeVariant() == theme.VariantDark {
+			return true
+		}
+	}
+	return false
+}
+
+// chipBackground возвращает фон чипов портов, адаптивный к варианту темы
+// (светлый: светло-серый; тёмный: тёмно-серый — вместо белёсого по умолчанию).
+func (a *App) chipBackground() color.Color {
+	if a.currentThemeIsDark() {
+		return color.RGBA{R: 0x2D, G: 0x2D, B: 0x30, A: 255}
+	}
+	return color.RGBA{R: 0xF0, G: 0xF0, B: 0xF0, A: 255}
+}
+
+// rowBackground возвращает фон строк/карточек таблицы результатов,
+// адаптивный к варианту темы.
+func (a *App) rowBackground() color.Color {
+	if a.currentThemeIsDark() {
+		return color.RGBA{R: 0x25, G: 0x25, B: 0x28, A: 255}
+	}
+	return color.RGBA{R: 0xFA, G: 0xFA, B: 0xFA, A: 255}
+}
+
+// themeColorSuccess — акцент успеха (зелёный бейдж автопрофиля);
+// цвета сохранены из прежнего UI (читаемы на светлой и тёмной теме).
+func themeColorSuccess() color.Color {
+	return color.RGBA{R: 60, G: 170, B: 80, A: 255}
+}
+
+// themeColorDisabled — цвет отключенного состояния.
+func themeColorDisabled() color.Color {
+	return color.RGBA{R: 140, G: 140, B: 140, A: 255}
+}
 
 func (a *App) buildPieChart(title string, data map[string]int) fyne.CanvasObject {
 	cacheKey := buildPieChartCacheKey(title, data)
@@ -29,9 +79,15 @@ func (a *App) buildPieChart(title string, data map[string]int) fyne.CanvasObject
 	}
 
 	img := image.NewRGBA(image.Rect(0, 0, 260, 260))
+	// Фон диаграммы адаптивен к теме: тёмный вариант вместо белёсого,
+	// иначе pie-чарт выглядит как белый квадрат на тёмном фоне.
+	pieBg := color.RGBA{R: 250, G: 250, B: 250, A: 255}
+	if a.currentThemeIsDark() {
+		pieBg = color.RGBA{R: 0x1E, G: 0x1E, B: 0x1E, A: 255}
+	}
 	for y := 0; y < 260; y++ {
 		for x := 0; x < 260; x++ {
-			img.Set(x, y, color.RGBA{R: 250, G: 250, B: 250, A: 255})
+			img.Set(x, y, pieBg)
 		}
 	}
 

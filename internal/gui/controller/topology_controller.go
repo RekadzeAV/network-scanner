@@ -249,7 +249,7 @@ func (c *TopologyController) SavePerformanceReport(window fyne.Window) {
 			}
 		} else {
 			_ = writer.Close()
-			if writeErr := os.WriteFile(normalizedPath, []byte(reportText), 0644); writeErr != nil {
+			if writeErr := os.WriteFile(normalizedPath, []byte(reportText), 0600); writeErr != nil {
 				dialog.ShowError(fmt.Errorf("ошибка при сохранении отчета: %v", writeErr), window)
 				return
 			}

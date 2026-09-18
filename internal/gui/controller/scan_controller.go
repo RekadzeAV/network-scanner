@@ -417,13 +417,12 @@ func (c *ScanController) SaveScanDiagnostics(diagnosticsText string) {
 			}
 		} else {
 			_ = writer.Close()
-			if writeErr := os.WriteFile(normalizedPath, []byte(diagnosticsText), 0644); writeErr != nil {
+			if writeErr := os.WriteFile(normalizedPath, []byte(diagnosticsText), 0600); writeErr != nil {
 				dialog.ShowError(fmt.Errorf("ошибка при сохранении диагностики: %v", writeErr), c.ui.Window)
 				return
 			}
 		}
 
-		dialog.ShowInformation("Готово", fmt.Sprintf("Диагностика сканирования сохранена: %s", normalizedPath), c.ui.Window)
 		dialog.ShowInformation("Готово", fmt.Sprintf("Диагностика сканирования сохранена: %s", normalizedPath), c.ui.Window)
 	}, c.ui.Window)
 	saveDialog.SetFileName(defaultFileName)

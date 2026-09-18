@@ -382,7 +382,7 @@ func TestDOTGoldenSnapshot(t *testing.T) {
 
 	// Сохраняем golden-снимок для сравнения в будущем
 	goldenPath := filepath.Join(t.TempDir(), "topology.golden.dot")
-	if err := os.WriteFile(goldenPath, []byte(dot1), 0644); err != nil {
+	if err := os.WriteFile(goldenPath, []byte(dot1), 0600); err != nil {
 		t.Fatalf("write golden file: %v", err)
 	}
 

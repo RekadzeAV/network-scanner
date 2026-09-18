@@ -441,7 +441,7 @@ func TestCollectEventHandlerGetResultsReturnsCopy(t *testing.T) {
 		Result: result,
 	}
 
-	handler.Handle(event)
+	_ = handler.Handle(event)
 
 	// Получаем результаты
 	results := handler.GetResults()

@@ -3,6 +3,7 @@ package snmpcollector
 import (
 	"context"
 	"fmt"
+	"math"
 	"runtime"
 	"sort"
 	"strconv"
@@ -171,6 +172,36 @@ func (g *GoSNMPClient) GetIfTable() (map[int]*IfEntry, error) {
 	return out, nil
 }
 
+// snmpValueToInt безопасно конвертирует значение SNMP PDU в int (gosec G115):
+// значения, не помещающиеся в platform int на данной архитектуре, отбрасываются.
+func snmpValueToInt(v any) (int, bool) {
+	switch n := v.(type) {
+	case int:
+		return n, true
+	case uint:
+		if uint64(n) > uint64(math.MaxInt) {
+			return 0, false
+		}
+		return int(n), true //nolint:gosec // G115: переполнение исключено проверкой выше
+	case uint32:
+		if uint64(n) > uint64(math.MaxInt) {
+			return 0, false
+		}
+		return int(n), true //nolint:gosec // G115: переполнение исключено проверкой выше
+	case int64:
+		if n > math.MaxInt || n < math.MinInt {
+			return 0, false
+		}
+		return int(n), true //nolint:gosec // G115: переполнение исключено проверкой выше
+	case uint64:
+		if n > uint64(math.MaxInt) {
+			return 0, false
+		}
+		return int(n), true //nolint:gosec // G115: переполнение исключено проверкой выше
+	}
+	return 0, false
+}
+
 func (g *GoSNMPClient) GetMacTable() (map[string]int, error) {
 	out := make(map[string]int)
 	errDot1d := g.walk(oidDot1dTpFdb, func(pdu gosnmp.SnmpPDU) error {
@@ -178,17 +209,8 @@ func (g *GoSNMPClient) GetMacTable() (map[string]int, error) {
 		if parseErr != nil {
 			return nil
 		}
-		switch v := pdu.Value.(type) {
-		case int:
-			out[mac] = v
-		case uint:
-			out[mac] = int(v)
-		case uint32:
-			out[mac] = int(v)
-		case int64:
-			out[mac] = int(v)
-		case uint64:
-			out[mac] = int(v)
+		if n, ok := snmpValueToInt(pdu.Value); ok {
+			out[mac] = n
 		}
 		return nil
 	})
@@ -197,26 +219,9 @@ func (g *GoSNMPClient) GetMacTable() (map[string]int, error) {
 		if parseErr != nil {
 			return nil
 		}
-		switch v := pdu.Value.(type) {
-		case int:
-			if _, ok := out[mac]; !ok {
-				out[mac] = v
-			}
-		case uint:
-			if _, ok := out[mac]; !ok {
-				out[mac] = int(v)
-			}
-		case uint32:
-			if _, ok := out[mac]; !ok {
-				out[mac] = int(v)
-			}
-		case int64:
-			if _, ok := out[mac]; !ok {
-				out[mac] = int(v)
-			}
-		case uint64:
-			if _, ok := out[mac]; !ok {
-				out[mac] = int(v)
+		if n, ok := snmpValueToInt(pdu.Value); ok {
+			if _, exists := out[mac]; !exists {
+				out[mac] = n
 			}
 		}
 		return nil

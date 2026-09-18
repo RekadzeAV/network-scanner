@@ -82,7 +82,7 @@ func TestHandleScanStatus_Found(t *testing.T) {
 	router.GetRouter().ServeHTTP(w, req)
 
 	var resp scanResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 
 	// Check status
 	req2 := httptest.NewRequest("GET", "/api/v1/scan/"+resp.ID, nil)

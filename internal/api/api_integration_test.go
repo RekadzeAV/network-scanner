@@ -281,7 +281,7 @@ func TestIntegrationScanStatus_Found(t *testing.T) {
 	router.GetRouter().ServeHTTP(w, req)
 
 	var scanResp scanResponse
-	json.Unmarshal(w.Body.Bytes(), &scanResp)
+	_ = json.Unmarshal(w.Body.Bytes(), &scanResp)
 
 	// Now check status
 	statusReq := httptest.NewRequest("GET", "/api/v1/scan/"+scanResp.ID, nil)
@@ -293,7 +293,7 @@ func TestIntegrationScanStatus_Found(t *testing.T) {
 	}
 
 	var statusResp scanStatus
-	json.Unmarshal(statusW.Body.Bytes(), &statusResp)
+	_ = json.Unmarshal(statusW.Body.Bytes(), &statusResp)
 
 	if statusResp.Status != "running" {
 		t.Errorf("expected status 'running', got %s", statusResp.Status)
@@ -333,7 +333,7 @@ func TestIntegrationResults_Empty(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 
 	// Should return empty results
 	if _, ok := resp["results"]; !ok {
@@ -881,7 +881,7 @@ func TestIntegrationAlerting_Check(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 
 	if _, ok := resp["alerts"]; !ok {
 		t.Error("expected 'alerts' field")
@@ -905,7 +905,7 @@ func TestIntegrationAlerting_Clear(t *testing.T) {
 	}
 
 	var resp map[string]string
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 
 	if resp["message"] != "alerts cleared" {
 		t.Errorf("expected message 'alerts cleared', got %q", resp["message"])
@@ -961,7 +961,7 @@ func TestIntegrationInventoryList_OK(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 
 	if _, ok := resp["snapshots"]; !ok {
 		t.Error("expected 'snapshots' field")
@@ -996,7 +996,7 @@ func TestIntegrationInventorySave_Valid(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 
 	if resp["message"] != "snapshot saved successfully" {
 		t.Errorf("expected success message, got %q", resp["message"])
@@ -1152,7 +1152,7 @@ func TestIntegrationResponseWriter_CaptureCode(t *testing.T) {
 		handler.loggingMiddleware(
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusCreated)
-				w.Write([]byte("created"))
+				_, _ = w.Write([]byte("created"))
 			}),
 		),
 	).ServeHTTP(w, req)
@@ -1263,7 +1263,7 @@ func TestIntegrationFullAPIPipeline(t *testing.T) {
 	}
 
 	var scanResp scanResponse
-	json.Unmarshal(w.Body.Bytes(), &scanResp)
+	_ = json.Unmarshal(w.Body.Bytes(), &scanResp)
 
 	// Step 3: Check scan status
 	req = httptest.NewRequest("GET", "/api/v1/scan/"+scanResp.ID, nil)
@@ -1456,7 +1456,7 @@ func TestIntegrationResults_JSONStructure(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 
 	// Verify response structure
 	if _, ok := resp["results"]; !ok {
@@ -1500,7 +1500,7 @@ func TestIntegrationHealth_JSONStructure(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 
 	// Verify response structure
 	if _, ok := resp["status"]; !ok {
@@ -1866,7 +1866,7 @@ func TestIntegrationAlertsClear_WithEngine(t *testing.T) {
 	}
 
 	var resp map[string]string
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 
 	if resp["message"] != "alerts cleared" {
 		t.Errorf("expected message 'alerts cleared', got %q", resp["message"])
@@ -1933,7 +1933,7 @@ func TestIntegrationScanRequest_AllFields(t *testing.T) {
 	}
 
 	var resp scanResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 
 	if resp.ID == "" {
 		t.Error("expected non-empty scan ID")
@@ -2037,7 +2037,7 @@ func TestIntegrationScanStatus_MultipleScans(t *testing.T) {
 	router.GetRouter().ServeHTTP(w1, req1)
 
 	var resp1 scanResponse
-	json.Unmarshal(w1.Body.Bytes(), &resp1)
+	_ = json.Unmarshal(w1.Body.Bytes(), &resp1)
 
 	// Start second scan
 	body2, _ := json.Marshal(map[string]interface{}{
@@ -2049,7 +2049,7 @@ func TestIntegrationScanStatus_MultipleScans(t *testing.T) {
 	router.GetRouter().ServeHTTP(w2, req2)
 
 	var resp2 scanResponse
-	json.Unmarshal(w2.Body.Bytes(), &resp2)
+	_ = json.Unmarshal(w2.Body.Bytes(), &resp2)
 
 	// Verify different IDs
 	if resp1.ID == resp2.ID {
@@ -2089,7 +2089,7 @@ func TestIntegrationResults_AfterScanCompletion(t *testing.T) {
 	router.GetRouter().ServeHTTP(w, req)
 
 	var resp scanResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 
 	// Wait for scan to complete (2 seconds)
 	time.Sleep(3 * time.Second)
@@ -2104,7 +2104,7 @@ func TestIntegrationResults_AfterScanCompletion(t *testing.T) {
 	}
 
 	var resultsResp map[string]interface{}
-	json.Unmarshal(resultsW.Body.Bytes(), &resultsResp)
+	_ = json.Unmarshal(resultsW.Body.Bytes(), &resultsResp)
 
 	if _, ok := resultsResp["results"]; !ok {
 		t.Error("expected 'results' field")
@@ -2375,7 +2375,7 @@ func TestIntegrationHandler_writeError(t *testing.T) {
 	}
 
 	var resp map[string]string
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 
 	if resp["error"] != "bad request" {
 		t.Errorf("expected error 'bad request', got %q", resp["error"])
@@ -2423,7 +2423,7 @@ func TestIntegrationHandleHealth_Timestamp(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 
 	timestamp, ok := resp["timestamp"].(float64)
 	if !ok {

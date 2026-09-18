@@ -14,7 +14,7 @@ func TestLoadPolicy(t *testing.T) {
   "allow_hosts": ["10.0.0.10", " 10.0.0.10 ", "host-a"],
   "allow_commands": ["hostname", " hostname ", "uname -a"]
 }`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write policy: %v", err)
 	}
 	p, err := LoadPolicy(path)
@@ -36,7 +36,7 @@ func TestLoadPolicy_RejectsWildcard(t *testing.T) {
   "allow_hosts": ["*"],
   "allow_commands": ["hostname"]
 }`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write policy: %v", err)
 	}
 	_, err := LoadPolicy(path)

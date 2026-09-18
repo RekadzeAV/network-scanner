@@ -16,16 +16,16 @@ func TestNewProfiler_DefaultDir(t *testing.T) {
 		t.Fatal("expected non-nil Profiler")
 	}
 	// Start+Stop to properly close files
-	p.Start()
-	p.Stop()
+	_ = p.Start()
+	_ = p.Stop()
 }
 
 func TestNewProfiler_EmptyDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	// Change to temp dir so default "profile" dir is created there
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
-	os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(oldDir) }()
+	_ = os.Chdir(tmpDir)
 
 	p, err := NewProfiler("")
 	if err != nil {
@@ -34,8 +34,8 @@ func TestNewProfiler_EmptyDir(t *testing.T) {
 	if p == nil {
 		t.Fatal("expected non-nil Profiler")
 	}
-	p.Start()
-	p.Stop()
+	_ = p.Start()
+	_ = p.Stop()
 }
 
 func TestProfiler_StartStop(t *testing.T) {
@@ -108,8 +108,8 @@ func TestNewProfiler_MemFileCreateFails(t *testing.T) {
 	memPath := filepath.Join(dir, "memory.profile")
 
 	// Pre-create the memory file path as a directory to force Create failure
-	os.MkdirAll(dir, 0755)
-	os.MkdirAll(memPath, 0755)
+	_ = os.MkdirAll(dir, 0755)
+	_ = os.MkdirAll(memPath, 0755)
 
 	_, err := NewProfiler(dir)
 	if err == nil {
@@ -135,9 +135,9 @@ func TestStart_Error_AlreadyRunning(t *testing.T) {
 	err = p.Start()
 	if err == nil {
 		// On some platforms it might not fail, so just stop
-		p.Stop()
+		_ = p.Stop()
 	} else {
-		p.Stop()
+		_ = p.Stop()
 	}
 }
 
@@ -168,5 +168,5 @@ func TestQuickProfile_StartFails(t *testing.T) {
 		t.Logf("QuickProfile Start failed as expected: %v", err2)
 	}
 
-	p.Stop()
+	_ = p.Stop()
 }

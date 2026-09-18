@@ -78,7 +78,7 @@ func TestSecurityController_WakeOnLAN_WithMAC(t *testing.T) {
 		WOLMacEntry: widget.NewEntry(),
 	}}
 	ctrl.ui.WOLMacEntry.SetText("aa:bb:cc:dd:ee:ff")
-	defer func() { recover() }()
+	defer func() { _ = recover() }()
 	ctrl.WakeOnLAN()
 	// Может паниковать из-за network в headless — это ожидаемо
 }
@@ -88,7 +88,7 @@ func TestSecurityController_WakeOnLAN_InvalidMAC(t *testing.T) {
 		WOLMacEntry: widget.NewEntry(),
 	}}
 	ctrl.ui.WOLMacEntry.SetText("invalid-mac")
-	defer func() { recover() }()
+	defer func() { _ = recover() }()
 	ctrl.WakeOnLAN()
 	// Может паниковать из-за network в headless — это ожидаемо
 }

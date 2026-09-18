@@ -353,7 +353,7 @@ func TestCollectEventHandler_GetResultsReturnsCopy(t *testing.T) {
 	handler := NewCollectEventHandler()
 
 	result := Result{IP: "192.168.1.1"}
-	handler.Handle(ScanEvent{
+	_ = handler.Handle(ScanEvent{
 		Type:   "host",
 		Result: &result,
 	})
@@ -370,7 +370,7 @@ func TestCollectEventHandler_GetResultsReturnsCopy(t *testing.T) {
 func TestCollectEventHandler_GetProgressReturnsCopy(t *testing.T) {
 	handler := NewCollectEventHandler()
 
-	handler.Handle(ScanEvent{
+	_ = handler.Handle(ScanEvent{
 		Type:    "progress",
 		Message: "test",
 	})

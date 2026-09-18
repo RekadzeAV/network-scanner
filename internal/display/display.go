@@ -609,7 +609,7 @@ func FormatResultsAsText(results []scanner.Result) string {
 // SaveResultsToFile сохраняет результаты сканирования в текстовый файл
 func SaveResultsToFile(results []scanner.Result, filename string) error {
 	text := FormatResultsAsText(results)
-	return os.WriteFile(filename, []byte(text), 0644)
+	return os.WriteFile(filename, []byte(text), 0600)
 }
 
 // SaveResultsToJSON сохраняет результаты сканирования в JSON файл
@@ -726,7 +726,7 @@ func SaveResultsToJSON(results []scanner.Result, filename string) error {
 		return fmt.Errorf("ошибка при маршалинге JSON: %v", err)
 	}
 
-	return os.WriteFile(filename, data, 0644)
+	return os.WriteFile(filename, data, 0600)
 }
 
 // SaveResultsToCSV сохраняет результаты сканирования в CSV файл

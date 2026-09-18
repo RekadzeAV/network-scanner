@@ -131,10 +131,10 @@
 
 | # | Подзадача | Описание | Оценка | Критерий готовности | Статус |
 |---|-----------|----------|--------|---------------------|--------|
-| L3.1 | Toolchain Setup | Установка `gomobile`, настройка Android SDK / Xcode. | 2 ч | `gomobile init` проходит успешно. | ✅ Завершено (gomobile установлен, скрипты сборки) |
-| L3.2 | Cross-Compilation | Настройка `fyne package -os android/ios`. | 2 ч | Бинарники `.apk` и `.ipa` собираются. | ✅ Завершено (build-android.sh/.ps1, build-ios.sh) |
-| L3.3 | Responsive UI | Адаптация layout под мобильные экраны. | 1 день | GUI читаем и удобен на 6" экране. | ✅ Завершено (MobileLayout, TouchGestures) |
-| L3.4 | Touch Gestures | Swipe для навигации, pinch для зума таблиц. | 1 день | Жесты обрабатываются корректно. | ✅ Завершено (TouchGestures с swipe/pinch/longpress) |
+| L3.1 | Toolchain Setup | Установка `gomobile`, настройка Android SDK / Xcode. | 2 ч | `gomobile init` проходит успешно. | ⚠️ Частично: gomobile bind собирал библиотеку, а не Fyne-приложение; скрипты удалены 2026-09-19 |
+| L3.2 | Cross-Compilation | Настройка `fyne package -os android/ios`. | 2 ч | Бинарники `.apk` и `.ipa` собираются. | ❌ Цель не достигнута: gomobile bind ≠ fyne package; скрипты удалены 2026-09-19 |
+| L3.3 | Responsive UI | Адаптация layout под мобильные экраны. | 1 день | GUI читаем и удобен на 6" экране. | ❌ Историческая пометка ошибочна: MobileLayout/TouchGestures содержали только TODO, в GUI не подключались; удалены 2026-09-19 |
+| L3.4 | Touch Gestures | Swipe для навигации, pinch для зума таблиц. | 1 день | Жесты обрабатываются корректно. | ❌ Историческая пометка ошибочна: pinch был заглушкой, контекстное меню нерабочее; удалено 2026-09-19 |
 
 ---
 

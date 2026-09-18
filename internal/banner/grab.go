@@ -87,9 +87,15 @@ func grabTLSHTTP(host string, port int, timeout time.Duration) (string, error) {
 	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 	dialer := &net.Dialer{Timeout: timeout}
 	cfg := &tls.Config{
-		ServerName:         host,
-		InsecureSkipVerify: true, // Для баннер-граббинга не валидируем сертификат.
-		MinVersion:         tls.VersionTLS10,
+		ServerName: host,
+		// InsecureSkipVerify включён осознанно: баннер-граббинг читает
+		// метаданные службы у устройств с самоподписанными/просроченными
+		// сертификатами (домашние роутеры, старые коммутаторы). Проверка
+		// цепочки здесь не является целью и не влияет на доверие к данным.
+		InsecureSkipVerify: true, //nolint:gosec // см. комментарий выше
+		// Минимум TLS 1.2: TLS 1.0/1.1 устарели (RFC 8996), их поддержка
+		// снижает защищённость соединения и не требуется для граббинга.
+		MinVersion: tls.VersionTLS12,
 	}
 	conn, err := tls.DialWithDialer(dialer, "tcp", addr, cfg)
 	if err != nil {

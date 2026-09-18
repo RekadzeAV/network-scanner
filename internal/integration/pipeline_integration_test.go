@@ -104,7 +104,7 @@ func exportResultsToJSON(results []scanner.Result, filename string) error {
 		data = append(data, []byte(r.IP)...)
 		data = append(data, ',')
 	}
-	return os.WriteFile(filename, data, 0644)
+	return os.WriteFile(filename, data, 0600)
 }
 
 // TestScanTopologySavePipeline проверяет полный пайплайн:

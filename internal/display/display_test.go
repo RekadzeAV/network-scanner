@@ -231,7 +231,7 @@ func TestFormatResultsAsText_Golden(t *testing.T) {
 		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
 			t.Fatalf("failed to create golden directory: %v", err)
 		}
-		if err := os.WriteFile(goldenPath, []byte(got), 0o644); err != nil {
+		if err := os.WriteFile(goldenPath, []byte(got), 0600); err != nil {
 			t.Fatalf("failed to write golden file: %v", err)
 		}
 	}

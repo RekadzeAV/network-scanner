@@ -58,8 +58,8 @@ func TestPluginRegistry_GetAll(t *testing.T) {
 	plugin1 := &mockPlugin{info: plugin.Info{Name: "Plugin1"}}
 	plugin2 := &mockPlugin{info: plugin.Info{Name: "Plugin2"}}
 
-	registry.Register(plugin1)
-	registry.Register(plugin2)
+	_ = registry.Register(plugin1)
+	_ = registry.Register(plugin2)
 
 	all := registry.GetAll()
 	if len(all) != 2 {

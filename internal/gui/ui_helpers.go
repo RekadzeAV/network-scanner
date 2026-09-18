@@ -60,14 +60,14 @@ func (a *App) refreshAutoProfileStateLabel() {
 	}
 	if enabled {
 		a.autoProfileStateText.Text = "Автопрофиль: ВКЛ"
-		a.autoProfileStateText.Color = color.RGBA{R: 60, G: 170, B: 80, A: 255}
+		a.autoProfileStateText.Color = themeColorSuccess()
 		if a.autoProfileHeaderLabel != nil {
 			a.autoProfileHeaderLabel.SetText("Режим сканирования: Автопрофиль ВКЛ")
 			a.autoProfileHeaderLabel.Refresh()
 		}
 	} else {
 		a.autoProfileStateText.Text = "Автопрофиль: ВЫКЛ"
-		a.autoProfileStateText.Color = color.RGBA{R: 140, G: 140, B: 140, A: 255}
+		a.autoProfileStateText.Color = themeColorDisabled()
 		if a.autoProfileHeaderLabel != nil {
 			a.autoProfileHeaderLabel.SetText("Режим сканирования: Автопрофиль ВЫКЛ")
 			a.autoProfileHeaderLabel.Refresh()
@@ -83,11 +83,19 @@ func (a *App) setupMainMenu() {
 	}
 	themeMode := a.loadTheme()
 	a.applyTheme(themeMode)
+	// Перерисовка под активный вариант темы (светлый/тёмный) — background
+	// чипов/строк/диаграмм задаются в коде рендера, а не через тему Fyne.
+	a.scheduleResultsRender(true)
 
 	resetItem := fyne.NewMenuItem("Сбросить расположение панелей (Ctrl+Shift+L)", func() {
 		a.settingsMgr.ResetUIPanelLayoutWithFeedback(a.scanTabMainSplit, a.topologyMainSplit, a.toolsTabMainSplit, a.myWindow)
 	})
-	viewMenu := fyne.NewMenu("Вид", resetItem)
+	resetItem.Icon = iconRestore()
+	shortcutsItem := fyne.NewMenuItem("Горячие клавиши (F1)", func() {
+		a.showShortcutsDialog()
+	})
+	shortcutsItem.Icon = iconHelp()
+	viewMenu := fyne.NewMenu("Вид", resetItem, shortcutsItem)
 
 	themeItems := []string{"Светлая", "Тёмная", "Системная"}
 	themeMenu := fyne.NewMenu("Тема")

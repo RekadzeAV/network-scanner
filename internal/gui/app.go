@@ -299,13 +299,11 @@ const (
 )
 
 var (
-	chipBgColor     = color.RGBA{R: 222, G: 234, B: 255, A: 255}
-	tableRowBgColor = color.RGBA{R: 250, G: 251, B: 253, A: 255}
-	piePalette      = []color.RGBA{
+	piePalette = []color.RGBA{
 		{R: 37, G: 99, B: 235, A: 255},
 		{R: 59, G: 130, B: 246, A: 255},
 		{R: 14, G: 165, B: 233, A: 255},
-		{R: 99, G: 102, B: 241, A: 255},
+		{R: 57, G: 112, B: 168, A: 255},
 		{R: 168, G: 85, B: 247, A: 255},
 		{R: 71, G: 85, B: 105, A: 255},
 	}
@@ -553,6 +551,7 @@ func (a *App) autoDetectNetwork() {
 // Run запускает GUI приложение
 func (a *App) Run() {
 	a.setupMainMenu()
+	a.setupAppShortcuts()
 	a.setupLayoutResetShortcut()
 	a.myWindow.SetOnClosed(func() {
 		if a.previewPath != "" {

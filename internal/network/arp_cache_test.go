@@ -64,7 +64,7 @@ func TestGetCachedEntry(t *testing.T) {
 	cache := NewARPCache(5*time.Minute, refreshFunc)
 
 	// Сначала обновляем кэш
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	// Получаем запись из кэша
 	mac, err := cache.Get("192.168.1.1")
@@ -85,7 +85,7 @@ func TestGetUncachedEntry(t *testing.T) {
 	cache := NewARPCache(5*time.Minute, refreshFunc)
 
 	// Обновляем кэш синхронно (для предсказуемости теста)
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	// Получаем запись из кэша
 	mac, err := cache.Get("192.168.1.1")
@@ -106,7 +106,7 @@ func TestGetNonExistentIP(t *testing.T) {
 	cache := NewARPCache(5*time.Minute, refreshFunc)
 
 	// Обновляем кэш
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	// Запрашиваем IP, которого нет в кэше
 	_, err := cache.Get("192.168.1.100")
@@ -128,13 +128,13 @@ func TestGetExpiredEntry(t *testing.T) {
 	cache := NewARPCache(10*time.Millisecond, refreshFunc)
 
 	// Обновляем кэш
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	// Ждём истечения TTL
 	time.Sleep(20 * time.Millisecond)
 
 	// Синхронно обновляем кэш (для предсказуемости теста)
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	// Запрашиваем запись — должна быть новая
 	mac, err := cache.Get("192.168.1.1")
@@ -244,7 +244,7 @@ func TestGetBatchAllCached(t *testing.T) {
 	cache := NewARPCache(5*time.Minute, refreshFunc)
 
 	// Обновляем кэш
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	// Запрашиваем батч
 	results := cache.GetBatch([]string{"192.168.1.1", "192.168.1.2", "192.168.1.3"})
@@ -265,7 +265,7 @@ func TestGetBatchPartialCached(t *testing.T) {
 	cache := NewARPCache(5*time.Minute, refreshFunc)
 
 	// Обновляем кэш
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	// Запрашиваем батч с одним новым IP
 	results := cache.GetBatch([]string{"192.168.1.1", "192.168.1.99"})
@@ -299,7 +299,7 @@ func TestGetAll(t *testing.T) {
 	cache := NewARPCache(5*time.Minute, refreshFunc)
 
 	// Обновляем кэш
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	all := cache.GetAll()
 
@@ -339,7 +339,7 @@ func TestIsFresh(t *testing.T) {
 	}
 
 	// После обновления
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	if !cache.IsFresh() {
 		t.Error("Cache should be fresh after Refresh()")
@@ -354,7 +354,7 @@ func TestIsFreshExpired(t *testing.T) {
 	cache := NewARPCache(10*time.Millisecond, refreshFunc)
 
 	// Обновляем кэш
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	// Ждём истечения TTL
 	time.Sleep(20 * time.Millisecond)
@@ -381,7 +381,7 @@ func TestSize(t *testing.T) {
 		t.Errorf("Initial size = %d, want 0", cache.Size())
 	}
 
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	if cache.Size() != 3 {
 		t.Errorf("Size after Refresh() = %d, want 3", cache.Size())
@@ -401,7 +401,7 @@ func TestConcurrentGet(t *testing.T) {
 	cache := NewARPCache(5*time.Minute, refreshFunc)
 
 	// Обновляем кэш
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	// Запускаем множество горутин для параллельного доступа
 	var wg sync.WaitGroup
@@ -463,7 +463,7 @@ func TestResolveMACBatch(t *testing.T) {
 	cache := NewARPCache(5*time.Minute, refreshFunc)
 
 	// Обновляем кэш
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	ctx := context.Background()
 	results := ResolveMACBatch(ctx, []string{"192.168.1.1", "192.168.1.2"}, cache)
@@ -483,7 +483,7 @@ func TestResolveMACBatchWithInvalidMAC(t *testing.T) {
 	cache := NewARPCache(5*time.Minute, refreshFunc)
 
 	// Обновляем кэш
-	cache.Refresh()
+	_ = cache.Refresh()
 
 	ctx := context.Background()
 	results := ResolveMACBatch(ctx, []string{"192.168.1.1"}, cache)

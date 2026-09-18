@@ -35,7 +35,7 @@ func TestReadMACFromLinuxARP_ValidEntry(t *testing.T) {
 192.0.2.1        0x1         0x2         aa:bb:cc:dd:ee:ff     *        eth0
 192.0.2.2        0x1         0x2         11:22:33:44:55:66     *        eth0
 `
-	err := os.WriteFile(arpFile, []byte(content), 0644)
+	err := os.WriteFile(arpFile, []byte(content), 0o600)
 	if err != nil {
 		t.Skipf("cannot create temp file: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestReadMACFromLinuxARP_Incomplete(t *testing.T) {
 	content := `IP address       HW type     Flags       HW address            Mask     Device
 192.0.2.1        0x1         0x0         <incomplete>          *        eth0
 `
-	err := os.WriteFile(arpFile, []byte(content), 0644)
+	err := os.WriteFile(arpFile, []byte(content), 0o600)
 	if err != nil {
 		t.Skipf("cannot create temp file: %v", err)
 	}

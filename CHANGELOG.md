@@ -7,6 +7,25 @@
 
 ## [Unreleased]
 
+### 2026-09-19: Sprint 0 (безопасность) + Sprint 1 (иконки, гигиена GUI)
+- **Безопасность (Sprint 0):**
+  - `gosec` включён в `.golangci.yml`; цель `make security` (gosec + gofmt + go vet); job `govulncheck` в CI (`.github/workflows/go.yml`)
+  - `internal/banner/grab.go`: TLS-клиент повышен до `MinVersion: TLS 1.2` (было TLS 1.0)
+  - `internal/devicecontrol/control.go`: валидация `TargetURL` (только http/https, запрет userinfo `user:pass@`, hostname обязателен); `InsecureSkipVerify` явно обоснован `//nolint:gosec`
+  - `internal/scanner/icmp_ping.go`: валидация хоста для системного `ping` (только IP/FQDN `[a-zA-Z0-9._-]`, запрет shell-метасимволов и флагов CLI), числа аргументов через `strconv`
+  - `cmd/network-scanner/main.go`: HTTP-сервер REST API с таймаутами (ReadHeader/Read/Write/Idle) — устранён gosec G114
+  - `internal/snmpcollector/collector.go`: безопасная конвертация SNMP-значений в `int` с проверкой переполнения (gosec G115)
+  - `internal/report/*`, `internal/topology/*`, `internal/display/*`: файлы отчётов/экспорта пишутся с правами 0600 (gosec G306)
+  - `internal/gui/tools_ui.go`: audit-лог устройства пишется в `os.UserConfigDir()` вместо CWD
+  - Итог: `golangci-lint --no-config --enable=gosec ./...` — **0 находок**; `go build/vet/test ./...` — чисто; `go.mod` не изменён (0 новых зависимостей)
+- **Гигиена GUI (Sprint 1, частично):**
+  - Удалён мёртвый мобильный код: `internal/gui/mobile_layout.go`, `internal/gui/touch_gestures.go` (+3 тест-файла); мобильный GUI не поставлялся (задачи TASK-023…027/L3 были ошибочно закрыты; gomobile-скрипты собирали библиотеку, не Fyne-приложение)
+  - Удалены нерабочие скрипты `scripts/build-android.ps1/.sh`, `scripts/build-ios.sh`
+  - Создан `internal/gui/icons.go` — единая точка тематических иконок (29 обёрток над встроенными `theme.*Icon()`; внешние ресурсы не используются)
+  - Заменены эмодзи-иконки (▶ ⏹ 💾 🗺 ↺) на векторные `theme.*Icon()` во всех 59 кнопках (тулбар, топология, инструменты, сканирование, результаты, безопасность) — иконка + всегда видимая подпись
+  - `Device Reboot` визуально выделен: `widget.DangerImportance`
+  - Новые тесты: `internal/gui/icons_test.go` (29 иконок non-nil, DangerImportance)
+
 ### 2026-09-15: цикл стабилизации (E0–E3 единого плана)
 - **Исправление regression `internal/topology`:** реализован `topologyServiceImpl.Export` (json/graphml/dot/text/txt/xml) вместо TODO-заглушки; фикстура `TestSaveGraphMLToBytes` приведена в соответствие с `Validate()`; добавлен детерминированный порядок устройств `sortedDeviceKeys` (устранён недетерминизм DOT/GraphML/XML из-за map-итерации, падал `TestDOTGoldenSnapshot`)
 - **Дедупликация `internal/api/topology_handlers.go`:** общий хелпер загрузки снапшота/SNMP/построения топологии; GraphML-экспорт через `SaveGraphMLToBytes()` без временного файла

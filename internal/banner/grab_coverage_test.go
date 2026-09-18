@@ -75,13 +75,13 @@ func TestGrabWithMockServer(t *testing.T) {
 		}
 		defer conn.Close()
 
-		// Читаем запрос
+		// Читаем запрос (ошибка игнорируется: в тесте важен ответ, не запрос)
 		buf := make([]byte, 1024)
-		conn.Read(buf)
+		_, _ = conn.Read(buf)
 
 		// Отправляем ответ
 		response := "HTTP/1.0 200 OK\r\nServer: TestServer/1.0\r\nX-Powered-By: Test\r\n\r\n"
-		conn.Write([]byte(response))
+		_, _ = conn.Write([]byte(response))
 	}()
 
 	// Даем серверу время на запуск

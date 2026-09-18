@@ -351,7 +351,7 @@ func (t *Topology) SaveJSON(filename string) error {
 	if err != nil {
 		return fmt.Errorf("marshal topology json: %w", err)
 	}
-	return os.WriteFile(filename, data, 0644)
+	return os.WriteFile(filename, data, 0600)
 }
 
 // WriteText пишет топологию в человекочитаемом текстовом виде: устройства со
@@ -472,7 +472,7 @@ func (t *Topology) SaveGraphML(filename string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filename, data, 0644)
+	return os.WriteFile(filename, data, 0600)
 }
 
 // SaveGraphMLToBytes сериализует топологию в GraphML без записи на диск.

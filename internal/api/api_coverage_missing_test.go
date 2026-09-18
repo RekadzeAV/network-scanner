@@ -418,7 +418,7 @@ func TestHandleInventoryDiff_CompareSuccess(t *testing.T) {
 	}
 
 	var response map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 
 	if response["new_hosts"] == nil {
 		t.Error("expected new_hosts in response")

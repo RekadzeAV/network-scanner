@@ -4,6 +4,7 @@ run:
 linters:
   enable:
     - errcheck
+    - gosec
     - gosimple
     - govet
     - ineffassign
@@ -13,6 +14,12 @@ linters:
 linters-settings:
   errcheck:
     check-type-assertions: true
+  gosec:
+    excludes:
+      # G304: чтение файлов по пути из переменной — используется в CLI/GUI-импорте
+      # (hostlist importer, inventory DB, config). Пути приходят из аргументов
+      # пользователя и валидируются на уровне вызывающего кода.
+      - G304
 
 issues:
   exclude-rules:

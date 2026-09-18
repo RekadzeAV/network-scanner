@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"network-scanner/cmd/network-scanner/cmd"
 	"network-scanner/internal/api"
@@ -37,7 +38,17 @@ func main() {
 		router := api.NewRouter(cfg)
 		addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 		fmt.Printf("Starting REST API server on %s\n", addr)
-		if err := http.ListenAndServe(addr, router.GetRouter()); err != nil {
+		// Таймауты обязательны (gosec G114): защищают от slowloris-подобного
+		// исчерпания соединений; ReadHeaderTimeout ниже порога медленных клиентов.
+		srv := &http.Server{
+			Addr:              addr,
+			Handler:           router.GetRouter(),
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      60 * time.Second,
+			IdleTimeout:       120 * time.Second,
+		}
+		if err := srv.ListenAndServe(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error starting server: %v\n", err)
 			os.Exit(1)
 		}

@@ -66,3 +66,13 @@ internal/api/nonexistent/
 /.cov-*.out
 /.cov-func.txt
 /.scratch_*/
+# Local scratch files
+/pr*.txt
+/rf.txt
+/rs.txt
+/s2b.txt
+/s3.txt
+/sc_check.txt
+/sk.txt
+/sk2.txt
+/tk.txt

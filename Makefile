@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: build test test-integration run deploy bootstrap bootstrap-win lint lint-tools check-env smoke smoke-tools smoke-dtrack smoke-all p1-check p1-check-win p2-check p2-check-win p3-check p3-check-win stage2-p1-check stage2-p1-check-win stage2-p2-check stage2-p2-check-win stage2-p3-check stage2-p3-check-win ci-status ci-status-win ci-trigger ci-trigger-win p3-signoff p3-signoff-win p3-close-all p3-close-all-win p0-preflight-win p0-preflight docs-link-check-win stage2-signoff-status-win final-release-check final-release-check-win
+.PHONY: build gui-release test test-integration run deploy bootstrap bootstrap-win lint lint-tools security check-env smoke smoke-tools smoke-dtrack smoke-all p1-check p1-check-win p2-check p2-check-win p3-check p3-check-win stage2-p1-check stage2-p1-check-win stage2-p2-check stage2-p2-check-win stage2-p3-check stage2-p3-check-win ci-status ci-status-win ci-trigger ci-trigger-win p3-signoff p3-signoff-win p3-close-all p3-close-all-win p0-preflight-win p0-preflight docs-link-check-win stage2-signoff-status-win final-release-check final-release-check-win
 
 build:
 	mkdir -p build
@@ -41,6 +41,15 @@ lint-tools:
 	@golangci-lint run ./... || (echo "WARNING: golangci-lint not installed or found issues" && exit 0)
 	@echo "Running govulncheck..."
 	@govulncheck ./... || (echo "WARNING: govulncheck not installed" && exit 0)
+
+# security: проверки безопасности без внешних зависимостей приложения.
+# govulncheck ставится из официального модуля golang.org/x/vuln (не в go.mod).
+security:
+	@echo "Running govulncheck (vulnerability scan)..."
+	@go run golang.org/x/vuln/cmd/govulncheck@latest ./... || (echo "WARNING: govulncheck check failed" && exit 1)
+	@echo "Running gosec (via golangci-lint)..."
+	@golangci-lint run --no-config --enable=gosec --timeout=5m ./... || (echo "WARNING: gosec found issues or golangci-lint not installed" && exit 1)
+	@echo "Security checks complete."
 
 smoke:
 	./scripts/smoke-cli-no-topology.sh

@@ -195,7 +195,7 @@ func TestTestContainer(t *testing.T) {
 
 	// Verify all mocks are independent
 	container.Scanner.SetResults([]contracts.ScanResult{{IP: "1.1.1.1"}})
-	container.Scanner.Scan(context.Background(), contracts.ScanConfig{}, nil)
+	_, _ = container.Scanner.Scan(context.Background(), contracts.ScanConfig{}, nil)
 
 	if container.Scanner.ScanCallCount() != 1 {
 		t.Error("expected scanner call count 1")

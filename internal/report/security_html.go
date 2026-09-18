@@ -239,5 +239,6 @@ func SaveSecurityHTMLWithRiskOptions(path string, results []scanner.Result, find
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, b, 0o644)
+	// 0600: отчёт содержит данные уязвимостей и рисков сети (gosec G306)
+	return os.WriteFile(path, b, 0o600)
 }

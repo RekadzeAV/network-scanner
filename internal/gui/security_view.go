@@ -73,7 +73,7 @@ func (a *App) buildSecurityDashboardView(data []scanner.Result) fyne.CanvasObjec
 	summary.WriteString(fmt.Sprintf("- Index: `%d/100`\n", securityIndex))
 	summary.WriteString(fmt.Sprintf("- Indicator: `%s`\n", indicator))
 
-	exportBtn := widget.NewButton("Export security report (HTML)", func() {
+	exportBtn := widget.NewButtonWithIcon("Export security report (HTML)", iconExport(), func() {
 		a.exportSecurityDashboardReport(data, signatureFindings)
 	})
 	table := a.buildSecurityFindingsTable(portFindings, signatureFindings)

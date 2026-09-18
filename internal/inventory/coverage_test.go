@@ -190,8 +190,8 @@ func TestListSnapshots_NoLimit(t *testing.T) {
 	store, _ := Open(dbPath)
 	defer store.Close()
 
-	store.SaveSnapshot("scan-a", time.Now(), []scanner.Result{{IP: "10.0.0.1"}})
-	store.SaveSnapshot("scan-b", time.Now(), []scanner.Result{{IP: "10.0.0.2"}})
+	_ = store.SaveSnapshot("scan-a", time.Now(), []scanner.Result{{IP: "10.0.0.1"}})
+	_ = store.SaveSnapshot("scan-b", time.Now(), []scanner.Result{{IP: "10.0.0.2"}})
 
 	snaps, err := store.ListSnapshots(0)
 	if err != nil {
@@ -466,8 +466,8 @@ func TestCompareSnapshotsByName_Success(t *testing.T) {
 		{IP: "10.0.0.2", MAC: "aa:bb:cc:dd:ee:02"},
 	}
 
-	store.SaveSnapshot("scan-a", time.Now(), snapA)
-	store.SaveSnapshot("scan-b", time.Now(), snapB)
+	_ = store.SaveSnapshot("scan-a", time.Now(), snapA)
+	_ = store.SaveSnapshot("scan-b", time.Now(), snapB)
 
 	result, err := store.CompareSnapshotsByName("scan-a", "scan-b")
 	if err != nil {
@@ -487,7 +487,7 @@ func TestDiff_SnapshotNotFound(t *testing.T) {
 	store, _ := Open(dbPath)
 	defer store.Close()
 
-	store.SaveSnapshot("scan-a", time.Now(), []scanner.Result{{IP: "10.0.0.1"}})
+	_ = store.SaveSnapshot("scan-a", time.Now(), []scanner.Result{{IP: "10.0.0.1"}})
 
 	_, err := store.Diff("scan-a", "nonexistent")
 	if err == nil {
@@ -506,8 +506,8 @@ func TestDiff_NoChanges(t *testing.T) {
 	defer store.Close()
 
 	hosts := []scanner.Result{{IP: "10.0.0.1", MAC: "aa:bb:cc:dd:ee:01"}}
-	store.SaveSnapshot("scan-a", time.Now(), hosts)
-	store.SaveSnapshot("scan-b", time.Now(), hosts)
+	_ = store.SaveSnapshot("scan-a", time.Now(), hosts)
+	_ = store.SaveSnapshot("scan-b", time.Now(), hosts)
 
 	diff, err := store.Diff("scan-a", "scan-b")
 	if err != nil {

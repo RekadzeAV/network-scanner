@@ -40,7 +40,7 @@ func ExecuteWithRetry(ctx context.Context, fn func() error, config RetryConfig) 
 
 			// Exponential backoff с jitter
 			if config.Jitter {
-				jitter := time.Duration(rand.Int63n(int64(delay) / 2))
+				jitter := time.Duration(rand.Int63n(int64(delay) / 2)) //nolint:gosec // G404: jitter для backoff не является криптографическим примитивом
 				delay += jitter
 			}
 			delay = time.Duration(float64(delay) * config.BackoffFactor)
@@ -77,7 +77,7 @@ func ExecuteWithRetryAndCallback(ctx context.Context, fn func() error, onRetry f
 			}
 
 			if config.Jitter {
-				jitter := time.Duration(rand.Int63n(int64(delay) / 2))
+				jitter := time.Duration(rand.Int63n(int64(delay) / 2)) //nolint:gosec // G404: jitter для backoff не является криптографическим примитивом
 				delay += jitter
 			}
 			delay = time.Duration(float64(delay) * config.BackoffFactor)

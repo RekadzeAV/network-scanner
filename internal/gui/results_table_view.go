@@ -198,9 +198,9 @@ func (a *App) buildCardsView(data []scanner.Result) fyne.CanvasObject {
 				os := widget.NewLabel("")
 				portsLabel := widget.NewLabel("Порты:")
 				chipsHolder := container.NewHBox(widget.NewLabel(""))
-				openBtn := widget.NewButton("Открыть детали", nil)
+				openBtn := widget.NewButtonWithIcon("Открыть детали", iconInspect(), nil)
 				card := container.NewVBox(title, sub, vendor, os, portsLabel, chipsHolder, openBtn, widget.NewSeparator())
-				bg := canvas.NewRectangle(tableRowBgColor)
+				bg := canvas.NewRectangle(a.rowBackground())
 				bg.CornerRadius = 4
 				return container.NewStack(bg, container.NewPadded(card))
 			})
@@ -259,7 +259,7 @@ func (a *App) buildCardsView(data []scanner.Result) fyne.CanvasObject {
 	}
 	if visible < len(data) {
 		remaining := len(data) - visible
-		loadMore := widget.NewButton(fmt.Sprintf("Показать еще (%d)", remaining), func() {
+		loadMore := widget.NewButtonWithIcon(fmt.Sprintf("Показать еще (%d)", remaining), iconAdd(), func() {
 			step := 200
 			if a.cardsVisibleCount <= 0 {
 				a.cardsVisibleCount = step

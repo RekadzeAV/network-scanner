@@ -52,9 +52,9 @@ func (a *App) initScanUI() {
 	logger.LogDebug("[initScanUI] Создаю portWellKnownBtn")
 	a.portWellKnownBtn = widget.NewButton("Системные (Well-Known): 0–1023", nil)
 	logger.LogDebug("[initScanUI] Создаю portRegisteredBtn")
-	a.portRegisteredBtn = widget.NewButton("Зарегистрированные: 1024–49151", nil)
+	a.portRegisteredBtn = widget.NewButtonWithIcon("Зарегистрированные: 1024–49151", iconDocument(), nil)
 	logger.LogDebug("[initScanUI] Создаю portDynamicBtn")
-	a.portDynamicBtn = widget.NewButton("Динамические / частные: 49152–65535", nil)
+	a.portDynamicBtn = widget.NewButtonWithIcon("Динамические / частные: 49152–65535", iconMore(), nil)
 	a.timeoutEntry = widget.NewEntry()
 	a.timeoutEntry.SetText("2")
 	a.threadsEntry = widget.NewEntry()
@@ -63,10 +63,10 @@ func (a *App) initScanUI() {
 	a.scanBannersCheck = widget.NewCheck("Собирать баннеры/версии служб (медленнее)", nil)
 	a.scanOSActiveCheck = widget.NewCheck("Активные эвристики определения ОС (может замедлить)", nil)
 	a.scanVerboseLogsCheck = widget.NewCheck("Детальные логи по портам (debug, шумно)", nil)
-	a.scanVerboseInfoBtn = widget.NewButton("Подробнее", nil)
+	a.scanVerboseInfoBtn = widget.NewButtonWithIcon("Подробнее", iconHelp(), nil)
 	a.autoProfileCheck = widget.NewCheck("Автопрофиль сканирования (рекомендуется)", nil)
 	a.autoProfileCheck.SetChecked(true)
-	a.autoProfileInfoBtn = widget.NewButton("Почему изменены параметры?", nil)
+	a.autoProfileInfoBtn = widget.NewButtonWithIcon("Почему изменены параметры?", iconInfo(), nil)
 	a.autoProfileStateText = canvas.NewText("", color.RGBA{R: 60, G: 170, B: 80, A: 255})
 	a.autoProfileStateText.TextSize = 13
 	a.autoProfileHint = widget.NewLabel(fmt.Sprintf(
@@ -81,24 +81,24 @@ func (a *App) initScanUI() {
 	a.scanTCPPortsCheck.SetChecked(true)
 	logger.LogDebug("[initScanUI] SetChecked true на scanTCPPortsCheck")
 	logger.LogDebug("[initScanUI] Создаю presetQuickBtn")
-	a.presetQuickBtn = widget.NewButton("Быстро", nil)
+	a.presetQuickBtn = widget.NewButtonWithIcon("Быстро", iconFast(), nil)
 	logger.LogDebug("[initScanUI] Создаю presetBalBtn")
-	a.presetBalBtn = widget.NewButton("Баланс", nil)
+	a.presetBalBtn = widget.NewButtonWithIcon("Баланс", iconScan(), nil)
 	logger.LogDebug("[initScanUI] Создаю presetDeepBtn")
-	a.presetDeepBtn = widget.NewButton("Глубоко", nil)
-	a.recommendedProfileBtn = widget.NewButton("Рекомендуемые настройки", nil)
-	a.recommendedProfileInfoBtn = widget.NewButton("Почему?", nil)
-	a.recommendedProfileBadge = canvas.NewText("Профиль: не выбран", color.RGBA{R: 110, G: 110, B: 110, A: 255})
+	a.presetDeepBtn = widget.NewButtonWithIcon("Глубоко", iconDeep(), nil)
+	a.recommendedProfileBtn = widget.NewButtonWithIcon("Рекомендуемые настройки", iconConfirm(), nil)
+	a.recommendedProfileInfoBtn = widget.NewButtonWithIcon("Почему?", iconHelp(), nil)
+	a.recommendedProfileBadge = canvas.NewText("Профиль: не выбран", themeColorDisabled())
 	a.recommendedProfileBadge.TextSize = 12
 
 	// Кнопка сканирования
-	a.scanButton = widget.NewButton("Запустить сканирование", nil)
+	a.scanButton = widget.NewButtonWithIcon("Запустить сканирование", iconScan(), nil)
 	a.scanButton.Importance = widget.HighImportance
-	a.stopButton = widget.NewButton("Стоп сканирование", nil)
+	a.stopButton = widget.NewButtonWithIcon("Стоп сканирование", iconStop(), nil)
 	a.stopButton.Disable()
 
 	// Кнопка сохранения
-	a.saveButton = widget.NewButton("Сохранить результаты", nil)
+	a.saveButton = widget.NewButtonWithIcon("Сохранить результаты", iconSave(), nil)
 	a.saveButton.Disable()
 
 	// Поля SNMP/топологии
@@ -106,15 +106,15 @@ func (a *App) initScanUI() {
 	a.snmpCommEntry.SetText("public")
 	a.snmpTimeoutEnt = widget.NewEntry()
 	a.snmpTimeoutEnt.SetText("2")
-	a.buildTopoBtn = widget.NewButton("Построить топологию", nil)
+	a.buildTopoBtn = widget.NewButtonWithIcon("Построить топологию", iconTopology(), nil)
 	a.buildTopoBtn.Disable()
-	a.stopTopoBtn = widget.NewButton("Стоп топологию", nil)
+	a.stopTopoBtn = widget.NewButtonWithIcon("Стоп топологию", iconStop(), nil)
 	a.stopTopoBtn.Disable()
-	a.saveTopoBtn = widget.NewButton("Сохранить топологию", nil)
+	a.saveTopoBtn = widget.NewButtonWithIcon("Сохранить топологию", iconSave(), nil)
 	a.saveTopoBtn.Disable()
-	a.copyPerfBtn = widget.NewButton("Копировать отчет производительности", nil)
+	a.copyPerfBtn = widget.NewButtonWithIcon("Копировать отчёт", iconCopy(), nil)
 	a.copyPerfBtn.Disable()
-	a.savePerfBtn = widget.NewButton("Сохранить отчет производительности", nil)
+	a.savePerfBtn = widget.NewButtonWithIcon("Сохранить отчёт", iconSave(), nil)
 	a.savePerfBtn.Disable()
 
 	// Статус
@@ -126,9 +126,9 @@ func (a *App) initScanUI() {
 	a.autoProfileHeaderLabel.Wrapping = fyne.TextWrapWord
 	a.diagnosticsLabel = widget.NewLabel("Диагностика последнего запуска: n/a")
 	a.diagnosticsLabel.Wrapping = fyne.TextWrapWord
-	a.copyDiagnosticsBtn = widget.NewButton("Копировать диагностику", nil)
+	a.copyDiagnosticsBtn = widget.NewButtonWithIcon("Копировать диагностику", iconCopy(), nil)
 	a.copyDiagnosticsBtn.Disable()
-	a.saveDiagnosticsBtn = widget.NewButton("Сохранить диагностику", nil)
+	a.saveDiagnosticsBtn = widget.NewButtonWithIcon("Сохранить диагностику", iconSave(), nil)
 	a.saveDiagnosticsBtn.Disable()
 
 	// Метка этапа сканирования
@@ -250,7 +250,7 @@ func (a *App) buildResultsContainer() *fyne.Container {
 	a.inventoryScanBSelect.PlaceHolder = "Snapshot B"
 	a.inventoryStatusLabel = widget.NewLabel("Инвентаризация: выберите режим Inventory")
 	a.inventoryStatusLabel.Wrapping = fyne.TextWrapWord
-	a.inventoryRefreshBtn = widget.NewButton("Обновить список снапшотов", func() {
+	a.inventoryRefreshBtn = widget.NewButtonWithIcon("Обновить список снапшотов", iconRefresh(), func() {
 		a.refreshInventorySnapshots()
 		if a.resultsSubMode == "Inventory" {
 			a.renderScanResultsView()
@@ -274,7 +274,7 @@ func (a *App) buildResultsContainer() *fyne.Container {
 		a.saveResultsViewSettings()
 		a.scheduleResultsRender(false)
 	}
-	a.clearFilterBtn = widget.NewButton("Очистить", func() {
+	a.clearFilterBtn = widget.NewButtonWithIcon("Очистить", iconClear(), func() {
 		a.resultsFilterQuery = ""
 		a.resultsFilterEnt.SetText("")
 		if a.resultsCidrFilterEnt != nil {
@@ -315,10 +315,10 @@ func (a *App) buildResultsContainer() *fyne.Container {
 	a.resultsPerfLabel.Truncation = fyne.TextTruncateClip
 	a.filterPresetSel = widget.NewSelect([]string{"1", "2", "3"}, nil)
 	a.filterPresetSel.SetSelected("1")
-	a.saveFilterPresetBtn = widget.NewButton("Сохранить пресет", func() {
+	a.saveFilterPresetBtn = widget.NewButtonWithIcon("Сохранить пресет", iconSave(), func() {
 		a.saveFilterPreset(strings.TrimSpace(a.filterPresetSel.Selected))
 	})
-	a.applyFilterPresetBtn = widget.NewButton("Применить пресет", func() {
+	a.applyFilterPresetBtn = widget.NewButtonWithIcon("Применить пресет", iconConfirm(), func() {
 		a.applyFilterPreset(strings.TrimSpace(a.filterPresetSel.Selected))
 	})
 	a.quickTypeChecks = map[string]*widget.Check{}
@@ -340,7 +340,7 @@ func (a *App) buildResultsContainer() *fyne.Container {
 		a.scheduleResultsRender(false)
 	})
 	typeCheckRow = append(typeCheckRow, a.openPortsOnlyCheck)
-	a.resetFiltersBtn = widget.NewButton("Сбросить фильтры", func() {
+	a.resetFiltersBtn = widget.NewButtonWithIcon("Сбросить фильтры", iconClear(), func() {
 		a.resultsFilterQuery = ""
 		a.resultsFilterEnt.SetText("")
 		a.onlyWithOpenPorts = false
