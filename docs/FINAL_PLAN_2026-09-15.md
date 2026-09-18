@@ -59,3 +59,18 @@
 - internal/topology: 88.3% (цель 85% достигнута ранее)
 - Остаток непокрытого в scanner — платформенно-специфичные ветки (linux/darwin ARP, pcap-ARP требует root)
 - go test ./... : 48 пакетов ok / 0 FAIL
+
+---
+
+## E6 v2.3-слой — ЗАКРЫТО (2026-09-19, решение: tested foundation + инкрементальная обвязка)
+
+**Фактическое состояние (проверено):**
+- cobra-CLI живой: main -> cmd.ExecuteCLI (scan.go) -> scanCmd.RunE (scan_cobra.go) использует реальную бизнес-логику (scanner/snmpcollector/builder/display/presenter)
+- internal/apperror 98.4%, internal/commands 97.4%, internal/eventbus 93.5%, internal/plugin 60.0%, internal/scanner/plugin — тесты ok
+- production-потребители apperror/eventbus/commands вне собственного слоя — отсутствуют (самодостаточная инфраструктура)
+
+**Решение:**
+- НЕ ретрофитить apperror в легаси-бизнес-пути: высокий риск регрессий работающего продукта без пользовательской ценности
+- Слой остаётся протестированным фундаментом: новые фичи пишутся на apperror/eventbus/commands с первого коммита
+- internal/plugin (60%) — добирать покрытие при появлении реальных плагинов (loader-специфичные ветки)
+- cmd/network-scanner/cmd без тестов: допустимо, сценарный путь CLI покрыт e2e-сканами scanner
