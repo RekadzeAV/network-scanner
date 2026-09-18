@@ -63,3 +63,6 @@ internal/api/nonexistent/
 /.tmp_*
 /.lint-issues*.txt
 /.test-*.log
+/.cov-*.out
+/.cov-func.txt
+/.scratch_*/

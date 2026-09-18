@@ -43,3 +43,19 @@
 - F4–F5 до коммита (F8): мусор не попадёт в историю.
 - F7 после F6: документация фиксирует только проверенное состояние.
 - F8 — единственный замораживающий шаг, только с подтверждения.
+
+---
+
+## E4 CI-гейты — ЗАКРЫТО (2026-09-15, коммиты 0f5a737/2bed84e)
+- golangci-lint v1.64.8: 91 → 0 замечаний (errcheck/staticcheck/gosimple/ineffassign/unused)
+- go test ./... -short: 48 ok / 0 FAIL
+- go.yml: Go 1.25, libpcap-dev во всех job, фиксированная версия линтера
+- pcap-абстракция: livePacketHandle + build-tagged open/stub; кросс-матрица scanner+CLI (CGO=0) зелёная
+
+---
+
+## E5 Coverage — ЗАКРЫТО (2026-09-19)
+- internal/scanner: 74.0% → 84.7% (14 новых тестов: loopback-флоу Scan/scanHost, отмены, fake probers, сервисный слой)
+- internal/topology: 88.3% (цель 85% достигнута ранее)
+- Остаток непокрытого в scanner — платформенно-специфичные ветки (linux/darwin ARP, pcap-ARP требует root)
+- go test ./... : 48 пакетов ok / 0 FAIL
