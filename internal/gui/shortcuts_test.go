@@ -72,16 +72,16 @@ func TestRunShortcutTabSelection(t *testing.T) {
 		container.NewTabItem("Топология", widget.NewLabel("2")),
 		container.NewTabItem("Инструменты", widget.NewLabel("3")),
 	)
-	a.runShortcutAction(desktop.CustomShortcut{KeyName: fyne.Key2, Modifier: fyne.KeyModifierControl})
+	a.runShortcutAction(&desktop.CustomShortcut{KeyName: fyne.Key2, Modifier: fyne.KeyModifierControl})
 	if a.mainTabs.SelectedIndex() != 1 {
 		t.Fatalf("Ctrl+2: ожидалась вкладка 1, получена %d", a.mainTabs.SelectedIndex())
 	}
-	a.runShortcutAction(desktop.CustomShortcut{KeyName: fyne.Key1, Modifier: fyne.KeyModifierControl})
+	a.runShortcutAction(&desktop.CustomShortcut{KeyName: fyne.Key1, Modifier: fyne.KeyModifierControl})
 	if a.mainTabs.SelectedIndex() != 0 {
 		t.Fatalf("Ctrl+1: ожидалась вкладка 0, получена %d", a.mainTabs.SelectedIndex())
 	}
 	// Индекс вне диапазона — no-op
-	a.runShortcutAction(desktop.CustomShortcut{KeyName: fyne.Key9, Modifier: fyne.KeyModifierControl})
+	a.runShortcutAction(&desktop.CustomShortcut{KeyName: fyne.Key9, Modifier: fyne.KeyModifierControl})
 }
 
 // TestAppShortcutsList проверяет полноту списка: у каждой записи есть label
@@ -95,8 +95,11 @@ func TestAppShortcutsList(t *testing.T) {
 	}
 	seen := map[string]bool{}
 	for _, sa := range list {
-		if sa.label == "" || sa.displayComb == "" || sa.sc.KeyName == "" {
-			t.Fatalf("некорректная запись: %+v", sa)
+		if sa.label == "" || sa.displayComb == "" {
+			cs, ok := sa.sc.(*desktop.CustomShortcut)
+			if !ok || cs.KeyName == "" {
+				t.Fatalf("некорректная запись: %+v", sa)
+			}
 		}
 		key := sa.displayComb
 		if seen[key] {
