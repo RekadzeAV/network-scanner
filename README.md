@@ -16,7 +16,7 @@
 | Метрика | Значение |
 |---------|----------|
 | Базовый функционал | ✅ 100% |
-| Текущая версия | v2.3.0 (in progress) |
+| Текущая версия | v2.3.0 |
 | Тесты | 49 пакетов, зелёные кроме `internal/topology` (regression в работе, этап E0) |
 | Coverage критических пакетов | network 85.7%, api 75.2%, banner 90.8%, scanner 73.5% (цель 85%) |
 | Архитектурный слой v2.3 | ✅ plugin/eventbus/commands/apperror/configvalidation/benchmark (интеграция — в плане) |

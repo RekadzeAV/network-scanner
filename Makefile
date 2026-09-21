@@ -1,21 +1,37 @@
 # Determine executable extension and shell specifics per platform.
-# On Windows (cmd.exe) use .exe suffix, elsewhere no suffix.
+# On Windows (cmd.exe) use .exe suffix and verify it is present.
 ifeq ($(OS),Windows_NT)
 	SHELL := cmd.exe
 	EXE := .exe
-	MKDIR := if not exist build mkdir build
+	MKDIR := if not exist build (mkdir build) else (exit /b 0)
+	VERIFY := powershell -ExecutionPolicy Bypass -File .\scripts\verify-build.ps1 -Dir build -ExeSuffix .exe
 else
 	SHELL := /bin/sh
 	EXE :=
 	MKDIR := mkdir -p build
+	VERIFY := ./scripts/verify-build.sh build
 endif
 
-.PHONY: build gui-release test test-integration run deploy bootstrap bootstrap-win lint lint-tools security check-env smoke smoke-tools smoke-dtrack smoke-all p1-check p1-check-win p2-check p2-check-win p3-check p3-check-win stage2-p1-check stage2-p1-check-win stage2-p2-check stage2-p2-check-win stage2-p3-check stage2-p3-check-win ci-status ci-status-win ci-trigger ci-trigger-win p3-signoff p3-signoff-win p3-close-all p3-close-all-win p0-preflight-win p0-preflight docs-link-check-win stage2-signoff-status-win final-release-check final-release-check-win
+.PHONY: build cli gui verify-artifacts gui-release test test-integration run deploy bootstrap bootstrap-win lint lint-tools security check-env smoke smoke-tools smoke-dtrack smoke-all p1-check p1-check-win p2-check p2-check-win p3-check p3-check-win stage2-p1-check stage2-p1-check-win stage2-p2-check stage2-p2-check-win stage2-p3-check stage2-p3-check-win ci-status ci-status-win ci-trigger ci-trigger-win p3-signoff p3-signoff-win p3-close-all p3-close-all-win p0-preflight-win p0-preflight docs-link-check-win stage2-signoff-status-win final-release-check final-release-check-win
 
 build:
 	$(MKDIR)
 	go build -ldflags="-s -w" -o build/network-scanner$(EXE) ./cmd/network-scanner
 	go build -ldflags="-s -w -H windowsgui" -o build/network-scanner-gui$(EXE) ./cmd/gui
+	@echo Verifying build artifacts (extension $(EXE))...
+	$(VERIFY)
+
+cli:
+	$(MKDIR)
+	go build -ldflags="-s -w" -o build/network-scanner$(EXE) ./cmd/network-scanner
+
+gui:
+	$(MKDIR)
+	go build -ldflags="-s -w -H windowsgui" -o build/network-scanner-gui$(EXE) ./cmd/gui
+
+# Отдельная цель: только проверка расширения и наличия артефактов.
+verify-artifacts:
+	$(VERIFY)
 
 test:
 	go test ./...
@@ -165,8 +181,8 @@ LDFLAGS := -ldflags="-s -w -X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_
 # Install targets
 install: build
 	@echo "📦 Installing binaries..."
-	@sudo cp build/network-scanner /usr/local/bin/
-	@sudo cp build/network-scanner-gui /usr/local/bin/
+	@sudo cp build/network-scanner$(EXE) /usr/local/bin/
+	@sudo cp build/network-scanner-gui$(EXE) /usr/local/bin/
 	@echo "✅ Binaries installed to /usr/local/bin/"
 
 install-systemd:
@@ -198,8 +214,8 @@ deb: build
 	@mkdir -p build/deb/var/lib/network-scanner
 	@mkdir -p build/deb/var/log/network-scanner
 	
-	@cp build/network-scanner build/deb/usr/local/bin/
-	@cp build/network-scanner-gui build/deb/usr/local/bin/
+	@cp build/network-scanner$(EXE) build/deb/usr/local/bin/
+	@cp build/network-scanner-gui$(EXE) build/deb/usr/local/bin/
 	@cp config/desktop/network-scanner-gui.desktop build/deb/usr/share/applications/
 	@cp assets/icons/network-scanner.svg build/deb/usr/share/icons/hicolor/scalable/apps/
 	@cp config/systemd/network-scanner.service build/deb/etc/systemd/system/
@@ -225,9 +241,10 @@ help:
 	@echo "Network Scanner - Makefile targets"
 	@echo ""
 	@echo "Build:"
-	@echo "  make build       - Build CLI and GUI"
+	@echo "  make build       - Build CLI and GUI (adds $(EXE) on Windows) + verifies artifacts"
 	@echo "  make cli         - Build CLI only"
 	@echo "  make gui         - Build GUI only"
+	@echo "  make verify-artifacts - Verify build artifacts exist with correct extension"
 	@echo ""
 	@echo "Test:"
 	@echo "  make test        - Run all tests"

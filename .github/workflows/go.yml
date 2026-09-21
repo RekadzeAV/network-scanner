@@ -68,7 +68,12 @@ jobs:
         GOARCH: ${{ matrix.goarch }}
       run: |
         mkdir -p release-build/release/
-        go build -ldflags="-s -w" -o release-build/release/network-scanner-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/network-scanner
+        # Windows artifacts must carry the .exe suffix, otherwise they are not
+        # runnable by double-click and the release layout is inconsistent.
+        EXT=""
+        if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
+        go build -ldflags="-s -w" -o "release-build/release/network-scanner-${{ matrix.goos }}-${{ matrix.goarch }}${EXT}" ./cmd/network-scanner
+        test -f "release-build/release/network-scanner-${{ matrix.goos }}-${{ matrix.goarch }}${EXT}"
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

@@ -7,6 +7,16 @@
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-09-21
+
+### Финализация релиза (E4–E6, 2026-09-15..21)
+- **CI-гейты (E4):** golangci-lint 91 → **0** замечаний (errcheck/staticcheck/gosimple/ineffassign/unused); `go.yml`: Go 1.25, `libpcap-dev` во всех job, фиксированная версия линтера v1.64.8; `ci.yml` и `release.yml` приведены к тому же состоянию (Go 1.25, libpcap, тесты `-short`)
+- **pcap-абстракция:** интерфейс `livePacketHandle` + build-tagged `openLivePcap`/stub — CLI кросс-собирается с `CGO_ENABLED=0` на linux/windows/darwin (матрица зелёная)
+- **Покрытие (E5):** `internal/scanner` 74.0% → **84.7%** (14 тестов: loopback-флоу Scan/scanHost, ветки отмены, fake probers, service-layer Stop/AlreadyRunning), `internal/topology` **88.3%**
+- **Архитектурный слой (E6):** решение — `apperror` (98.4%), `commands` (97.4%), `eventbus` (93.5%), `plugin` (60%) остаются протестированным фундаментом без ретрофита легаси-путей; cobra-CLI проверен живым (`ExecuteCLI` → `scanCmd.RunE` → реальный scanner/SNMP/presenter)
+- **Сборка:** фикс GUI под Fyne v2.7.1 (CustomShortcut `KeyName`/`Modifier`, `dialog.ShowInformation`, `canvas.Focus`, `AppTabs.Items`); кроссплатформенный Makefile (Windows_NT/`.exe`/mkdir); зависимости `spf13/cobra`, `pflag`, `gorilla/mux` в `go.mod`
+- **Итог гейтов:** `go build ./...` чисто; `go test ./...` — **48 пакетов ok / 0 FAIL**; lint 0
+
 ### 2026-09-19: Sprint 0 (безопасность) + Sprint 1 (иконки, гигиена GUI)
 - **Безопасность (Sprint 0):**
   - `gosec` включён в `.golangci.yml`; цель `make security` (gosec + gofmt + go vet); job `govulncheck` в CI (`.github/workflows/go.yml`)
@@ -35,8 +45,6 @@
 - **Итог прогона:** `go build ./...` чисто; `go test ./... -short -count=1` — **48 пакетов ok, 0 FAIL** (регресс устранён)
 - **Синхронизация с origin/main (v2.2.0):** merge `9d9fe83` — удалённый v2.2.0 (ARP-резолвер, D-трек, comparator/nettools/telemetry тесты, Makefile final-release цели) влит в локальный v2.3.0; конфликты разрешены в пользу v2.3-архитектуры (gui SRP, topology Export/детерминизм, api дедупликация), уникальные v2.2-сценарии портированы в `internal/gui/controller/topology_success_status_test.go`; после мержа — 48 пакетов ok, 0 FAIL; **пуш выполнен** (`0178015..9d9fe83`)
 - Операционные планы: [FINAL_PLAN_2026-09-15.md](docs/FINAL_PLAN_2026-09-15.md) (F1–F8 ✅), [UNIFIED_OPTIMIZED_PLAN_2026-09-15.md](docs/UNIFIED_OPTIMIZED_PLAN_2026-09-15.md) (E0–E3 ✅; далее E4 CI, E5 coverage, E6 интеграция слоя)
-
-## [2.3.0] - 2026-09-13 (in progress)
 
 ### Архитектурный слой (C1–C7)
 - `internal/scanner/plugin/` — plugin-система probe-обработчиков (фазы HostDiscovery/PortScan/ServiceProbe/DeviceInfo)
