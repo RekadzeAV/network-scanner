@@ -229,6 +229,8 @@ type App struct {
 	scanAdvancedAccordion       *widget.Accordion
 	scanAdvancedOpen            bool
 	resultsFiltersAccordion     *widget.Accordion
+	resultsFiltersAccordionOpen bool
+	quickTypeCheckRow           []fyne.CanvasObject
 	resultsFiltersHidden        bool
 	statusToastTimer            *time.Timer
 	statusToastTimerMu          sync.Mutex
