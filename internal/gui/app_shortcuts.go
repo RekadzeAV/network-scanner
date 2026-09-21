@@ -96,7 +96,7 @@ func (a *App) shortcutHandlerFor(displayComb string) func() {
 		return func() { a.selectTabShortcut(4) }
 	case "F1":
 		return a.showShortcutsDialog
-		default:
+	default:
 		return nil
 	}
 }
@@ -148,6 +148,19 @@ func (a *App) selectTabShortcut(index int) {
 	a.mainTabs.SelectIndex(index)
 }
 
+// showAboutDialog показывает диалог «О программе» с версией приложения.
+func (a *App) showAboutDialog() {
+	if a == nil || a.myWindow == nil {
+		return
+	}
+	about := "Network Scanner — сканер сети с GUI.\n\n" +
+		"Версия: " + guiVersion + "\n" +
+		"GUI: Fyne v2.7\n" +
+		"Сборка: " + BuildInfo() + "\n\n" +
+		"Справка по горячим клавишам: F1"
+	dialog.ShowInformation("О программе", about, a.myWindow)
+}
+
 // showShortcutsDialog F1 / пункт меню Вид: диалог справки по горячим клавишам.
 func (a *App) showShortcutsDialog() {
 	if a == nil || a.myWindow == nil {
@@ -164,16 +177,6 @@ func (a *App) showShortcutsDialog() {
 		"  Ctrl+Shift+L    — сброс расположения UI\n" +
 		"  F1              — это диалог справки"
 	dialog.ShowInformation("Справка по горячим клавишам", help, a.myWindow)
-}
-
-// showHelpDialog алиас showShortcutsDialog для обратной совместимости.
-func (a *App) showHelpDialog() {
-	a.showShortcutsDialog()
-}
-
-// focusResultFilter аналог focusResultsFilterShortcut для вызова из других мест.
-func (a *App) focusResultFilter() {
-	a.focusResultsFilterShortcut()
 }
 
 // appShortcuts возвращает список зарегистрированных комбинаций для тестов.

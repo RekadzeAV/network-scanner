@@ -115,7 +115,13 @@ func (a *App) setupMainMenu() {
 		a.showShortcutsDialog()
 	})
 	shortcutsItem.Icon = iconHelp()
-	viewMenu := fyne.NewMenu("Вид", resetItem, shortcutsItem)
+
+	aboutItem := fyne.NewMenuItem("О программе", func() {
+		a.showAboutDialog()
+	})
+	aboutItem.Icon = iconInfo()
+	helpMenu := fyne.NewMenu("Справка", shortcutsItem, aboutItem)
+	viewMenu := fyne.NewMenu("Вид", resetItem)
 
 	themeItems := []string{"Светлая", "Тёмная", "Системная"}
 	themeMenu := fyne.NewMenu("Тема")
@@ -148,7 +154,7 @@ func (a *App) setupMainMenu() {
 		accentMenu.Items = append(accentMenu.Items, menuItem)
 	}
 
-	mainMenu := fyne.NewMainMenu(viewMenu, themeMenu, accentMenu)
+	mainMenu := fyne.NewMainMenu(viewMenu, themeMenu, accentMenu, helpMenu)
 	a.myWindow.SetMainMenu(mainMenu)
 }
 

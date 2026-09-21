@@ -67,8 +67,18 @@ func (a *App) initScanUI() {
 	a.portDynamicBtn = widget.NewButtonWithIcon("Динамические / частные: 49152–65535", iconMore(), nil)
 	a.timeoutEntry = widget.NewEntry()
 	a.timeoutEntry.SetText("2")
+	a.timeoutEntry.OnChanged = func(v string) {
+		a.showFieldErrorDelayed(a.timeoutEntryMsg, validateIntField(v, 1, 60))
+		a.saveScanSettings()
+	}
+	a.timeoutEntryBox, a.timeoutEntryMsg = makeValidatedEntry(a.timeoutEntry)
 	a.threadsEntry = widget.NewEntry()
 	a.threadsEntry.SetText("50")
+	a.threadsEntry.OnChanged = func(v string) {
+		a.showFieldErrorDelayed(a.threadsEntryMsg, validateIntField(v, 1, 512))
+		a.saveScanSettings()
+	}
+	a.threadsEntryBox, a.threadsEntryMsg = makeValidatedEntry(a.threadsEntry)
 	a.scanUDPCheck = widget.NewCheck("Включить UDP сканирование", nil)
 	a.scanBannersCheck = widget.NewCheck("Собирать баннеры/версии служб (медленнее)", nil)
 	a.scanOSActiveCheck = widget.NewCheck("Активные эвристики определения ОС (может замедлить)", nil)
@@ -199,8 +209,8 @@ func (a *App) buildScanControlsContainer() *container.Scroll {
 	// --- Секция «Производительность и опции» ---
 	optionsSection := container.NewVBox(
 		container.NewGridWithColumns(2,
-			widget.NewLabel("Таймаут (сек):"), a.timeoutEntry,
-			widget.NewLabel("Потоки:"), a.threadsEntry,
+			widget.NewLabel("Таймаут (сек):"), a.timeoutEntryBox,
+			widget.NewLabel("Потоки:"), a.threadsEntryBox,
 		),
 		a.scanUDPCheck,
 		a.scanBannersCheck,
@@ -255,6 +265,7 @@ func (a *App) buildResultsContainer() *fyne.Container {
 		}
 		a.resultsSubMode = value
 		a.saveResultsViewSettings()
+		a.updateResultsFiltersVisibility()
 		a.renderScanResultsView()
 	})
 	a.inventoryDBEntry = widget.NewEntry()
@@ -399,6 +410,26 @@ func (a *App) buildResultsContainer() *fyne.Container {
 		a.scheduleResultsRender(true)
 	})
 
+	// --- Accordion «Фильтры и режимы»: скрывает редкие настройки,
+	// оставляя на виду только текстовый фильтр и сброс. ---
+	resultsFiltersSection := container.NewVBox(
+		container.NewGridWithColumns(2, widget.NewLabel("Режим отображения:"), a.resultsModeSel),
+		a.resultsSortGrid,
+		a.resultsCidrGrid,
+		a.resultsPresetGrid,
+		container.NewHBox(typeCheckRow...),
+		container.NewGridWithColumns(2,
+			widget.NewLabel("Inventory DB:"), a.inventoryDBEntry,
+		),
+		container.NewGridWithColumns(2, a.inventoryAutoSaveCheck, a.inventoryRefreshBtn),
+	)
+	a.resultsFiltersAccordion = widget.NewAccordion(
+		widget.NewAccordionItem("Фильтры и режимы отображения", resultsFiltersSection),
+	)
+	a.resultsFiltersAccordion.Items[0].Open = false
+	a.resultsFiltersAccordion.MultiOpen = false
+	// Аккордеон применяется только в подрежиме Inventory (см. updateResultsFiltersVisibility).
+
 	// Создаем прокручиваемый контейнер для результатов
 	a.resultsScroll = container.NewScroll(a.resultsBody)
 	a.resultsScroll.SetMinSize(fyne.NewSize(0, 150))
@@ -438,19 +469,13 @@ func (a *App) buildResultsContainer() *fyne.Container {
 			a.autoProfileHeaderLabel,
 			a.resultsDiagnosticsGrid,
 			container.NewGridWithColumns(2, widget.NewLabel("Подрежим:"), a.resultsSubModeSel),
-			container.NewGridWithColumns(2, widget.NewLabel("Inventory DB:"), a.inventoryDBEntry),
-			container.NewGridWithColumns(2, a.inventoryAutoSaveCheck, a.inventoryRefreshBtn),
-			container.NewGridWithColumns(2, widget.NewLabel("Режим отображения:"), a.resultsModeSel),
-			a.resultsSortGrid,
+			a.resultsFiltersAccordion,
 			container.NewBorder(
 				nil, nil,
 				nil,
 				container.NewHBox(a.clearFilterBtn, a.filtersInfoLabel, a.resultsPerfLabel),
 				a.resultsFilterEnt,
 			),
-			a.resultsCidrGrid,
-			a.resultsPresetGrid,
-			container.NewHBox(typeCheckRow...),
 			container.NewHBox(a.resetFiltersBtn),
 		),
 		nil, nil, nil,

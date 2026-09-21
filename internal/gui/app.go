@@ -228,6 +228,14 @@ type App struct {
 	mainToolbar                 *fyne.Container
 	scanAdvancedAccordion       *widget.Accordion
 	scanAdvancedOpen            bool
+	resultsFiltersAccordion     *widget.Accordion
+	resultsFiltersHidden        bool
+	statusToastTimer            *time.Timer
+	statusToastTimerMu          sync.Mutex
+	timeoutEntryBox             *fyne.Container
+	timeoutEntryMsg             *canvas.Text
+	threadsEntryBox             *fyne.Container
+	threadsEntryMsg             *canvas.Text
 
 	// Controllers (H2 Refactoring)
 	scanCtrl    *controller.ScanController
@@ -539,11 +547,11 @@ func (a *App) autoDetectNetwork() {
 			if err == nil && networkStr != "" {
 				a.networkEntry.SetText(networkStr)
 				a.saveScanSettings()
-				a.statusLabel.SetText(fmt.Sprintf("Сеть определена автоматически: %s", networkStr))
+				a.setStatus(fmt.Sprintf("Сеть определена автоматически: %s", networkStr))
 				a.topologyStatus.SetText(fmt.Sprintf("Сеть определена автоматически: %s", networkStr))
 			} else {
 				// Если не удалось определить, оставляем поле пустым
-				a.statusLabel.SetText("Готов к сканированию (сеть будет определена автоматически при запуске)")
+				a.setStatus("Готов к сканированию (сеть будет определена автоматически при запуске)")
 				a.topologyStatus.SetText("Готово к построению топологии после сканирования")
 			}
 			// Обновляем виджеты

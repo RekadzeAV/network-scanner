@@ -162,14 +162,10 @@ func (a *App) initUI() {
 			return
 		}
 		if _, ok := a.operations.Retry(id); !ok {
-			if a.statusLabel != nil {
-				a.statusLabel.SetText("Retry недоступен для выбранной операции")
-			}
+			a.setStatus("Retry недоступен для выбранной операции")
 			return
 		}
-		if a.statusLabel != nil {
-			a.statusLabel.SetText("Операция отправлена в retry")
-		}
+		a.setStatusToast("Операция отправлена в retry")
 	})
 	a.operationsCancelBtn = widget.NewButtonWithIcon("Cancel", iconCancel(), func() {
 		id := strings.TrimSpace(a.selectedOperationID)
@@ -177,14 +173,10 @@ func (a *App) initUI() {
 			return
 		}
 		if !a.operations.Cancel(id) {
-			if a.statusLabel != nil {
-				a.statusLabel.SetText("Cancel недоступен для выбранной операции")
-			}
+			a.setStatus("Cancel недоступен для выбранной операции")
 			return
 		}
-		if a.statusLabel != nil {
-			a.statusLabel.SetText("Операция отменена")
-		}
+		a.setStatusToast("Операция отменена")
 	})
 	a.operationsRetryBtn.Disable()
 	a.operationsCancelBtn.Disable()

@@ -1,0 +1,20 @@
+	resultsContainer := container.NewBorder(
+		container.NewVBox(
+			separator,
+			resultsLabel,
+			a.resultsStateLabel,
+			a.autoProfileHeaderLabel,
+			a.resultsDiagnosticsGrid,
+			container.NewGridWithColumns(2, widget.NewLabel("Подрежим:"), a.resultsSubModeSel),
+			a.resultsFiltersAccordion,
+			container.NewBorder(
+				nil, nil,
+				nil,
+				container.NewHBox(a.clearFilterBtn, a.filtersInfoLabel, a.resultsPerfLabel),
+				a.resultsFilterEnt,
+			),
+			container.NewHBox(a.resetFiltersBtn),
+		),
+		nil, nil, nil,
+		a.resultsScroll,
+	)
