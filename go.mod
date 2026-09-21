@@ -5,9 +5,12 @@ go 1.25.0
 require (
 	fyne.io/fyne/v2 v2.7.1
 	github.com/google/gopacket v1.1.19
+	github.com/gorilla/mux v1.8.1
 	github.com/gosnmp/gosnmp v1.43.2
 	github.com/jedib0t/go-pretty/v6 v6.5.4
 	github.com/jung-kurt/gofpdf/v2 v2.17.3
+	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.10
 	golang.org/x/text v0.34.0
 	modernc.org/sqlite v1.50.0
 )
@@ -29,7 +32,6 @@ require (
 	github.com/go-text/typesetting v0.2.1 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/hack-pad/go-indexeddb v0.3.2 // indirect
 	github.com/hack-pad/safejs v0.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -45,8 +47,6 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rymdport/portal v0.4.2 // indirect
-	github.com/spf13/cobra v1.10.2 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
