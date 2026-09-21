@@ -59,22 +59,31 @@ func (a *App) initUI() {
 	a.snmpProgress.Hide()
 
 	topologyControls := container.NewVBox(
-		widget.NewLabel("SNMP community (через запятую):"),
-		a.snmpCommEntry,
-		widget.NewLabel("SNMP timeout (сек):"),
-		a.snmpTimeoutEnt,
-		container.NewHBox(a.buildTopoBtn, a.stopTopoBtn, a.saveTopoBtn),
-		container.NewHBox(a.copyPerfBtn, a.savePerfBtn),
-		container.NewHBox(widget.NewLabel("Масштаб превью:"), a.zoomSelect, a.refreshPreviewBtn),
-		a.openPreviewBtn,
-		widget.NewLabel("Интерактивная карта:"),
-		a.topologySearchEntry,
-		container.NewHBox(
-			widget.NewLabel("Тип:"), a.topologyTypeFilterSel,
-			widget.NewLabel("Confidence:"), a.topologyConfidenceFilterSel,
-			a.topologyResetMapBtn,
+		a.buildToolCard("Подключение (SNMP)", iconSettings(),
+			container.NewVBox(
+				container.NewBorder(nil, nil, widget.NewLabel("Community (через запятую):"), nil, a.snmpCommEntry),
+				container.NewBorder(nil, nil, widget.NewLabel("Timeout (сек):"), nil, a.snmpTimeoutEnt),
+				container.NewHBox(a.buildTopoBtn, a.stopTopoBtn, a.saveTopoBtn),
+			),
 		),
-		a.topologyGraphStatus,
+		a.buildToolCard("Отчёты и превью", iconSave(),
+			container.NewVBox(
+				container.NewHBox(a.copyPerfBtn, a.savePerfBtn),
+				container.NewHBox(widget.NewLabel("Масштаб превью:"), a.zoomSelect, a.refreshPreviewBtn),
+				a.openPreviewBtn,
+			),
+		),
+		a.buildToolCard("Интерактивная карта", iconTopology(),
+			container.NewVBox(
+				a.topologySearchEntry,
+				container.NewHBox(
+					widget.NewLabel("Тип:"), a.topologyTypeFilterSel,
+					widget.NewLabel("Confidence:"), a.topologyConfidenceFilterSel,
+					a.topologyResetMapBtn,
+				),
+				a.topologyGraphStatus,
+			),
+		),
 		a.snmpStageLabel,
 		a.snmpProgress,
 		a.topologyStatus,
@@ -183,47 +192,51 @@ func (a *App) initUI() {
 	a.toolsOutputScroll.SetMinSize(fyne.NewSize(0, 280))
 	a.operationsOutputScroll = container.NewScroll(a.operationsOutput)
 	a.operationsOutputScroll.SetMinSize(fyne.NewSize(0, 120))
-	a.toolButtonsGrid = container.NewGridWithColumns(
-		5,
-		a.toolsPingBtn,
-		a.toolsTraceBtn,
-		a.toolsDNSBtn,
-		a.toolsWhoisBtn,
-		a.toolsWiFiBtn,
-		a.toolsWOLBtn,
-		a.toolsAuditBtn,
-		a.toolsRiskBtn,
-		a.toolsDeviceStatusBtn,
-		a.toolsDeviceRebootBtn,
-	)
 	a.toolsControlsScroll = container.NewVScroll(container.NewVBox(
-		widget.NewLabel("Хост/IP:"),
-		a.toolsHostEntry,
-		a.toolsDNSResolverEnt,
-		widget.NewLabel("Wake-on-LAN:"),
-		a.toolsWOLMacEntry,
-		a.toolsWOLBcastEntry,
-		a.toolsWOLIfaceEntry,
-		widget.NewLabel("Device Control (HTTP API):"),
-		a.toolsDeviceTargetEntry,
-		a.toolsDeviceVendorEntry,
-		widget.NewLabel("Профили: generic-http -> /api/{status|reboot}; tp-link-http -> /api/system/{status|reboot}."),
-		container.NewGridWithColumns(2, a.toolsDeviceUserEntry, a.toolsDevicePassEntry),
-		container.NewGridWithColumns(
-			2,
-			widget.NewLabel("Audit min severity:"),
-			a.toolsAuditMinSeveritySel,
+		// --- Карточка «Сетевые утилиты» ---
+		a.buildToolCard("Сетевые утилиты", iconSettings(),
+			container.NewVBox(
+				container.NewBorder(nil, nil, widget.NewLabel("Хост/IP:"), nil, a.toolsHostEntry),
+				container.NewGridWithColumns(3,
+					a.toolsPingBtn, a.toolsTraceBtn, a.toolsDNSBtn,
+					a.toolsWhoisBtn, a.toolsWiFiBtn,
+				),
+				container.NewGridWithColumns(2,
+					widget.NewLabel("Ping пакетов:"), a.toolsPingCountEnt,
+					widget.NewLabel("Timeout (сек):"), a.toolsTimeoutEnt,
+					widget.NewLabel("Traceroute hops:"), a.toolsTraceHopsEnt,
+					widget.NewLabel("DNS resolver:"), a.toolsDNSResolverEnt,
+				),
+			),
 		),
-		container.NewGridWithColumns(
-			2,
-			widget.NewLabel("Ping пакетов:"),
-			a.toolsPingCountEnt,
-			widget.NewLabel("Timeout (сек):"),
-			a.toolsTimeoutEnt,
-			widget.NewLabel("Traceroute hops:"),
-			a.toolsTraceHopsEnt,
+		// --- Карточка «Wake-on-LAN» ---
+		a.buildToolCard("Wake-on-LAN", iconScan(),
+			container.NewVBox(
+				a.toolsWOLMacEntry,
+				a.toolsWOLBcastEntry,
+				a.toolsWOLIfaceEntry,
+				a.toolsWOLBtn,
+			),
 		),
-		a.toolButtonsGrid,
+		// --- Карточка «Управление устройством» ---
+		a.buildToolCard("Управление устройством (HTTP API)", iconDevice(),
+			container.NewVBox(
+				a.toolsDeviceTargetEntry,
+				a.toolsDeviceVendorEntry,
+				widget.NewLabel("Профили: generic-http -> /api/{status|reboot}; tp-link-http -> /api/system/{status|reboot}."),
+				container.NewGridWithColumns(2, a.toolsDeviceUserEntry, a.toolsDevicePassEntry),
+				container.NewGridWithColumns(2, a.toolsDeviceStatusBtn, a.toolsDeviceRebootBtn),
+			),
+		),
+		// --- Карточка «Аудит и риски» ---
+		a.buildToolCard("Аудит и риски", iconSecurity(),
+			container.NewVBox(
+				container.NewGridWithColumns(2,
+					widget.NewLabel("Audit min severity:"), a.toolsAuditMinSeveritySel,
+				),
+				container.NewGridWithColumns(2, a.toolsAuditBtn, a.toolsRiskBtn),
+			),
+		),
 	))
 	a.toolsControlsScroll.SetMinSize(fyne.NewSize(0, 200))
 	a.operationsHeaderGrid = container.New(layout.NewGridLayoutWithColumns(2),

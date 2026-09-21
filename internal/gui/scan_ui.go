@@ -37,10 +37,20 @@ func (a *App) initScanUI() {
 	networkLabel.Wrapping = fyne.TextWrapWord
 	a.networkEntry = widget.NewEntry()
 	a.networkEntry.SetPlaceHolder("Оставьте пустым для автоматического определения")
+	a.networkEntry.OnChanged = func(v string) {
+		a.showFieldErrorDelayed(a.networkEntryMsg, validateCIDRField(v))
+		a.saveScanSettings()
+	}
+	a.networkEntryBox, a.networkEntryMsg = makeValidatedEntry(a.networkEntry)
 	logger.LogDebug("[initScanUI] Создаю portRangeEntry")
 	a.portRangeEntry = widget.NewEntry()
 	a.portRangeEntry.SetPlaceHolder("1-65535")
 	a.portRangeEntry.SetText("1-65535")
+	a.portRangeEntry.OnChanged = func(v string) {
+		a.showFieldErrorDelayed(a.portRangeEntryMsg, validatePortRangeField(v))
+		a.saveScanSettings()
+	}
+	a.portRangeEntryBox, a.portRangeEntryMsg = makeValidatedEntry(a.portRangeEntry)
 	logger.LogDebug("[initScanUI] Создаю scanTCPPortsCheck")
 	a.scanTCPPortsCheck = widget.NewCheck("Сканировать TCP порты", func(v bool) {
 		if a != nil {
@@ -141,7 +151,9 @@ func (a *App) initScanUI() {
 	a.progressBar.Hide()
 }
 
-// buildScanControlsContainer создаёт контейнер с настройками сканирования
+// buildScanControlsContainer создаёт контейнер с настройками сканирования.
+// Панель сгруппирована: «Основное» (сеть/порты/запуск) всегда видимо,
+// остальные параметры — в сворачиваемых секциях (widget.Accordion).
 func (a *App) buildScanControlsContainer() *container.Scroll {
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -153,50 +165,63 @@ func (a *App) buildScanControlsContainer() *container.Scroll {
 		"Динамические/частные (Dynamic/Private) 49152–65535 — эфемерные и частные порты.")
 	portClassHint.Wrapping = fyne.TextWrapWord
 
-	scanControlsContainer := container.NewVBox(
+	// --- Секция «Основное»: всегда видима ---
+	mainSection := container.NewVBox(
 		widget.NewLabel("Сеть (CIDR, например 192.168.1.0/24):"),
-		a.networkEntry,
+		a.networkEntryBox,
 		a.scanTCPPortsCheck,
 		widget.NewLabel("Диапазон TCP портов (например 1-65535 или 80,443):"),
-		a.portRangeEntry,
+		a.portRangeEntryBox,
 		portClassHint,
-		container.NewVBox(
+		container.NewGridWithColumns(
+			3,
 			a.portWellKnownBtn,
 			a.portRegisteredBtn,
 			a.portDynamicBtn,
 		),
+		container.NewGridWithColumns(3, a.scanButton, a.stopButton, a.saveButton),
+		a.statusLabel,
+		a.stageLabel,
+		a.progressBar,
+	)
+
+	// --- Секция «Пресеты и профиль» ---
+	profilesSection := container.NewVBox(
 		widget.NewLabel("Пресет:"),
-		container.NewGridWithColumns(
-			3,
-			a.presetQuickBtn,
-			a.presetBalBtn,
-			a.presetDeepBtn,
-		),
-		widget.NewLabel("Онбординг:"),
-		container.NewGridWithColumns(
-			2,
-			a.recommendedProfileBtn,
-			a.recommendedProfileInfoBtn,
-		),
+		container.NewGridWithColumns(3, a.presetQuickBtn, a.presetBalBtn, a.presetDeepBtn),
+		container.NewGridWithColumns(2, a.recommendedProfileBtn, a.recommendedProfileInfoBtn),
 		a.recommendedProfileBadge,
-		container.NewGridWithColumns(
-			2,
-			widget.NewLabel("Таймаут (сек):"),
-			a.timeoutEntry,
-			widget.NewLabel("Потоки:"),
-			a.threadsEntry,
+		container.NewGridWithColumns(2, a.autoProfileCheck, a.autoProfileInfoBtn),
+		a.autoProfileStateText,
+		a.autoProfileHint,
+	)
+
+	// --- Секция «Производительность и опции» ---
+	optionsSection := container.NewVBox(
+		container.NewGridWithColumns(2,
+			widget.NewLabel("Таймаут (сек):"), a.timeoutEntry,
+			widget.NewLabel("Потоки:"), a.threadsEntry,
 		),
 		a.scanUDPCheck,
 		a.scanBannersCheck,
 		a.scanOSActiveCheck,
 		container.NewGridWithColumns(2, a.scanVerboseLogsCheck, a.scanVerboseInfoBtn),
-		container.NewGridWithColumns(2, a.autoProfileCheck, a.autoProfileInfoBtn),
-		a.autoProfileStateText,
-		a.autoProfileHint,
-		container.NewGridWithColumns(3, a.scanButton, a.stopButton, a.saveButton),
-		a.statusLabel,
-		a.stageLabel,
-		a.progressBar,
+	)
+
+	a.scanAdvancedAccordion = widget.NewAccordion(
+		widget.NewAccordionItem("Пресеты и профиль сканирования", profilesSection),
+		widget.NewAccordionItem("Производительность и опции", optionsSection),
+	)
+	// По умолчанию все секции свёрнуты — видна только «Основное».
+	for i := range a.scanAdvancedAccordion.Items {
+		a.scanAdvancedAccordion.Items[i].Open = false
+	}
+	a.scanAdvancedAccordion.MultiOpen = true
+	a.scanAdvancedOpen = false
+
+	scanControlsContainer := container.NewVBox(
+		mainSection,
+		a.scanAdvancedAccordion,
 	)
 
 	return container.NewVScroll(scanControlsContainer)

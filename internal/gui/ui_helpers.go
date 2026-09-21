@@ -8,7 +8,9 @@ import (
 	"image/color"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/widget"
 
 	"network-scanner/internal/audit"
 	"network-scanner/internal/devicecontrol"
@@ -74,6 +76,24 @@ func (a *App) refreshAutoProfileStateLabel() {
 		}
 	}
 	a.autoProfileStateText.Refresh()
+}
+
+// buildToolCard создаёт визуальную карточку-секцию для панели инструментов:
+// заголовок с иконкой, разделитель и содержимое. Упрощает восприятие панели,
+// группируя параметры по категориям.
+func (a *App) buildToolCard(title string, icon fyne.Resource, content fyne.CanvasObject) fyne.CanvasObject {
+	header := container.NewHBox(
+		widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+	)
+	if icon != nil {
+		header = container.NewHBox(widget.NewIcon(icon), header.Objects[0])
+	}
+	return container.NewVBox(
+		header,
+		widget.NewSeparator(),
+		content,
+		widget.NewSeparator(),
+	)
 }
 
 // setupMainMenu создаёт главное меню приложения.

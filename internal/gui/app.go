@@ -39,7 +39,11 @@ type App struct {
 	myWindow                    fyne.Window
 	scanResults                 []scanner.Result
 	networkEntry                *widget.Entry
+	networkEntryBox             *fyne.Container
+	networkEntryMsg             *canvas.Text
 	portRangeEntry              *widget.Entry
+	portRangeEntryBox           *fyne.Container
+	portRangeEntryMsg           *canvas.Text
 	timeoutEntry                *widget.Entry
 	threadsEntry                *widget.Entry
 	scanUDPCheck                *widget.Check
@@ -222,6 +226,8 @@ type App struct {
 	operations                  *OperationsManager
 	services                    *AppServices
 	mainToolbar                 *fyne.Container
+	scanAdvancedAccordion       *widget.Accordion
+	scanAdvancedOpen            bool
 
 	// Controllers (H2 Refactoring)
 	scanCtrl    *controller.ScanController
