@@ -14,6 +14,8 @@
 7. [Расширяемость](#расширяемость)
 8. [Производительность и оптимизация](#производительность-и-оптимизация)
 9. [Безопасность архитектуры](#безопасность-архитектуры)
+10. [Событийная архитектура (eventbus)](#событийная-архитектура-eventbus)
+11. [Дополнительные ресурсы](#дополнительные-ресурсы)
 
 ---
 
@@ -87,7 +89,7 @@ network-scanner/
 │   ├── inventory/          # Инвентаризация (SQLite)
 │   ├── comparator/         # Сравнение снапшотов
 │   ├── alerting/           # Система уведомлений
-│   ├── api/                # REST API
+│   ├── api/                # REST API (Bearer-token auth, v2.3)
 │   ├── report/             # Экспорт отчетов (PDF/HTML)
 │   ├── banner/             # Banner grabbing
 │   ├── osdetect/           # Определение ОС
@@ -101,8 +103,14 @@ network-scanner/
 │   ├── redact/             # Маскирование чувствительных данных
 │   ├── errors/             # Единая система ошибок
 │   ├── logger/             # Логирование
-│   ├── mock/               # Mock-сервисы для тестирования
-│   └── legacy/             # Архивированный код
+│   ├── eventbus/           # Шина событий (E6: scan.started/completed/failed)
+│   ├── apperror/           # Типизированные ошибки приложения
+│   ├── commands/           # Командный слой (Command/Request/Response)
+│   ├── configvalidation/   # Схемы и валидаторы конфигурации
+│   ├── plugin/             # Plugin-система probe-обработчиков
+│   ├── benchmark/          # Бенчмарки и perf-regression gate
+│   ├── telemetry/          # Телеметрия (метрики, opt-in)
+│   └── mock/               # Mock-сервисы для тестирования
 ├── scripts/                # Скрипты сборки и тестов
 ├── docs/                   # Документация
 ├── config/                 # Конфигурационные файлы
@@ -584,9 +592,61 @@ type ResultExporter interface {
 
 ---
 
+## Событийная архитектура (eventbus)
+
+Начиная с v2.3.0 движок сканирования публикует события в шину `internal/eventbus`
+(E6). Публикация **opt-in**: если шина не подключена, сканирование работает как
+раньше без накладных расходов.
+
+### Подключение шины
+
+```go
+bus := eventbus.NewEventBus()
+defer bus.Close()
+
+container := builder.NewContainer(builder.Config{LogLevel: "info"}).
+    WithEventBus(bus)
+
+// Подписка на события
+bus.Subscribe("scan.completed", func(e eventbus.Event) {
+    ev := e.(*eventbus.ScanCompletedEvent)
+    log.Printf("hosts=%d ports=%d duration=%s", ev.HostCount, ev.OpenPorts, ev.Duration)
+})
+
+results, err := container.GetScanner().Scan(ctx, cfg, nil)
+```
+
+`Container.WithEventBus` возвращает контейнер (fluent API), а сама шина доступна
+через `Container.GetEventBus()`.
+
+### События жизненного цикла сканирования
+
+| Событие | Тип | Payload |
+|---------|-----|---------|
+| `scan.started` | `*ScanStartedEvent` | `Network`, `Timeout` |
+| `scan.completed` | `*ScanCompletedEvent` | `HostCount`, `OpenPorts`, `Duration` |
+| `scan.failed` | `*BaseEvent` | `network`, `reason` (при отмене/ошибке) |
+
+### Гарантии и ограничения
+
+- **Асинхронность:** `Publish` возвращается сразу; обработчики вызываются в
+  отдельных горутинах.
+- **Panic-protection:** паника в обработчике не роняет процесс и не влияет на
+  сканирование.
+- **Best-effort:** события не персистентны и не переигрываются; подписчик должен
+  быть подписан до запуска сканирования.
+- **Порядок:** гарантируется порядок публикации внутри одного горутине-издателя,
+  но не порядок вызова обработчиков при конкурентной публикации.
+
+Другие предопределённые события (GUI/UI-слой): `host.found`, `port.opened`,
+`device.detected`, `progress.updated`, `theme.changed`, `settings.changed` —
+см. `internal/eventbus/eventbus.go`.
+
+---
+
 ## Дополнительные ресурсы
 
-- [Инструкция по эксплуатации](../Инструкция по эксплуатации.md) - Полная инструкция по эксплуатации (русский язык)
+- [Инструкция по эксплуатации (устаревшая, v1.0.x — в архиве)](archive/2026-09-22-docs-cleanup/%D0%98%D0%BD%D1%81%D1%82%D1%80%D1%83%D0%BA%D1%86%D0%B8%D1%8F%20%D0%BF%D0%BE%20%D1%8D%D0%BA%D1%81%D0%BF%D0%BB%D1%83%D0%B0%D1%82%D0%B0%D1%86%D0%B8%D0%B8.md) - Полная инструкция по эксплуатации (русский язык)
 - [Техническая документация](TECHNICAL.md) - Техническая документация для разработчиков
 - [Руководство пользователя](USER_GUIDE.md) - Подробное руководство пользователя
 - [GUI документация](GUI.md) - Документация по GUI версии
@@ -595,10 +655,9 @@ type ResultExporter interface {
 - [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md) - Структура каталогов релизной сборки (`build/release/`)
 - [RELEASE_OPERATIONS_CHEATSHEET.md](archive/2026-09-15-docs-sync/RELEASE_OPERATIONS_CHEATSHEET.md) - Команды closure и локальные релизные артефакты
 - [ROADMAP.md](ROADMAP.md) - Дорожная карта проекта
-- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - План реализации
 
 ---
 
 **Версия документа:** 2.3.0  
-**Последнее обновление:** 2026-09-15
+**Последнее обновление:** 2026-09-23
 

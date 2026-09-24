@@ -87,8 +87,12 @@ func (s *DeviceControlGUIService) GetStatus(target, vendor, user, pass string, t
 	return result, nil
 }
 
-// RebootDevice перезагружает устройство с реальным вызовом devicecontrol
-func (s *DeviceControlGUIService) RebootDevice(target, vendor, user, pass string, timeout time.Duration) (*DeviceRebootResult, error) {
+// RebootDevice перезагружает устройство с реальным вызовом devicecontrol.
+//
+// P0-3: перезагрузка необратима, поэтому вызывающий слой обязан передать
+// подтверждение consent == devicecontrol.ConsentToken (в GUI — результат
+// диалога подтверждения). Без него сервис отклоняет действие.
+func (s *DeviceControlGUIService) RebootDevice(target, vendor, user, pass, consent string, timeout time.Duration) (*DeviceRebootResult, error) {
 	if target == "" {
 		return nil, fmt.Errorf("target is required")
 	}
@@ -114,6 +118,7 @@ func (s *DeviceControlGUIService) RebootDevice(target, vendor, user, pass string
 		Username:  user,
 		Password:  pass,
 		Timeout:   timeout,
+		Consent:   consent,
 	}
 
 	resp, err := devicecontrol.Execute(ctx, req)

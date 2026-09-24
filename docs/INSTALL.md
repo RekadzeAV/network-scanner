@@ -202,8 +202,8 @@ sudo dnf install mesa-libGL libxcb-devel
 ## Документация
 
 - **Архитектура:** [docs/ARCHITECTURE.md](ARCHITECTURE.md)
-- **Дорожная карта:** [ROADMAP.md](../ROADMAP.md)
-- **Список задач:** [docs/TASK_BACKLOG_V21.md](TASK_BACKLOG_V21.md)
+- **Дорожная карта:** [ROADMAP.md](ROADMAP.md)
+- **Список задач (v2.1, завершён):** [docs/archive/2026-09-audit/TASK_BACKLOG_V21.md](archive/2026-09-audit/TASK_BACKLOG_V21.md)
 - **Чеклист GUI:** [docs/GUI_SMOKE_CHECKLIST.md](GUI_SMOKE_CHECKLIST.md)
 
 ---

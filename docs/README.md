@@ -196,13 +196,14 @@ GOOS=darwin GOARCH=arm64 go build -o network-scanner-darwin-arm64
 ### Актуальные документы
 
 - **[README.md](../README.md)** — основная документация проекта (корень репозитория)
+- **[PROJECT_PROMPT.md](PROJECT_PROMPT.md)** — единый промт/технический контекст проекта для продолжения разработки
 - **[USER_GUIDE.md](USER_GUIDE.md)** — подробное руководство пользователя с примерами
 - **[GUI.md](GUI.md)** — документация по GUI-версии приложения
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — описание архитектуры проекта
 - **[TECHNICAL.md](TECHNICAL.md)** — техническая документация для разработчиков
 - **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** — структура проекта
 - **[ROADMAP.md](ROADMAP.md)** — канонический roadmap
-- **[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)** — план реализации v2.3
+- **[ROADMAP.md](ROADMAP.md)** — roadmap и план реализации v2.3
 - **[UNIFIED_OPTIMIZED_PLAN_2026-09-15.md](UNIFIED_OPTIMIZED_PLAN_2026-09-15.md)** — единый оптимизированный план работ
 - **[THREE_PLANS_ANALYSIS_2026-09-15.md](THREE_PLANS_ANALYSIS_2026-09-15.md)** — три плана анализа проекта
 - **[INSTALL.md](INSTALL.md)** — инструкции по установке для разных платформ

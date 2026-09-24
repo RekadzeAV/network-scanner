@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"network-scanner/internal/contracts"
+	"network-scanner/internal/inventory"
 	"network-scanner/internal/scanner"
 )
 
@@ -216,18 +219,20 @@ func TestTopologyExportHandler_NoFormatField(t *testing.T) {
 	}
 }
 
-// TestHandleInventoryDiff_EmptySnapshots — ветка: пустые снапшоты
-func TestHandleInventoryDiff_EmptySnapshots(t *testing.T) {
+// TestHandleInventoryDiff_EmptyIDs — пустой id_b → 400 (через back-compat маршрут).
+func TestHandleInventoryDiff_EmptyIDs(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "inventory.db")
 	cfg := DefaultConfig()
-	handler := NewHandler(cfg)
+	cfg.InventoryPath = dbPath
+	router := NewRouter(cfg)
 
-	req := httptest.NewRequest("GET", "/api/v1/inventory/empty-a/empty-b/diff", nil)
+	// /inventory/{id_a}/diff без id_b и без ?id_b → 400.
+	req := httptest.NewRequest("GET", "/api/v1/inventory/only-a/diff", nil)
 	w := httptest.NewRecorder()
-	handler.handleInventoryDiff(w, req)
+	router.GetRouter().ServeHTTP(w, req)
 
-	// Должна быть ошибка или пустой результат
-	if w.Code != http.StatusOK {
-		t.Logf("expected 200 or error, got: %d", w.Code)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for missing id_b, got %d (body: %s)", w.Code, w.Body.String())
 	}
 }
 
@@ -345,88 +350,150 @@ func TestTopologyExportHandler_PDFFormat(t *testing.T) {
 // M1.3: Тесты для handleInventoryDiff (18.8% → 85%+)
 // ============================================================================
 
-// TestHandleInventoryDiff_CompareSuccess — ветка: успешное сравнение
+// TestHandleInventoryDiff_CompareSuccess — успешное сравнение двух снапшотов.
+//
+// Снапшоты готовятся напрямую в inventory-сторе (helper seedInventory), запрос
+// идёт через роутер, чтобы mux.Vars корректно заполнил id_a/id_b.
 func TestHandleInventoryDiff_CompareSuccess(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "inventory.db")
+	now := time.Now().UTC()
+
+	seedInventory(t, dbPath,
+		inventory.Snapshot{
+			ID:        "snapshot-a",
+			Timestamp: now.Add(-time.Hour),
+			Hosts: []scanner.Result{
+				{
+					IP:       "192.0.2.1",
+					Hostname: "host-a",
+					IsAlive:  true,
+					Ports: []scanner.PortInfo{
+						{Port: 80, State: "open", Protocol: "tcp", Service: "http"},
+					},
+				},
+			},
+		},
+		inventory.Snapshot{
+			ID:        "snapshot-b",
+			Timestamp: now,
+			Hosts: []scanner.Result{
+				{
+					IP:       "192.0.2.1",
+					Hostname: "host-a-updated",
+					IsAlive:  true,
+					Ports: []scanner.PortInfo{
+						{Port: 80, State: "open", Protocol: "tcp", Service: "http"},
+						{Port: 443, State: "open", Protocol: "tcp", Service: "https"},
+					},
+				},
+				{
+					IP:       "192.0.2.2",
+					Hostname: "host-b",
+					IsAlive:  true,
+					Ports: []scanner.PortInfo{
+						{Port: 22, State: "open", Protocol: "tcp", Service: "ssh"},
+					},
+				},
+			},
+		},
+	)
+
 	cfg := DefaultConfig()
-	handler := NewHandler(cfg)
+	cfg.InventoryPath = dbPath
+	router := NewRouter(cfg)
 
-	// Сохраняем снапшот A
-	bodyA, _ := json.Marshal(map[string]interface{}{
-		"scan_id": "snapshot-a",
-		"hosts": []map[string]interface{}{
-			{
-				"ip":       "192.0.2.1",
-				"hostname": "host-a",
-				"os":       "Linux",
-				"ports": []map[string]interface{}{
-					{"port": 80, "state": "open", "protocol": "tcp", "service": "http"},
-				},
-			},
-		},
-	})
-	reqA := httptest.NewRequest("POST", "/api/v1/inventory", bytes.NewBuffer(bodyA))
-	reqA.Header.Set("Content-Type", "application/json")
-	wA := httptest.NewRecorder()
-	handler.handleInventorySave(wA, reqA)
-
-	if wA.Code != http.StatusCreated {
-		t.Skipf("snapshot A save failed: %d", wA.Code)
-		return
-	}
-
-	// Сохраняем снапшот B
-	bodyB, _ := json.Marshal(map[string]interface{}{
-		"scan_id": "snapshot-b",
-		"hosts": []map[string]interface{}{
-			{
-				"ip":       "192.0.2.1",
-				"hostname": "host-a-updated",
-				"os":       "Linux",
-				"ports": []map[string]interface{}{
-					{"port": 80, "state": "open", "protocol": "tcp", "service": "http"},
-					{"port": 443, "state": "open", "protocol": "tcp", "service": "https"},
-				},
-			},
-			{
-				"ip":       "192.0.2.2",
-				"hostname": "host-b",
-				"os":       "Windows",
-				"ports": []map[string]interface{}{
-					{"port": 22, "state": "open", "protocol": "tcp", "service": "ssh"},
-				},
-			},
-		},
-	})
-	reqB := httptest.NewRequest("POST", "/api/v1/inventory", bytes.NewBuffer(bodyB))
-	reqB.Header.Set("Content-Type", "application/json")
-	wB := httptest.NewRecorder()
-	handler.handleInventorySave(wB, reqB)
-
-	if wB.Code != http.StatusCreated {
-		t.Skipf("snapshot B save failed: %d", wB.Code)
-		return
-	}
-
-	// Сравниваем снапшоты
-	req := httptest.NewRequest("GET", "/api/v1/inventory/snapshot-a/snapshot-b/diff", nil)
+	req := httptest.NewRequest("GET", "/api/v1/inventory/snapshot-a/diff/snapshot-b", nil)
 	w := httptest.NewRecorder()
-	handler.handleInventoryDiff(w, req)
+	router.GetRouter().ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", w.Code)
-		return
+		t.Fatalf("expected 200, got %d (body: %s)", w.Code, w.Body.String())
 	}
 
-	var response map[string]interface{}
-	_ = json.Unmarshal(w.Body.Bytes(), &response)
+	var response struct {
+		ScanIDA string                 `json:"scan_id_a"`
+		ScanIDB string                 `json:"scan_id_b"`
+		New     []contracts.ScanResult `json:"new"`
+		Missing []contracts.ScanResult `json:"missing"`
+		Changed []contracts.Change     `json:"changed"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
 
-	if response["new_hosts"] == nil {
-		t.Error("expected new_hosts in response")
+	if response.ScanIDA != "snapshot-a" || response.ScanIDB != "snapshot-b" {
+		t.Errorf("unexpected ids: %q / %q", response.ScanIDA, response.ScanIDB)
 	}
-	if response["missing_hosts"] == nil {
-		t.Error("expected missing_hosts in response")
+
+	// 192.0.2.2 появился в B → должен быть в new.
+	foundNew := false
+	for _, h := range response.New {
+		if h.IP == "192.0.2.2" {
+			foundNew = true
+		}
 	}
-	if response["changed_hosts"] == nil {
-		t.Error("expected changed_hosts in response")
+	if !foundNew {
+		t.Errorf("expected 192.0.2.2 in 'new', got %+v", response.New)
+	}
+
+	// Проверяем, что конвертация портов не потеряла детали.
+	for _, h := range response.New {
+		if h.IP != "192.0.2.2" {
+			continue
+		}
+		if len(h.Ports) != 1 || h.Ports[0].Port != 22 || h.Ports[0].Service != "ssh" {
+			t.Errorf("port conversion mismatch: %+v", h.Ports)
+		}
+	}
+}
+
+// TestHandleInventoryDiff_MissingSnapshot — несуществующий снапшот → 404.
+func TestHandleInventoryDiff_MissingSnapshot(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "inventory.db")
+	cfg := DefaultConfig()
+	cfg.InventoryPath = dbPath
+	router := NewRouter(cfg)
+
+	req := httptest.NewRequest("GET", "/api/v1/inventory/no-such-a/diff/no-such-b", nil)
+	w := httptest.NewRecorder()
+	router.GetRouter().ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for missing snapshots, got %d", w.Code)
+	}
+}
+
+// TestHandleInventoryDiff_QueryParamBackCompat — id_b через ?id_b= (back-compat).
+func TestHandleInventoryDiff_QueryParamBackCompat(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "inventory.db")
+	now := time.Now().UTC()
+
+	seedInventory(t, dbPath,
+		inventory.Snapshot{ID: "q-a", Timestamp: now.Add(-time.Hour), Hosts: []scanner.Result{{IP: "198.51.100.1", IsAlive: true}}},
+		inventory.Snapshot{ID: "q-b", Timestamp: now, Hosts: []scanner.Result{{IP: "198.51.100.2", IsAlive: true}}},
+	)
+
+	cfg := DefaultConfig()
+	cfg.InventoryPath = dbPath
+	router := NewRouter(cfg)
+
+	req := httptest.NewRequest("GET", "/api/v1/inventory/q-a/diff?id_b=q-b", nil)
+	w := httptest.NewRecorder()
+	router.GetRouter().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 via query param, got %d (body: %s)", w.Code, w.Body.String())
+	}
+
+	var response struct {
+		ScanIDA string                 `json:"scan_id_a"`
+		ScanIDB string                 `json:"scan_id_b"`
+		New     []contracts.ScanResult `json:"new"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if response.ScanIDA != "q-a" || response.ScanIDB != "q-b" {
+		t.Errorf("unexpected ids: %q / %q", response.ScanIDA, response.ScanIDB)
 	}
 }

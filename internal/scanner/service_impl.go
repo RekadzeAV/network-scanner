@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"network-scanner/internal/contracts"
+	"network-scanner/internal/eventbus"
 )
 
 // scannerServiceImpl реализация ScannerService
@@ -16,6 +18,9 @@ type scannerServiceImpl struct {
 	activeScan *activeScan
 	isScanning atomic.Bool
 	StopScan   atomic.Value // bool
+
+	// bus — опциональная шина событий (E6). Если nil, публикация не выполняется.
+	bus *eventbus.EventBus
 }
 
 type activeScan struct {
@@ -30,6 +35,36 @@ func NewService(logLevel string) contracts.ScannerService {
 	return &scannerServiceImpl{
 		logLevel: logLevel,
 	}
+}
+
+// WithEventBus включает публикацию событий сканирования (E6).
+//
+// Пример использования:
+//
+//	svc := scanner.NewService("info")
+//	svc.(interface{ WithEventBus(*eventbus.EventBus) }).WithEventBus(bus)
+//
+// События: "scan.started" (перед стартом), "scan.completed" (после успешного
+// завершения), "scan.failed" (при отмене/ошибке).
+func (s *scannerServiceImpl) WithEventBus(bus *eventbus.EventBus) {
+	s.mu.Lock()
+	s.bus = bus
+	s.mu.Unlock()
+}
+
+// publish отправляет событие в шину, если она настроена.
+func (s *scannerServiceImpl) publish(event eventbus.Event) {
+	if bus := s.getBus(); bus != nil {
+		bus.Publish(event)
+	}
+}
+
+// getBus возвращает текущую шину событий (может быть nil).
+func (s *scannerServiceImpl) getBus() *eventbus.EventBus {
+	s.mu.RLock()
+	bus := s.bus
+	s.mu.RUnlock()
+	return bus
 }
 
 func (s *scannerServiceImpl) Scan(ctx context.Context, cfg contracts.ScanConfig, onProgress contracts.ProgressHandler) ([]contracts.ScanResult, error) {
@@ -84,6 +119,10 @@ func (s *scannerServiceImpl) Scan(ctx context.Context, cfg contracts.ScanConfig,
 	// Устанавливаем флаг сканирования
 	s.isScanning.Store(true)
 
+	// E6: событие начала сканирования.
+	startedAt := time.Now()
+	s.publish(eventbus.NewScanStartedEvent(cfg.NetworkCIDR, cfg.Timeout.String()))
+
 	// Запускаем сканирование в отдельной горутине
 	go func() {
 		defer close(done)
@@ -99,6 +138,13 @@ func (s *scannerServiceImpl) Scan(ctx context.Context, cfg contracts.ScanConfig,
 		s.mu.Lock()
 		s.activeScan = nil
 		s.mu.Unlock()
+		// E6: событие неуспешного/отменённого сканирования.
+		if bus := s.getBus(); bus != nil {
+			ev := eventbus.NewBaseEvent("scan.failed")
+			ev.SetPayload("network", cfg.NetworkCIDR)
+			ev.SetPayload("reason", scanCtx.Err().Error())
+			bus.Publish(ev)
+		}
 		return nil, fmt.Errorf("сканирование отменено: %w", scanCtx.Err())
 	case <-done:
 	}
@@ -134,6 +180,19 @@ func (s *scannerServiceImpl) Scan(ctx context.Context, cfg contracts.ScanConfig,
 			DeviceVendor: r.DeviceVendor,
 			GuessOS:      r.GuessOS,
 		})
+	}
+
+	// E6: событие успешного завершения сканирования.
+	if bus := s.getBus(); bus != nil {
+		openPorts := 0
+		for _, r := range rawResults {
+			openPorts += len(r.Ports)
+		}
+		bus.Publish(eventbus.NewScanCompletedEvent(
+			len(results),
+			openPorts,
+			time.Since(startedAt).Round(time.Millisecond).String(),
+		))
 	}
 
 	return results, nil

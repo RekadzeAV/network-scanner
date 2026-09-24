@@ -223,130 +223,31 @@ func RunScan(cfg builder.Config, args ...string) error {
 	return nil
 }
 
-// ExecuteCLI выполняет CLI команду
+// ExecuteCLI выполняет CLI команду.
+//
+// Делегирует в cobra rootCmd (root.go) — единый слой диспатча для scan,
+// inventory, remote-exec, device-control, gui, version. Легаси-ручной switch
+// удалён как дублирующий слой (дедупликация E6): он не поддерживал флаги/справку
+// и вызывал inventory save с пустым набором результатов. Подробная справка
+// доступна через cobra: `network-scanner --help`, `network-scanner <cmd> --help`.
 func ExecuteCLI() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
-	}
+	Execute()
+}
 
+// ExecuteLegacyScan поддерживает вызов без подкоманды с флагами сканирования:
+//
+//	network-scanner --network 192.168.1.0/24 --ports 1-1000
+//
+// Форма сохранена для обратной совместимости: она используется smoke- и
+// closure-скриптами проекта (smoke-cli-no-topology, smoke-cli-topology,
+// p2-closure-check) и примерами в документации.
+func ExecuteLegacyScan(args []string) {
 	cfg := builder.Config{
 		LogLevel: "info",
 		DBPath:   filepath.Join("inventory", "network_inventory.db"),
 	}
-
-	switch os.Args[1] {
-	case "scan":
-		if err := RunScan(cfg, os.Args[2:]...); err != nil {
-			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
-			os.Exit(1)
-		}
-	case "security":
-		fmt.Println("Security: требуется результат сканирования (используйте --security в scan)")
-	case "topology":
-		fmt.Println("Topology: требуется результат сканирования (используйте --topology в scan)")
-	case "remote-exec":
-		if err := RunRemoteExecCLI(cfg, os.Args[2:]...); err != nil {
-			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
-			os.Exit(1)
-		}
-	case "device-control":
-		if err := RunDeviceControl(cfg, os.Args[2:]...); err != nil {
-			fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
-			os.Exit(1)
-		}
-	case "inventory":
-		if len(os.Args) < 3 {
-			fmt.Println("Inventory subcommand required: list|diff|save")
-			os.Exit(1)
-		}
-		switch os.Args[2] {
-		case "list":
-			if err := RunInventoryList(cfg, 10); err != nil {
-				fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
-				os.Exit(1)
-			}
-		case "diff":
-			if len(os.Args) < 5 {
-				fmt.Println("Usage: network-scanner inventory diff <idA> <idB>")
-				os.Exit(1)
-			}
-			if err := RunInventoryDiff(cfg, os.Args[3], os.Args[4]); err != nil {
-				fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
-				os.Exit(1)
-			}
-		case "save":
-			var results []contracts.ScanResult
-			if err := RunInventorySave(cfg, results, "manual"); err != nil {
-				fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
-				os.Exit(1)
-			}
-		default:
-			fmt.Printf("Unknown inventory subcommand: %s\n", os.Args[2])
-			os.Exit(1)
-		}
-	case "gui":
-		RunGUI()
-		return
-	default:
-		fmt.Printf("Неизвестная команда: %s\n", os.Args[1])
-		printUsage()
+	if err := RunScan(cfg, args...); err != nil {
+		fmt.Fprintf(os.Stderr, "Ошибка: %v\n", err)
 		os.Exit(1)
 	}
-}
-
-func printUsage() {
-	fmt.Println("Использование: network-scanner <command> [options]")
-	fmt.Println()
-	fmt.Println("Commands:")
-	fmt.Println("  scan             Запустить сканирование")
-	fmt.Println("  gui              Запустить GUI приложение")
-	fmt.Println("  remote-exec      Удалённое выполнение команд")
-	fmt.Println("  device-control   Управление устройствами")
-	fmt.Println("  inventory        Управление инвентаризацией (list|diff|save)")
-	fmt.Println()
-	fmt.Println("Scan options:")
-	fmt.Println("  --network        CIDR сеть (например, 192.168.1.0/24)")
-	fmt.Println("  --ports          Диапазон портов (по умолчанию 1-1000)")
-	fmt.Println("  --timeout        Таймаут в секундах (по умолчанию 2)")
-	fmt.Println("  --threads        Количество потоков (по умолчанию 50)")
-	fmt.Println("  --show-closed    Показывать закрытые порты")
-	fmt.Println("  --udp            Включить UDP сканирование")
-	fmt.Println("  --grab-banners   Собирать баннеры")
-	fmt.Println("  --os-detect-active   Активные эвристики ОС")
-	fmt.Println("  --verbose-port-logs  Детальные логи по портам")
-	fmt.Println("  --security       Запустить анализ безопасности после сканирования")
-	fmt.Println("  --topology       Построить топологию после сканирования")
-	fmt.Println("  --inventory-save Сохранить результат в inventory")
-	fmt.Println("  --inventory-id   ID снапшота для inventory (по умолчанию auto)")
-	fmt.Println("  --snmp           Включить SNMP опрос устройств")
-	fmt.Println("  --snmp-community SNMP community (по умолчанию public)")
-	fmt.Println("  --snmp-timeout   Таймаут SNMP в секундах (по умолчанию 2)")
-	fmt.Println("  --hosts-file     Файл с целями (IP, CIDR, ranges)")
-	fmt.Println("  --export-html    Экспорт результатов в HTML")
-	fmt.Println("  --export-xml     Экспорт результатов в XML")
-	fmt.Println()
-	fmt.Println("Remote exec options:")
-	fmt.Println("  --transport      ssh|wmi|winrm")
-	fmt.Println("  --target         Целевой хост/IP")
-	fmt.Println("  --user           Пользователь")
-	fmt.Println("  --pass           Пароль")
-	fmt.Println("  --command        Команда для выполнения")
-	fmt.Println("  --dry-run        Проверить policy без выполнения")
-	fmt.Println("  --consent        Подтверждение: I_UNDERSTAND")
-	fmt.Println("  --timeout        Таймаут в секундах (по умолчанию 15)")
-	fmt.Println()
-	fmt.Println("Device control options:")
-	fmt.Println("  --action         status|reboot")
-	fmt.Println("  --target         HTTP(S) endpoint устройства")
-	fmt.Println("  --vendor         Провайдер (по умолчанию generic-http)")
-	fmt.Println("  --user           Username")
-	fmt.Println("  --pass           Password")
-	fmt.Println("  --confirm        Подтверждение: I_UNDERSTAND")
-	fmt.Println("  --timeout        Таймаут в секундах (по умолчанию 10)")
-	fmt.Println()
-	fmt.Println("Inventory options:")
-	fmt.Println("  list             Показать список снапшотов")
-	fmt.Println("  diff <idA> <idB> Сравнить два снапшота")
-	fmt.Println("  save             Сохранить снапшот")
 }

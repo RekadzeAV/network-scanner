@@ -86,6 +86,7 @@ func TestExecute_RejectsUserInfoCredentials(t *testing.T) {
 		Action:    ActionReboot,
 		TargetURL: "http://admin:secret@10.0.0.1",
 		Vendor:    VendorGenericHTTP,
+		Consent:   ConsentToken,
 		Timeout:   time.Second,
 	})
 	if err == nil {

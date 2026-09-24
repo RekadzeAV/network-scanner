@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -565,9 +566,9 @@ func TestParseLinuxARPEmpty(t *testing.T) {
 // --- Test ARPCache with short TTL ---
 
 func TestARPCacheRapidRefresh(t *testing.T) {
-	callCount := 0
+	var callCount int32
 	refreshFunc := func() (map[string]string, error) {
-		callCount++
+		atomic.AddInt32(&callCount, 1)
 		return map[string]string{
 			"192.168.1.1": "aa:bb:cc:dd:ee:ff",
 		}, nil
@@ -581,9 +582,10 @@ func TestARPCacheRapidRefresh(t *testing.T) {
 		_, _ = cache.Get("192.168.1.1")
 	}
 
-	// refreshFunc должен был вызван несколько раз
-	if callCount < 2 {
-		t.Errorf("refreshFunc called %d times, want at least 2", callCount)
+	// refreshFunc вызывается асинхронно (RefreshAsync) — читаем счётчик атомарно,
+	// иначе гонка данных между фоновой горутиной и тестом (go test -race).
+	if calls := atomic.LoadInt32(&callCount); calls < 2 {
+		t.Errorf("refreshFunc called %d times, want at least 2", calls)
 	}
 }
 

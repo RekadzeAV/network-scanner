@@ -294,6 +294,9 @@ func (c *ToolsController) RunRiskSignaturesTool(results []scanner.Result) {
 }
 
 // RunDeviceControlTool запускает управление устройством.
+//
+// P0-3: reboot подтверждается пользователем в диалоге — необратимое действие
+// не запускается сразу, а при недоступном окне не выполняется вовсе.
 func (c *ToolsController) RunDeviceControlTool(action string) {
 	target := ""
 	if c.ui.DeviceTargetEntry != nil {
@@ -315,8 +318,24 @@ func (c *ToolsController) RunDeviceControlTool(action string) {
 	if c.ui.DevicePassEntry != nil {
 		pass = c.ui.DevicePassEntry.Text
 	}
+
+	run := func() { c.runDeviceControlRequest(action, target, vendor, user, pass) }
+	if action == devicecontrol.ActionReboot {
+		confirmDangerousAction(c.currentWindow(), "Подтверждение перезагрузки", rebootConfirmMessage(target), run)
+		return
+	}
+	run()
+}
+
+// runDeviceControlRequest выполняет сам запрос device-control.
+func (c *ToolsController) runDeviceControlRequest(action, target, vendor, user, pass string) {
 	c.setButtonsEnabled(false)
 	c.setOutputMarkdown(fmt.Sprintf("Выполняется действие `%s` для `%s`...", action, target))
+
+	consent := ""
+	if action == devicecontrol.ActionReboot {
+		consent = devicecontrol.ConsentToken
+	}
 
 	go func() {
 		var resp devicecontrol.Response
@@ -330,6 +349,7 @@ func (c *ToolsController) RunDeviceControlTool(action string) {
 				Username:  user,
 				Password:  pass,
 				Timeout:   10 * time.Second,
+				Consent:   consent,
 			})
 			return runErr
 		}, errors.DefaultRetryConfig)

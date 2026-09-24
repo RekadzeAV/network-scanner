@@ -60,6 +60,14 @@
 - [x] Export hardening (JSON validation, GraphML keys)
 - [x] GUI UX hardening (pagination, presets, analytics)
 
+### Этап v2.3.1: Единый CLI + inventory-подкоманды (2026-09-22)
+- [x] Дедупликация диспатча: `ExecuteCLI` делегирует в cobra `rootCmd` (удалён legacy-`switch`)
+- [x] `inventory list` — реализация + `--limit` / позиционный limit
+- [x] `inventory diff` — реализация + `--history` (comparator/port-changes)
+- [x] `inventory save` — реальное сканирование → снапшот (`--hosts-file`/`--network`, `--id`)
+- [x] Подкоманда `gui` в cobra root; общий persistent-флаг `--db`
+- [x] Тесты `cli_wiring_test.go` (13), coverage `cmd` 0% → 11.6%, lint 0
+
 ---
 
 ## 🔴 HIGH: Blocker для релиза v1.1.0

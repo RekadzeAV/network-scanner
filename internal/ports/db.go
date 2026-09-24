@@ -7,9 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
-
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 //go:embed service-names-port-numbers.csv
@@ -20,8 +17,6 @@ var (
 	udpNames map[int]string
 	tcpDesc  map[int]string
 	udpDesc  map[int]string
-
-	titleEn = cases.Title(language.English)
 )
 
 // portLabelOverrides сохраняют прежние удобочитаемые подписи там, где они расходятся с сырыми именами IANA.
@@ -180,9 +175,17 @@ func formatIANAServiceName(raw string) string {
 		return ""
 	}
 
+	raw = strings.TrimSpace(raw)
 	if full, ok := segmentAcronyms[strings.ToLower(raw)]; ok {
 		return full
 	}
+	switch {
+	case strings.EqualFold(raw, "postgresql"):
+		return "PostgreSQL"
+	case strings.EqualFold(raw, "mongodb"):
+		return "MongoDB"
+	}
+
 	parts := strings.Split(raw, "-")
 	for i, p := range parts {
 		if p == "" {
@@ -193,33 +196,24 @@ func formatIANAServiceName(raw string) string {
 			parts[i] = full
 			continue
 		}
-		rs := []rune(lp)
-		if len(rs) == 0 {
-			continue
-		}
-		rs[0] = unicode.ToUpper(rs[0])
-		for j := 1; j < len(rs); j++ {
-			rs[j] = unicode.ToLower(rs[j])
-		}
-		parts[i] = string(rs)
+		parts[i] = titleCaseWord(lp)
 	}
-	s := strings.Join(parts, "-")
-	// Отдельные имена вроде postgresql одним словом
-	if strings.EqualFold(raw, "postgresql") {
-		return "PostgreSQL"
+	return strings.Join(parts, "-")
+}
+
+// titleCaseWord приводит слово к виду «Первая заглавная, остальные строчные».
+//
+// Реализовано без golang.org/x/text/cases: трансформер `cases.Caser` не безопасен
+// для конкурентного использования и при параллельном сканировании подсети давал
+// гонку данных (см. M2 в docs/ROADMAP.md).
+func titleCaseWord(w string) string {
+	rs := []rune(w)
+	if len(rs) == 0 {
+		return w
 	}
-	if strings.EqualFold(raw, "mongodb") {
-		return "MongoDB"
+	rs[0] = unicode.ToUpper(rs[0])
+	for j := 1; j < len(rs); j++ {
+		rs[j] = unicode.ToLower(rs[j])
 	}
-	// Несколько слов без дефиса в реестре — защищённый вызов
-	if !strings.Contains(raw, "-") && len(raw) > 3 {
-		result := func() string {
-			defer func() { _ = recover() }()
-			return titleEn.String(strings.ToLower(raw))
-		}()
-		if result != "" {
-			return result
-		}
-	}
-	return s
+	return string(rs)
 }

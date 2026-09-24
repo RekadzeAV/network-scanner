@@ -157,21 +157,27 @@ type ProgressCallback func(stage string, current int, total int, message string)
 // определения MAC-адресов, hostname и типа устройства.
 // Потокобезопасен для вызовов SetScanUDP, GetResults, Stop.
 type NetworkScanner struct {
-	network          string
-	timeout          time.Duration
-	portRange        string
-	threads          int
-	showClosed       bool
-	scanTCPPorts     bool // Сканировать TCP-порты из portRange (если false — только ping/MAC/hostname)
-	scanUDP          bool // Включить UDP сканирование
-	grabBanners      bool // Читать баннеры с типовых TCP-портов (медленнее)
-	osDetectActive   bool // Активный режим эвристик ОС (дополнительные сигнатуры)
-	verbosePortLogs  bool // Подробные логи по каждому порту/пробе (шумно, медленнее)
-	results          []Result
-	mu               sync.RWMutex
-	ctx              context.Context
-	cancel           context.CancelFunc
-	wg               sync.WaitGroup
+	network         string
+	timeout         time.Duration
+	portRange       string
+	threads         int
+	showClosed      bool
+	scanTCPPorts    bool // Сканировать TCP-порты из portRange (если false — только ping/MAC/hostname)
+	scanUDP         bool // Включить UDP сканирование
+	grabBanners     bool // Читать баннеры с типовых TCP-портов (медленнее)
+	osDetectActive  bool // Активный режим эвристик ОС (дополнительные сигнатуры)
+	verbosePortLogs bool // Подробные логи по каждому порту/пробе (шумно, медленнее)
+	results         []Result
+	mu              sync.RWMutex
+	ctx             context.Context
+	cancel          context.CancelFunc
+	wg              sync.WaitGroup
+	// scanDone закрывается при завершении Scan(). Stop() ожидает именно этот
+	// канал, а не wg.Wait(): sync.WaitGroup не допускает вызова Add()
+	// конкурентно с Wait() из другой горутины, а Stop() по контракту
+	// вызывается из другой горутины во время выполнения Scan().
+	scanDone         chan struct{}
+	scanDoneMu       sync.Mutex
 	progressCallback ProgressCallback
 	networkProber    NetworkProber
 	portScanner      PortScanner
@@ -335,6 +341,21 @@ func (ns *NetworkScanner) SetICMPPingEnabled(enable bool) {
 // Потокобезопасен: можно вызывать Stop() во время выполнения.
 func (ns *NetworkScanner) Scan() {
 	scanStartTime := time.Now()
+
+	// Регистрируем канал завершения: Stop() из другой горутины ждёт именно его
+	// (wg.Wait() в Stop() конфликтовал бы с wg.Add() в цикле сканирования).
+	done := make(chan struct{})
+	ns.scanDoneMu.Lock()
+	ns.scanDone = done
+	ns.scanDoneMu.Unlock()
+	defer func() {
+		ns.wg.Wait()
+		ns.scanDoneMu.Lock()
+		ns.scanDone = nil
+		ns.scanDoneMu.Unlock()
+		close(done)
+	}()
+
 	atomic.StoreInt64(&ns.tcpCancelBefore, 0)
 	atomic.StoreInt64(&ns.tcpCancelWait, 0)
 	atomic.StoreInt64(&ns.udpCancelHosts, 0)
@@ -1183,6 +1204,7 @@ func (ns *NetworkScanner) readMACFromLinuxARP(ipStr string) (string, error) {
 		_ = scanner.Text()
 	}
 
+	var lines []string
 	for scanner.Scan() {
 		// Проверяем контекст для возможности отмены
 		select {
@@ -1191,28 +1213,40 @@ func (ns *NetworkScanner) readMACFromLinuxARP(ipStr string) (string, error) {
 		default:
 		}
 
-		line := scanner.Text()
-		fields := strings.Fields(line)
-		if len(fields) < 6 {
-			continue
-		}
-
-		// Формат: IP address HW type Flags HW address Mask Device
-		// fields[0] = IP, fields[3] = HW address (MAC)
-		if fields[0] == ipStr {
-			mac := fields[3]
-			// Проверяем, что это валидный MAC адрес (не "00:00:00:00:00:00")
-			if mac != "00:00:00:00:00:00" && mac != "<incomplete>" {
-				return mac, nil
-			}
-		}
+		lines = append(lines, scanner.Text())
 	}
 
 	if err := scanner.Err(); err != nil {
 		return "", fmt.Errorf("ошибка чтения /proc/net/arp: %v", err)
 	}
 
+	if mac, ok := parseLinuxARPOutput(ipStr, lines); ok {
+		return mac, nil
+	}
+
 	return "", fmt.Errorf("MAC адрес для %s не найден в ARP таблице", ipStr)
+}
+
+// parseLinuxARPOutput разбирает строки /proc/net/arp и возвращает MAC для ipStr.
+//
+// Формат строки: IP address HW type Flags HW address Mask Device
+// То есть fields[0] = IP, fields[3] = HW address (MAC).
+// Возвращает (mac, true), если найдена валидная запись.
+func parseLinuxARPOutput(ipStr string, lines []string) (string, bool) {
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) < 6 {
+			continue
+		}
+		if fields[0] != ipStr {
+			continue
+		}
+		mac := fields[3]
+		if mac != "00:00:00:00:00:00" && mac != "<incomplete>" {
+			return mac, true
+		}
+	}
+	return "", false
 }
 
 // readMACFromWindowsARP читает MAC адрес через команду arp -a на Windows
@@ -1281,20 +1315,8 @@ func (ns *NetworkScanner) readMACFromDarwinARP(ipStr string) (string, error) {
 
 	// Формат macOS: "? (192.168.1.1) at aa:bb:cc:dd:ee:ff on en0 ifscope [ethernet]"
 	// или просто: "192.168.1.1 (192.168.1.1) at aa:bb:cc:dd:ee:ff on en0"
-	outputStr := string(output)
-	if strings.Contains(outputStr, "at ") {
-		// Ищем MAC адрес после "at "
-		parts := strings.Split(outputStr, "at ")
-		if len(parts) > 1 {
-			// Берем часть после "at " и извлекаем MAC
-			macPart := strings.Fields(parts[1])[0]
-			// Проверяем формат MAC адреса
-			if strings.Contains(macPart, ":") && len(macPart) == 17 {
-				if macPart != "00:00:00:00:00:00" && macPart != "(incomplete)" {
-					return macPart, nil
-				}
-			}
-		}
+	if mac, ok := parseDarwinARPLine(string(output)); ok {
+		return mac, nil
 	}
 
 	// Альтернативный способ: парсим весь вывод arp -a
@@ -1310,20 +1332,41 @@ func (ns *NetworkScanner) readMACFromDarwinARP(ipStr string) (string, error) {
 
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
-		if strings.Contains(line, ipStr) && strings.Contains(line, "at ") {
-			parts := strings.Split(line, "at ")
-			if len(parts) > 1 {
-				macPart := strings.Fields(parts[1])[0]
-				if strings.Contains(macPart, ":") && len(macPart) == 17 {
-					if macPart != "00:00:00:00:00:00" && macPart != "(incomplete)" {
-						return macPart, nil
-					}
-				}
+		if strings.Contains(line, ipStr) {
+			if mac, ok := parseDarwinARPLine(line); ok {
+				return mac, nil
 			}
 		}
 	}
 
 	return "", fmt.Errorf("MAC адрес для %s не найден в ARP таблице", ipStr)
+}
+
+// parseDarwinARPLine извлекает MAC из строки вывода `arp` в формате macOS.
+//
+// Ожидаемый формат: "<host> (<ip>) at aa:bb:cc:dd:ee:ff on en0 ...".
+// Возвращает (mac, true), если найдено валидное значение после "at ".
+// Нулевой MAC и маркер "(incomplete)" считаются отсутствием записи.
+func parseDarwinARPLine(line string) (string, bool) {
+	if !strings.Contains(line, "at ") {
+		return "", false
+	}
+	parts := strings.Split(line, "at ")
+	if len(parts) <= 1 {
+		return "", false
+	}
+	fields := strings.Fields(parts[1])
+	if len(fields) == 0 {
+		return "", false
+	}
+	macPart := fields[0]
+	if !strings.Contains(macPart, ":") || len(macPart) != 17 {
+		return "", false
+	}
+	if macPart == "00:00:00:00:00:00" || macPart == "(incomplete)" {
+		return "", false
+	}
+	return macPart, true
 }
 
 // getMACViaARPRequest отправляет ARP запрос для получения MAC
@@ -1477,11 +1520,20 @@ func (ns *NetworkScanner) detectDeviceType(result Result) string {
 	})
 }
 
-// Stop отменяет текущее сканирование.
+// Stop отменяет текущее сканирование и ждёт его завершения.
 // Можно вызывать из другой горуны во время выполнения Scan().
+// Ожидание идёт по каналу scanDone, а не через wg.Wait(): Add() внутри Scan()
+// и Wait() отсюда из разных горутин были бы гонкой по sync.WaitGroup.
 func (ns *NetworkScanner) Stop() {
 	ns.cancel()
-	ns.wg.Wait()
+
+	ns.scanDoneMu.Lock()
+	done := ns.scanDone
+	ns.scanDoneMu.Unlock()
+
+	if done != nil {
+		<-done
+	}
 }
 
 // GetResults возвращает результаты сканирования.

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -279,39 +280,182 @@ func init() {
 	inventoryCmd.AddCommand(inventoryListCmd)
 	inventoryCmd.AddCommand(inventoryDiffCmd)
 	inventoryCmd.AddCommand(inventorySaveCmd)
+
+	// Общие флаги inventory: путь к SQLite-базе (--db) и история (--history).
+	inventoryCmd.PersistentFlags().String("db", defaultInventoryDBPath(), "Путь к inventory SQLite базе")
+
+	inventoryListCmd.Flags().Int("limit", 10, "Максимум снапшотов (0 — без ограничения)")
+	inventoryDiffCmd.Flags().Bool("history", false, "Использовать формат вывода истории (store.CompareSnapshotsByName)")
+
+	inventorySaveCmd.Flags().String("id", "", "ID снапшота (по умолчанию auto: scan-<unix>)")
+	inventorySaveCmd.Flags().String("hosts-file", "", "Файл с целями вместо живого сканирования")
+	inventorySaveCmd.Flags().String("network", "", "CIDR для сканирования перед сохранением")
+	inventorySaveCmd.Flags().String("ports", "1-1000", "Диапазон портов сканирования")
+	inventorySaveCmd.Flags().Int("timeout", 2, "Таймаут сканирования, сек")
+	inventorySaveCmd.Flags().Int("threads", 50, "Количество потоков сканирования")
+}
+
+// defaultInventoryDBPath — путь к inventory базе по умолчанию (согласован с
+// scanCommandRun и services.NewInventoryService).
+func defaultInventoryDBPath() string {
+	return filepath.Join("inventory", "network_inventory.db")
+}
+
+// inventoryConfig собирает builder.Config с путём к базе из флага --db.
+func inventoryConfig(c *cobra.Command) builder.Config {
+	db, _ := c.Flags().GetString("db")
+	if db == "" {
+		db = defaultInventoryDBPath()
+	}
+	return builder.Config{
+		LogLevel: "info",
+		DBPath:   db,
+	}
 }
 
 var inventoryListCmd = &cobra.Command{
 	Use:   "list [limit]",
 	Short: "Показать список снапшотов",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Inventory list: реализация требует integration с builder")
+	Long: `Показывает снапшоты инвентаризации в порядке убывания даты.
+
+Примеры:
+  network-scanner inventory list
+  network-scanner inventory list 25 --db inventory/network_inventory.db`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: func(c *cobra.Command, args []string) error {
+		limit, _ := c.Flags().GetInt("limit")
+		// Позиционный аргумент имеет приоритет над флагом.
+		if len(args) == 1 {
+			parsed, err := strconv.Atoi(args[0])
+			if err != nil {
+				return fmt.Errorf("некорректный limit %q: %w", args[0], err)
+			}
+			limit = parsed
+		}
+		return RunInventoryList(inventoryConfig(c), limit)
 	},
 }
 
 var inventoryDiffCmd = &cobra.Command{
 	Use:   "diff <idA> <idB>",
 	Short: "Сравнить два снапшота",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Inventory diff: реализация требует integration с builder")
+	Long: `Сравнивает два снапшота инвентаризации и печатает новые, пропавшие и
+изменившиеся хосты.
+
+Примеры:
+  network-scanner inventory diff scan-1 scan-2
+  network-scanner inventory diff scan-1 scan-2 --history`,
+	Args: cobra.ExactArgs(2),
+	RunE: func(c *cobra.Command, args []string) error {
+		useHistory, _ := c.Flags().GetBool("history")
+		cfg := inventoryConfig(c)
+		if !useHistory {
+			return RunInventoryDiff(cfg, args[0], args[1])
+		}
+		// Развёрнутый формат истории (comparator): новые/удалённые/изменённые
+		// хосты и port-changes.
+		return ExecuteHistory(cfg.DBPath, 0, args[0], args[1])
 	},
 }
 
 var inventorySaveCmd = &cobra.Command{
 	Use:   "save",
 	Short: "Сохранить снапшот",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Inventory save: реализация требует integration с builder")
+	Long: `Сохраняет снапшот инвентаризации.
+
+Источник данных: --hosts-file (список целей) или живое сканирование сети
+(--network / автоопределение). Если указан только --id без источника, из
+существующего снапшота ничего не копируется — требуется источник.
+
+Примеры:
+  network-scanner inventory save --hosts-file targets.txt --id baseline
+  network-scanner inventory save --network 192.168.1.0/24 --ports 1-1000 --id home`,
+	Args: cobra.NoArgs,
+	RunE: func(c *cobra.Command, _ []string) error {
+		cfg := inventoryConfig(c)
+
+		hostsFile, _ := c.Flags().GetString("hosts-file")
+		networkCIDR, _ := c.Flags().GetString("network")
+		portRange, _ := c.Flags().GetString("ports")
+		timeout, _ := c.Flags().GetInt("timeout")
+		threads, _ := c.Flags().GetInt("threads")
+		id, _ := c.Flags().GetString("id")
+
+		if hostsFile == "" && networkCIDR == "" {
+			return fmt.Errorf("требуется источник данных: --hosts-file или --network")
+		}
+		if id == "" {
+			id = fmt.Sprintf("scan-%d", time.Now().Unix())
+		}
+
+		// Сканирование целей в паузе — тот же сервисный путь, что и scanCmd.
+		results, err := runScanForInventory(cfg, hostsFile, networkCIDR, portRange, timeout, threads)
+		if err != nil {
+			return err
+		}
+
+		return RunInventorySave(cfg, results, id)
 	},
+}
+
+// runScanForInventory выполняет сканирование для inventory save, переиспользуя
+// сервисный слой builder (без прямого вызова display/presenter).
+func runScanForInventory(cfg builder.Config, hostsFile, networkCIDR, portRange string, timeout, threads int) ([]contracts.ScanResult, error) {
+	if hostsFile != "" {
+		targets, err := network.ParseTargetsFromFile(hostsFile)
+		if err != nil {
+			return nil, fmt.Errorf("ошибка чтения файла целей: %w", err)
+		}
+		if networkCIDR == "" && len(targets) > 0 {
+			networkCIDR = targets[0]
+		}
+	}
+	if networkCIDR == "" {
+		auto, err := network.DetectLocalNetwork()
+		if err != nil {
+			return nil, fmt.Errorf("не удалось определить сеть: %w", err)
+		}
+		networkCIDR = auto
+	}
+
+	container := builder.NewContainer(cfg)
+	scannerService := container.GetScanner()
+
+	fmt.Printf("Сканирование сети: %s\n", networkCIDR)
+	results, err := scannerService.Scan(context.TODO(), contracts.ScanConfig{
+		NetworkCIDR: networkCIDR,
+		PortRange:   portRange,
+		Timeout:     time.Duration(timeout) * time.Second,
+		Threads:     threads,
+	}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("сканирование завершено ошибкой: %w", err)
+	}
+	return results, nil
 }
 
 // remoteExecCmd — команда удалённого выполнения
 var remoteExecCmd = &cobra.Command{
 	Use:   "remote-exec [flags]",
 	Short: "Удалённое выполнение команд",
-	Long:  "Выполнение команд на удалённых хостах через SSH/WMI/WinRM.",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Remote exec: требуется указать параметры через флаги")
+	Long: `Выполнение команд на удалённых хостах через SSH/WMI/WinRM.
+
+По умолчанию включён DRY-RUN: проверяются транспорт, цель и команда против
+политики (allowlist хостов/команд), но подключение к хосту не выполняется.
+
+Для реального выполнения нужны ОБА флага:
+  --execute            переключает команду из dry-run в режим выполнения
+  --consent I_UNDERSTAND  явное согласие на удалённый запуск команды
+
+Примеры:
+  network-scanner remote-exec --transport ssh --target 10.0.0.5 --command "uptime"
+  network-scanner remote-exec --transport ssh --target 10.0.0.5 --command "uptime" \
+      --allow-hosts 10.0.0.5 --allow-commands "uptime" --execute --consent I_UNDERSTAND`,
+	RunE: func(c *cobra.Command, _ []string) error {
+		cfg := builder.Config{LogLevel: "info", DBPath: defaultInventoryDBPath()}
+		// Флаги передаются в существующий ручной парсер RunRemoteExecCLI для
+		// обратной совместимости поведения.
+		return RunRemoteExecCLI(cfg, flagsToArgs(c)...)
 	},
 }
 
@@ -319,10 +463,66 @@ var remoteExecCmd = &cobra.Command{
 var deviceControlCmd = &cobra.Command{
 	Use:   "device-control [flags]",
 	Short: "Управление устройствами",
-	Long:  "Управление сетевыми устройствами через HTTP API.",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Device control: требуется указать параметры через флаги")
+	Long: `Управление сетевыми устройствами через HTTP API (status|reboot).
+
+Для reboot требуется --confirm I_UNDERSTAND (защита необратимого действия на
+уровне CLI и сервиса devicecontrol). Рекомендуется указывать --audit-log для
+журнала действий.
+
+Примеры:
+  network-scanner device-control --action status --target http://192.168.1.1
+  network-scanner device-control -a reboot -T http://192.168.1.1 --confirm I_UNDERSTAND --audit-log audit.jsonl`,
+	RunE: func(c *cobra.Command, _ []string) error {
+		cfg := builder.Config{LogLevel: "info", DBPath: defaultInventoryDBPath()}
+		return RunDeviceControl(cfg, flagsToArgs(c)...)
 	},
+}
+
+func init() {
+	// remote-exec: флаги зеркалят ручной парсер RunRemoteExecCLI.
+	remoteExecCmd.Flags().StringP("transport", "t", "", "Транспорт: ssh|wmi|winrm")
+	remoteExecCmd.Flags().StringP("target", "T", "", "Целевой хост/IP")
+	remoteExecCmd.Flags().StringP("user", "u", "", "Пользователь")
+	remoteExecCmd.Flags().StringP("pass", "p", "", "Пароль")
+	remoteExecCmd.Flags().StringP("command", "c", "", "Команда для выполнения")
+	remoteExecCmd.Flags().String("allow-hosts", "", "Список разрешённых хостов (CSV)")
+	remoteExecCmd.Flags().String("allow-commands", "", "Список разрешённых команд (CSV)")
+	remoteExecCmd.Flags().String("policy-file", "", "Файл политики")
+	remoteExecCmd.Flags().Bool("policy-strict", false, "Строгая политика")
+	remoteExecCmd.Flags().String("consent", "", "Явное согласие на выполнение: I_UNDERSTAND")
+	remoteExecCmd.Flags().Bool("dry-run", true, "Только проверка политики без выполнения (по умолчанию)")
+	remoteExecCmd.Flags().Bool("execute", false, "Реально выполнить команду (требует --consent I_UNDERSTAND)")
+	remoteExecCmd.Flags().Int("timeout", defaultRemoteExecTimeout, "Таймаут в секундах")
+	remoteExecCmd.Flags().String("audit-log", "", "Путь к audit-логу")
+	remoteExecCmd.MarkFlagsMutuallyExclusive("dry-run", "execute")
+
+	// device-control: флаги зеркалят ручной парсер RunDeviceControl.
+	deviceControlCmd.Flags().StringP("action", "a", "", "Действие: status|reboot")
+	deviceControlCmd.Flags().StringP("target", "T", "", "HTTP(S) endpoint устройства")
+	deviceControlCmd.Flags().String("vendor", "generic-http", "Провайдер: generic-http|tp-link-http")
+	deviceControlCmd.Flags().StringP("user", "u", "", "Username")
+	deviceControlCmd.Flags().StringP("pass", "p", "", "Password")
+	deviceControlCmd.Flags().String("confirm", "", "Подтверждение reboot: I_UNDERSTAND")
+	deviceControlCmd.Flags().Int("timeout", 10, "Таймаут в секундах")
+	deviceControlCmd.Flags().String("audit-log", "", "Путь к audit-логу (JSONL)")
+}
+
+// flagsToArgs конвертирует установленные флаги cobra в argv-совместимый срез
+// для ручных парсеров (RunRemoteExecCLI / RunDeviceControl). Передаются только
+// флаги, реально указанные пользователем.
+//
+// Булевы флаги сериализуются в форме --name=value, чтобы парсер различал
+// "--dry-run" и "--dry-run=false" (см. P0-2: dry-run по умолчанию).
+func flagsToArgs(c *cobra.Command) []string {
+	args := make([]string, 0)
+	c.Flags().Visit(func(f *pflag.Flag) {
+		if f.Value.Type() == "bool" {
+			args = append(args, "--"+f.Name+"="+f.Value.String())
+			return
+		}
+		args = append(args, "--"+f.Name, f.Value.String())
+	})
+	return args
 }
 
 // GetScanFlags возвращает pflag.FlagSet для scanCmd (для совместимости)

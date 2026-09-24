@@ -28,5 +28,5 @@ brew install mingw-w64
 
 ## Подробная документация
 
-См. [docs/SETUP_WINDOWS_CROSS_COMPILE.md](docs/SETUP_WINDOWS_CROSS_COMPILE.md) для подробных инструкций и решения проблем.
+См. [SETUP_WINDOWS_CROSS_COMPILE.md](SETUP_WINDOWS_CROSS_COMPILE.md) для подробных инструкций и решения проблем.
 

@@ -175,6 +175,8 @@ func TestHandleResults_WithCompletedScan(t *testing.T) {
 
 func TestHandleInventorySave_Success(t *testing.T) {
 	cfg := DefaultConfig()
+	// Изолированный inventory: не пишем в рабочий inventory.db.
+	cfg.InventoryPath = filepath.Join(t.TempDir(), "inventory.db")
 	router := NewRouter(cfg)
 
 	body, _ := json.Marshal(inventoryRequest{
@@ -257,26 +259,23 @@ func TestHandleInventorySave_EmptyResults(t *testing.T) {
 }
 
 func TestHandleInventoryDiff_Success(t *testing.T) {
+	// Канонический маршрут /inventory/{id_a}/diff/{id_b}: без подготовленного
+	// стора хендлер вернёт 404 (снапшоты не найдены), но маршрут должен
+	// резолвиться в handler, а не в mux-404 "page not found".
+	dbPath := filepath.Join(t.TempDir(), "inventory.db")
 	cfg := DefaultConfig()
+	cfg.InventoryPath = dbPath
 	router := NewRouter(cfg)
 
-	req := httptest.NewRequest("GET", "/api/v1/inventory/snap-a/diff?id_b=snap-b", nil)
+	req := httptest.NewRequest("GET", "/api/v1/inventory/snap-a/diff/snap-b", nil)
 	w := httptest.NewRecorder()
-
-	// Use mux vars - need to test through router
 	router.GetRouter().ServeHTTP(w, req)
 
-	// This endpoint requires mux vars, so direct testing through router
-	// The route is /inventory/{id}/diff - but it expects id_a and id_b
-	// Let's test the handler directly
-	h := NewHandler(cfg)
-	req2 := httptest.NewRequest("GET", "/api/v1/inventory/snap-a/diff", nil)
-	w2 := httptest.NewRecorder()
-	h.handleInventoryDiff(w2, req2)
-
-	// Without mux vars, idA and idB will be empty
-	if w2.Code != http.StatusBadRequest {
-		t.Errorf("expected status 400 for missing ids, got %d", w2.Code)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for unknown snapshots, got %d", w.Code)
+	}
+	if w.Body.String() == "404 page not found\n" {
+		t.Error("route /inventory/{id_a}/diff/{id_b} is not registered")
 	}
 }
 

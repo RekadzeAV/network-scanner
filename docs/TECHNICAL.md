@@ -786,7 +786,7 @@ require (
 - [Архитектура проекта](ARCHITECTURE.md) - Описание архитектуры проекта (v2.0)
 - [GUI документация](GUI.md) - Документация по GUI версии
 - [Инструкция по установке](INSTALL.md) - Инструкции по установке
-- [План реализации](IMPLEMENTATION_PLAN.md) - План реализации v2.0
+- [Roadmap и план реализации](ROADMAP.md) - Roadmap и план реализации v2.3
 - [README.md](../README.md) - Основная документация проекта
 - [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md) - Структура каталогов релизной сборки (`build/release/`)
 - [RELEASE_OPERATIONS_CHEATSHEET.md](archive/2026-09-15-docs-sync/RELEASE_OPERATIONS_CHEATSHEET.md) - Команды closure и локальные релизные артефакты

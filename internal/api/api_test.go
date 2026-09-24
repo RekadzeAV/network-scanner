@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 )
 
@@ -95,6 +96,8 @@ func TestHandleScanStatus_NotFound(t *testing.T) {
 
 func TestHandleInventoryList(t *testing.T) {
 	cfg := DefaultConfig()
+	// Изолированный inventory: не читаем/не пишем рабочий inventory.db.
+	cfg.InventoryPath = filepath.Join(t.TempDir(), "inventory.db")
 	router := NewRouter(cfg)
 
 	req := httptest.NewRequest("GET", "/api/v1/inventory", nil)

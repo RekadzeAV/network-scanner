@@ -1,0 +1,57 @@
+# Codeowners
+
+# Core infrastructure
+internal/scanner/           @RekadzeAV
+internal/topology/          @RekadzeAV
+internal/inventory/         @RekadzeAV
+internal/api/               @RekadzeAV
+internal/builder/           @RekadzeAV
+
+# Device management
+internal/devicecontrol/     @RekadzeAV
+internal/remoteexec/        @RekadzeAV
+internal/security/          @RekadzeAV
+internal/redact/            @RekadzeAV
+
+# v2.3 infrastructure layer
+internal/plugin/            @RekadzeAV
+internal/eventbus/          @RekadzeAV
+internal/commands/          @RekadzeAV
+internal/apperror/          @RekadzeAV
+internal/configvalidation/  @RekadzeAV
+internal/benchmark/         @RekadzeAV
+internal/contracts/         @RekadzeAV
+
+# Network utilities
+internal/network/           @RekadzeAV
+internal/banner/            @RekadzeAV
+internal/snmpcollector/     @RekadzeAV
+internal/osdetect/          @RekadzeAV
+internal/ports/             @RekadzeAV
+internal/cache/             @RekadzeAV
+internal/batch/             @RekadzeAV
+internal/profiler/          @RekadzeAV
+internal/wol/               @RekadzeAV
+internal/nettools/          @RekadzeAV
+internal/diff/              @RekadzeAV
+internal/display/           @RekadzeAV
+internal/presenter/         @RekadzeAV
+internal/gui/               @RekadzeAV
+internal/comparator/        @RekadzeAV
+internal/alerting/          @RekadzeAV
+internal/report/            @RekadzeAV
+
+# CLI & entry points
+cmd/                        @RekadzeAV
+
+# Documentation, scripts & config
+docs/                       @RekadzeAV
+scripts/                    @RekadzeAV
+*.md                        @RekadzeAV
+Makefile                    @RekadzeAV
+Dockerfile                  @RekadzeAV
+go.mod                      @RekadzeAV
+go.sum                      @RekadzeAV
+
+# CI/CD
+.github/workflows/          @RekadzeAV

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
 
 	"network-scanner/internal/devicecontrol"
@@ -14,6 +15,10 @@ import (
 )
 
 // runDeviceControlTool запускает управление устройством.
+//
+// P0-3: reboot — необратимое действие, поэтому вынесено за модальное
+// подтверждение пользователя. Без окна подтверждения (headless) действие не
+// выполняется.
 func (a *App) runDeviceControlTool(action string) {
 	if a == nil || a.toolsDeviceTargetEntry == nil {
 		return
@@ -41,6 +46,37 @@ func (a *App) runDeviceControlTool(action string) {
 			timeoutSec = v
 		}
 	}
+
+	run := func() {
+		a.runDeviceControlRequest(action, target, vendor, username, password, timeoutSec)
+	}
+	if action == devicecontrol.ActionReboot {
+		confirmDeviceReboot(a.myWindow, target, run)
+		return
+	}
+	run()
+}
+
+// confirmDeviceReboot показывает диалог подтверждения перезагрузки устройства.
+func confirmDeviceReboot(win fyne.Window, target string, onConfirm func()) {
+	if win == nil || onConfirm == nil {
+		return
+	}
+	message := "Перезагрузить устройство " + target +
+		"?\n\nДействие необратимо: сессия устройства и подключённые клиенты будут прерваны."
+	dialog.ShowConfirm("Подтверждение перезагрузки", message, func(ok bool) {
+		if ok {
+			onConfirm()
+		}
+	}, win)
+}
+
+// runDeviceControlRequest выполняет запрос device-control и пишет audit-запись.
+func (a *App) runDeviceControlRequest(action, target, vendor, username, password string, timeoutSec int) {
+	consent := ""
+	if action == devicecontrol.ActionReboot {
+		consent = devicecontrol.ConsentToken
+	}
 	a.runToolOperation("Device Control", fmt.Sprintf("Выполняется device action `%s`...", action), func(ctx context.Context) (string, error) {
 		req := devicecontrol.Request{
 			Action:    action,
@@ -49,6 +85,7 @@ func (a *App) runDeviceControlTool(action string) {
 			Username:  username,
 			Password:  password,
 			Timeout:   time.Duration(timeoutSec) * time.Second,
+			Consent:   consent,
 		}
 		res, err := devicecontrol.Execute(ctx, req)
 		entry := devicecontrol.AuditEntry{

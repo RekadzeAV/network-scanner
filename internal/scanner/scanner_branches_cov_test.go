@@ -3,6 +3,7 @@ package scanner
 import (
 	"fmt"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -12,11 +13,11 @@ import (
 type scriptedPortScanner struct {
 	open   map[int]bool
 	delay  time.Duration
-	called int
+	called atomic.Int32 // ScanPort вызывается из горутин portWg конкурентно
 }
 
 func (s *scriptedPortScanner) ScanPort(ip string, port int, proto string) (bool, error) {
-	s.called++
+	s.called.Add(1)
 	if s.delay > 0 {
 		time.Sleep(s.delay)
 	}
@@ -57,8 +58,8 @@ func TestScanHost_ProtocolAndOSDetect(t *testing.T) {
 	if r.GuessOSReason == "" {
 		t.Error("expected GuessOSReason to be set")
 	}
-	if ps.called != 2 {
-		t.Errorf("expected 2 port probes, got %d", ps.called)
+	if got := ps.called.Load(); got != 2 {
+		t.Errorf("expected 2 port probes, got %d", got)
 	}
 }
 

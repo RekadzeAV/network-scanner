@@ -74,9 +74,19 @@ if (Test-Path "./scripts/smoke-d-track-topology-export.ps1") {
 # 4. Documentation sanity
 Write-Host "[5/5] Docs sanity..." -ForegroundColor Yellow
 $docsPresent = $true
-if (-not (Test-Path "./docs/FINAL_RELEASE_READINESS_REPORT.md")) { $docsPresent = $false; Write-Host "  ⚠️  FINAL_RELEASE_READINESS_REPORT.md отсутствует" -ForegroundColor Yellow }
-if (-not (Test-Path "./docs/D_TRACK_IMPLEMENTATION_STATUS.md")) { $docsPresent = $false; Write-Host "  ⚠️  D_TRACK_IMPLEMENTATION_STATUS.md отсутствует" -ForegroundColor Yellow }
-if (-not (Test-Path "./CHANGELOG.md")) { $docsPresent = $false; Write-Host "  ⚠️  CHANGELOG.md отсутствует" -ForegroundColor Yellow }
+# Ключевые активные документы. Отчёты завершённых циклов (FINAL_RELEASE_READINESS_
+# REPORT, D_TRACK_IMPLEMENTATION_STATUS) перемещены в docs/archive/** и больше не
+# проверяются — они исторические.
+$keyDocs = @(
+    "./README.md",
+    "./CHANGELOG.md",
+    "./docs/ROADMAP.md",
+    "./docs/IMPLEMENTATION_PLAN.md",
+    "./docs/UNIFIED_OPTIMIZED_PLAN_2026-09-15.md"
+)
+foreach ($doc in $keyDocs) {
+    if (-not (Test-Path $doc)) { $docsPresent = $false; Write-Host "  ⚠️  $doc отсутствует" -ForegroundColor Yellow }
+}
 
 if ($docsPresent) {
     Write-Host "  ✅ Ключевые документы на месте" -ForegroundColor Green

@@ -107,7 +107,7 @@ network-scanner/
 ## Связанные документы
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Архитектура проекта
-- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - План реализации v2.3
+- [ROADMAP.md](ROADMAP.md) - Roadmap и план реализации v2.3
 - [USER_GUIDE.md](USER_GUIDE.md) - Руководство пользователя
 - [TECHNICAL.md](TECHNICAL.md) - Техническая документация
 

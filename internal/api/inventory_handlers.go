@@ -133,11 +133,20 @@ func (h *Handler) handleInventorySave(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusCreated, response)
 }
 
-// handleInventoryDiff сравнивает два снапшота с реального инвентаря
+// handleInventoryDiff сравнивает два снапшота с реального инвентаря.
+//
+// ID снапшотов принимаются как path-параметры (id_a, id_b) канонического
+// маршрута /inventory/{id_a}/diff/{id_b}. Для обратной совместимости id_b
+// можно передать query-параметром: /inventory/{id_a}/diff?id_b=...
 func (h *Handler) handleInventoryDiff(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idA := vars["id_a"]
 	idB := vars["id_b"]
+
+	// Back-compat: id_b из query-строки, если не задан в пути.
+	if idB == "" {
+		idB = r.URL.Query().Get("id_b")
+	}
 
 	if idA == "" || idB == "" {
 		h.writeError(w, http.StatusBadRequest, "id_a and id_b are required")

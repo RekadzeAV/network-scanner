@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"network-scanner/internal/builder"
+	"network-scanner/internal/devicecontrol"
 )
 
 // --- device_control_service.go tests ---
@@ -64,7 +65,7 @@ func TestDeviceControlGUIService_GetStatus_VendorOnly(t *testing.T) {
 
 func TestDeviceControlGUIService_RebootDevice_EmptyTarget(t *testing.T) {
 	svc := NewDeviceControlGUIService(nil)
-	result, err := svc.RebootDevice("", "", "", "", 5*time.Second)
+	result, err := svc.RebootDevice("", "", "", "", devicecontrol.ConsentToken, 5*time.Second)
 	if err == nil {
 		t.Error("expected error for empty target")
 	}
@@ -73,12 +74,24 @@ func TestDeviceControlGUIService_RebootDevice_EmptyTarget(t *testing.T) {
 	}
 }
 
+// P0-3: без подтверждения перезагрузку не выполняет ни один слой.
+func TestDeviceControlGUIService_RebootDevice_RequiresConsent(t *testing.T) {
+	svc := NewDeviceControlGUIService(nil)
+	result, err := svc.RebootDevice("http://127.0.0.1:1", "generic-http", "", "", "", 2*time.Second)
+	if err == nil {
+		t.Fatal("expected error for missing consent")
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result with error message")
+	}
+}
+
 func TestDeviceControlGUIService_RebootDevice_WithTarget(t *testing.T) {
 	container := &builder.Container{}
 	svc := NewDeviceControlGUIService(container)
 	// RebootDevice вызывает container.GetInventory()
 	// Тестируем только валидацию target
-	_, err := svc.RebootDevice("192.168.1.1", "cisco", "admin", "pass", 5*time.Second)
+	_, err := svc.RebootDevice("192.168.1.1", "cisco", "admin", "pass", devicecontrol.ConsentToken, 5*time.Second)
 	// Может паниковать если container не инициализирован
 	_ = err
 }
@@ -88,7 +101,7 @@ func TestDeviceControlGUIService_RebootDevice_WithContainer(t *testing.T) {
 	svc := NewDeviceControlGUIService(container)
 	// RebootDevice вызывает container.GetInventory()
 	// Тестируем только валидацию target
-	_, err := svc.RebootDevice("192.168.1.1", "cisco", "admin", "pass", 5*time.Second)
+	_, err := svc.RebootDevice("192.168.1.1", "cisco", "admin", "pass", devicecontrol.ConsentToken, 5*time.Second)
 	// Может паниковать если container не инициализирован
 	_ = err
 }

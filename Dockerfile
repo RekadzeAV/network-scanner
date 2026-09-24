@@ -7,7 +7,7 @@
 # ---------------------------------------------------------------------------
 # Этап 1: Сборка
 # ---------------------------------------------------------------------------
-FROM golang:1.23-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # Установка зависимостей для сборки
 RUN apk add --no-cache git gcc musl-dev
@@ -40,7 +40,7 @@ FROM alpine:3.20
 # Метаданные
 LABEL org.opencontainers.image.title="Network Scanner CLI"
 LABEL org.opencontainers.image.description="Network scanner CLI tool for discovering and analyzing network devices"
-LABEL org.opencontainers.image.source="https://github.com/Ai-Gi/network-scanner"
+LABEL org.opencontainers.image.source="https://github.com/RekadzeAV/network-scanner"
 LABEL org.opencontainers.image.version="2.3.0"
 
 # Установка зависимостей для запуска

@@ -12,7 +12,7 @@ else
 	VERIFY := ./scripts/verify-build.sh build
 endif
 
-.PHONY: build cli gui verify-artifacts gui-release test test-integration run deploy bootstrap bootstrap-win lint lint-tools security check-env smoke smoke-tools smoke-dtrack smoke-all p1-check p1-check-win p2-check p2-check-win p3-check p3-check-win stage2-p1-check stage2-p1-check-win stage2-p2-check stage2-p2-check-win stage2-p3-check stage2-p3-check-win ci-status ci-status-win ci-trigger ci-trigger-win p3-signoff p3-signoff-win p3-close-all p3-close-all-win p0-preflight-win p0-preflight docs-link-check-win stage2-signoff-status-win final-release-check final-release-check-win
+.PHONY: build cli gui verify-artifacts gui-release test test-race test-integration run deploy bootstrap bootstrap-win lint lint-tools security check-env smoke smoke-tools smoke-dtrack smoke-all p1-check p1-check-win p2-check p2-check-win p3-check p3-check-win stage2-p1-check stage2-p1-check-win stage2-p2-check stage2-p2-check-win stage2-p3-check stage2-p3-check-win ci-status ci-status-win ci-trigger ci-trigger-win p3-signoff p3-signoff-win p3-close-all p3-close-all-win p0-preflight-win p0-preflight docs-link-check-win stage2-signoff-status-win final-release-check final-release-check-win
 
 build:
 	$(MKDIR)
@@ -35,6 +35,9 @@ verify-artifacts:
 
 test:
 	go test ./...
+
+test-race:
+	go test -race ./... -short
 
 test-integration:
 	go test -tags=integration ./...

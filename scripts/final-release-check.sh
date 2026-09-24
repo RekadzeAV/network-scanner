@@ -56,9 +56,18 @@ fi
 
 # 4. Documentation sanity
 echo "[5/5] Docs sanity..."
-if [ -f "./docs/FINAL_RELEASE_READINESS_REPORT.md" ] && \
-   [ -f "./docs/D_TRACK_IMPLEMENTATION_STATUS.md" ] && \
-   [ -f "./CHANGELOG.md" ]; then
+# Ключевые активные документы. Отчёты завершённых циклов
+# (FINAL_RELEASE_READINESS_REPORT, D_TRACK_IMPLEMENTATION_STATUS) перемещены в
+# docs/archive/** и больше не проверяются — они исторические.
+docs_ok=1
+for doc in ./README.md ./CHANGELOG.md ./docs/ROADMAP.md \
+           ./docs/IMPLEMENTATION_PLAN.md ./docs/UNIFIED_OPTIMIZED_PLAN_2026-09-15.md; do
+    if [ ! -f "$doc" ]; then
+        docs_ok=0
+        echo "  ⚠️  $doc отсутствует"
+    fi
+done
+if [ "$docs_ok" -eq 1 ]; then
     echo "  ✅ Ключевые документы на месте"
 else
     echo "  ❌ Некоторые документы отсутствуют"

@@ -18,6 +18,12 @@ const (
 	ActionReboot = "reboot"
 )
 
+// ConsentToken — обязательный токен подтверждения необратимого действия.
+//
+// P0-3: подтверждение проверяется не только в CLI, но и здесь, чтобы ни один
+// вызывающий слой (CLI, GUI, REST) не мог выполнить reboot «случайно».
+const ConsentToken = "I_UNDERSTAND"
+
 const (
 	VendorGenericHTTP = "generic-http"
 	VendorTPLINKHTTP  = "tp-link-http"
@@ -32,6 +38,10 @@ type Request struct {
 	Password    string
 	InsecureTLS bool
 	Timeout     time.Duration
+
+	// Consent — токен подтверждения для необратимых действий (reboot).
+	// Для ActionReboot обязателен ConsentToken.
+	Consent string
 }
 
 // Response describes a control result.
@@ -129,6 +139,13 @@ func Execute(ctx context.Context, req Request) (Response, error) {
 	}
 	if req.TargetURL == "" {
 		return Response{}, fmt.Errorf("target URL is required")
+	}
+	// P0-3: reboot подтверждается до обращения к устройству. Проверка на уровне
+	// сервиса, а не только CLI/GUI, исключает обход подтверждения новым
+	// вызывающим слоем.
+	if req.Action == ActionReboot && strings.TrimSpace(req.Consent) != ConsentToken {
+		return Response{Action: req.Action, TargetURL: req.TargetURL},
+			fmt.Errorf("reboot requires explicit confirmation: consent must be %s", ConsentToken)
 	}
 	if err := validateTargetURL(req.TargetURL); err != nil {
 		return Response{}, err

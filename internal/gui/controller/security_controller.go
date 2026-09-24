@@ -140,6 +140,10 @@ func (c *SecurityController) CheckDeviceStatus() {
 }
 
 // RebootDevice перезагружает устройство через HTTP API.
+//
+// P0-3: перезагрузка — необратимое действие, поэтому сначала запрашивается
+// подтверждение пользователя, и только затем выполняется запрос с
+// Consent=ConsentToken.
 func (c *SecurityController) RebootDevice() {
 	target := ""
 	if c.ui.DeviceTargetEntry != nil {
@@ -164,6 +168,13 @@ func (c *SecurityController) RebootDevice() {
 		pass = strings.TrimSpace(c.ui.DevicePassEntry.Text)
 	}
 
+	confirmDangerousAction(c.ui.Window, "Подтверждение перезагрузки", rebootConfirmMessage(target), func() {
+		c.rebootDevice(target, vendor, user, pass)
+	})
+}
+
+// rebootDevice выполняет сам запрос перезагрузки (после подтверждения).
+func (c *SecurityController) rebootDevice(target, vendor, user, pass string) {
 	c.setStatus("Перезагрузка устройства...")
 	logger.Log("Перезагрузка: target=%s, vendor=%s", target, vendor)
 
@@ -178,6 +189,7 @@ func (c *SecurityController) RebootDevice() {
 		Username:  user,
 		Password:  pass,
 		Timeout:   10 * time.Second,
+		Consent:   devicecontrol.ConsentToken,
 	}
 
 	resp, err := devicecontrol.Execute(ctx, req)

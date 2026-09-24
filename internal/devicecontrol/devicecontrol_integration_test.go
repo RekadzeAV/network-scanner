@@ -127,6 +127,7 @@ func TestIntegrationExecute_GenericHTTP_Reboot(t *testing.T) {
 	res, err := Execute(context.Background(), Request{
 		Action:    ActionReboot,
 		TargetURL: srv.URL,
+		Consent:   ConsentToken,
 		Timeout:   2 * time.Second,
 	})
 	if err != nil {
@@ -175,6 +176,7 @@ func TestIntegrationExecute_TPLinkHTTP_Reboot(t *testing.T) {
 		Action:    ActionReboot,
 		TargetURL: srv.URL,
 		Vendor:    VendorTPLINKHTTP,
+		Consent:   ConsentToken,
 		Timeout:   2 * time.Second,
 	})
 	if err != nil {
@@ -719,6 +721,7 @@ func TestIntegrationRequest_JSONPayload(t *testing.T) {
 		Action:    ActionReboot,
 		TargetURL: srv.URL,
 		Vendor:    VendorTPLINKHTTP,
+		Consent:   ConsentToken,
 		Timeout:   2 * time.Second,
 	})
 	if err != nil {

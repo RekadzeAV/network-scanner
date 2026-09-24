@@ -80,22 +80,25 @@
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 4.1 | Согласовать go.yml / ci.yml / release.yml (дедупликация job'ов) | pending |
-| 4.2 | Прогон CI на актуальном main (тесты+lint+build+benchmarks) | pending |
+| 4.1 | Согласовать go.yml / ci.yml / release.yml (дедупликация job'ов) | ✅ done (govulncheck добавлен в оба workflow; go.yml — матрица test/lint/build/security/benchmarks/smoke) |
+| 4.2 | Прогон CI на актуальном main (тесты+lint+build+benchmarks) | ✅ done (прогоны 2026-09-23/24: lint 0 замечаний, test 52 ok, кросс-сборка чиста) |
+| 4.3 | `go test -race ./... -short` как гейт качества (M2) | ✅ done (2026-09-24: 0 FAIL, 0 DATA RACE; гонки в `internal/ports`/`internal/network` устранены) |
 
 ## ЭТАП 5: Покрытие тестами (цель релиза v2.3.0)
 
 | # | Пакет | Текущий | Цель | Статус |
 |---|-------|---------|------|--------|
-| 5.1 | `internal/scanner` | ~73.5% | 85% | pending |
-| 5.2 | `internal/topology` | ≥78% | 85% | pending |
+| 5.1 | `internal/scanner` | 88.1% | 85% | ✅ done |
+| 5.2 | `internal/topology` | 88.3% | 85% | ✅ done |
+| 5.3 | `internal/api` | 95.5% | 85% | ✅ done |
+| 5.4 | `internal/devicecontrol` | 90.8% | 85% | ✅ done |
 
 ## ЭТАП 6: Интеграция архитектурного слоя v2.3
 
 | # | Задача | Статус |
 |---|--------|--------|
-| 6.1 | Решение по `plugin/eventbus/commands/apperror/configvalidation`: интеграция в scanner/API/GUI (итерациями) | pending |
-| 6.2 | Решение по cobra-CLI: подключить или удалить | pending |
+| 6.1 | Решение по `plugin/eventbus/commands/apperror/configvalidation`: интеграция в scanner/API/GUI (итерациями) | ✅ done (E6: `builder.Container.WithEventBus` + `scanner.NewService().WithEventBus`, публикация `scan.started/completed/failed`; легаси-пути не ретрофитятся — ADR-0002) |
+| 6.2 | Решение по cobra-CLI: подключить или удалить | ✅ done (cobra подключён: `main → ExecuteCLI → rootCmd`, подкоманды scan/inventory/gui/remote-exec/device-control) |
 
 ## ЭТАП 7: Расширения (после релиза v2.3.0)
 

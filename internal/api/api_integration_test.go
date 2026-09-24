@@ -797,7 +797,8 @@ func TestIntegrationGenerateScanID_ValidFormat(t *testing.T) {
 func TestIntegrationAlertingEngine_Initialized(t *testing.T) {
 	resetScanStore()
 	cfg := DefaultConfig()
-	cfg.InventoryPath = "test_inventory.db"
+	// Изолированный путь: тест не должен писать в рабочий каталог.
+	cfg.InventoryPath = filepath.Join(t.TempDir(), "inventory.db")
 	router := NewRouter(cfg)
 
 	// Initialize the alerting engine
@@ -950,6 +951,8 @@ func TestIntegrationAlerting_Trigger_NotFound(t *testing.T) {
 
 func TestIntegrationInventoryList_OK(t *testing.T) {
 	cfg := DefaultConfig()
+	// Изолированный inventory: не трогаем рабочий inventory.db.
+	cfg.InventoryPath = filepath.Join(t.TempDir(), "inventory.db")
 	router := NewRouter(cfg)
 
 	req := httptest.NewRequest("GET", "/api/v1/inventory", nil)
@@ -973,6 +976,8 @@ func TestIntegrationInventoryList_OK(t *testing.T) {
 
 func TestIntegrationInventorySave_Valid(t *testing.T) {
 	cfg := DefaultConfig()
+	// Изолированный inventory: снапшот пишется во временный файл.
+	cfg.InventoryPath = filepath.Join(t.TempDir(), "inventory.db")
 	router := NewRouter(cfg)
 
 	body, _ := json.Marshal(map[string]interface{}{
@@ -1057,34 +1062,51 @@ func TestIntegrationInventorySave_InvalidJSON(t *testing.T) {
 }
 
 func TestIntegrationInventoryDiff_OK(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "inventory.db")
+	now := time.Now().UTC()
+
+	seedInventory(t, dbPath,
+		inventory.Snapshot{ID: "scan-a", Timestamp: now.Add(-time.Hour), Hosts: []scanner.Result{{IP: "10.0.0.1", IsAlive: true}}},
+		inventory.Snapshot{ID: "scan-b", Timestamp: now, Hosts: []scanner.Result{{IP: "10.0.0.2", IsAlive: true}}},
+	)
+
 	cfg := DefaultConfig()
+	cfg.InventoryPath = dbPath
 	router := NewRouter(cfg)
 
-	// Route pattern: /api/v1/inventory/{id}/diff
-	// The handler expects id_a and id_b but route only provides id
-	// So it will return 400 for missing IDs
-	req := httptest.NewRequest("GET", "/api/v1/inventory/scan-a/diff", nil)
+	// Канонический маршрут: /api/v1/inventory/{id_a}/diff/{id_b}
+	req := httptest.NewRequest("GET", "/api/v1/inventory/scan-a/diff/scan-b", nil)
 	w := httptest.NewRecorder()
 	router.GetRouter().ServeHTTP(w, req)
 
-	// Handler returns 400 because id_a and id_b are empty
-	if w.Code != http.StatusBadRequest {
-		t.Logf("Got status %d (handler expects id_a and id_b, route provides only id)", w.Code)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d (body: %s)", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	for _, key := range []string{"scan_id_a", "scan_id_b", "new", "missing", "changed"} {
+		if _, ok := resp[key]; !ok {
+			t.Errorf("expected %q field in response", key)
+		}
 	}
 }
 
 func TestIntegrationInventoryDiff_MissingID(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "inventory.db")
 	cfg := DefaultConfig()
+	cfg.InventoryPath = dbPath
 	router := NewRouter(cfg)
 
-	// Empty ID in URL path
-	req := httptest.NewRequest("GET", "/api/v1/inventory//diff", nil)
+	// back-compat маршрут /inventory/{id_a}/diff без id_b → 400.
+	req := httptest.NewRequest("GET", "/api/v1/inventory/only-a/diff", nil)
 	w := httptest.NewRecorder()
 	router.GetRouter().ServeHTTP(w, req)
 
-	// Should return 400 for empty ID
 	if w.Code != http.StatusBadRequest {
-		t.Logf("Got status %d", w.Code)
+		t.Errorf("expected status 400 for missing id_b, got %d", w.Code)
 	}
 }
 

@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// Config РєРѕРЅС„РёРіСѓСЂР°С†РёСЏ API СЃРµСЂРІРµСЂР°
+// Config конфигурация API-сервера
 type Config struct {
 	Port               int
 	Host               string
@@ -15,9 +15,10 @@ type Config struct {
 	AllowedOrigins     []string
 	RateLimitPerSecond int
 	InventoryPath      string
+	AuthToken          string // Bearer-токен для аутентификации API (пусто = отключить)
 }
 
-// DefaultConfig РІРѕР·РІСЂР°С‰Р°РµС‚ РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
+// DefaultConfig возвращает конфигурацию по умолчанию
 func DefaultConfig() Config {
 	return Config{
 		Port:               8080,

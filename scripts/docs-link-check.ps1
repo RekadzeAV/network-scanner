@@ -1,5 +1,11 @@
 Param(
-    [string]$RootPath = "."
+    [string]$RootPath = ".",
+
+    # Архивные документы (docs/archive/**) — исторические артефакты завершённых
+    # циклов: их относительные ссылки указывают на документы, удалённые вместе с
+    # циклом. По умолчанию архив исключён из проверки, чтобы gate оставался
+    # полезным для активной документации.
+    [switch]$IncludeArchive
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,7 +16,16 @@ Set-Location $root
 Write-Host "== Docs local link check ==" -ForegroundColor Cyan
 
 $mdFiles = Get-ChildItem -Path $root -Recurse -File -Include *.md
+if (-not $IncludeArchive) {
+    $archiveSeparator = [IO.Path]::DirectorySeparatorChar.ToString() + "docs" +
+        [IO.Path]::DirectorySeparatorChar.ToString() + "archive" +
+        [IO.Path]::DirectorySeparatorChar.ToString()
+    $mdFiles = $mdFiles | Where-Object { $_.FullName -notlike "*$archiveSeparator*" }
+    Write-Host "Skipped docs/archive/** (pass -IncludeArchive to check it)" -ForegroundColor DarkGray
+}
+
 $broken = New-Object System.Collections.Generic.List[string]
+
 
 $linkRegex = [regex]'\[[^\]]+\]\(([^)#]+)'
 

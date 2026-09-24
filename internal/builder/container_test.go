@@ -2,6 +2,8 @@ package builder
 
 import (
 	"testing"
+
+	"network-scanner/internal/eventbus"
 )
 
 func TestNewContainer(t *testing.T) {
@@ -47,5 +49,43 @@ func TestContainer_GetInventory(t *testing.T) {
 	c := NewContainer(Config{})
 	if c.GetInventory() == nil {
 		t.Fatal("expected non-nil inventory service")
+	}
+}
+
+// TestContainer_WithEventBus — E6: шина событий устанавливается и доступна.
+func TestContainer_WithEventBus(t *testing.T) {
+	c := NewContainer(Config{LogLevel: "info"})
+	if c.GetEventBus() != nil {
+		t.Fatal("expected nil event bus before wiring")
+	}
+
+	bus := eventbus.NewEventBus()
+	defer bus.Close()
+
+	if got := c.WithEventBus(bus); got != c {
+		t.Fatal("WithEventBus should return the same container (fluent API)")
+	}
+	if c.GetEventBus() != bus {
+		t.Fatal("expected wired event bus to be returned by GetEventBus")
+	}
+}
+
+// TestContainer_WithEventBus_ScannerServiceWired — E6: сканер получает шину
+// через контейнер (type assertion на интерфейс WithEventBus).
+func TestContainer_WithEventBus_ScannerServiceWired(t *testing.T) {
+	bus := eventbus.NewEventBus()
+	defer bus.Close()
+
+	c := NewContainer(Config{LogLevel: "info"}).WithEventBus(bus)
+	if c.GetEventBus() == nil {
+		t.Fatal("expected wired event bus")
+	}
+	if c.GetScanner() == nil {
+		t.Fatal("expected non-nil scanner service")
+	}
+	if _, ok := c.GetScanner().(interface {
+		WithEventBus(*eventbus.EventBus)
+	}); !ok {
+		t.Fatal("expected scanner service to expose WithEventBus(*eventbus.EventBus)")
 	}
 }

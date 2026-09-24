@@ -1,16 +1,23 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"time"
 
 	"network-scanner/internal/builder"
+	"network-scanner/internal/devicecontrol"
 )
 
-// RunDeviceControl запускает управление устройством
+// RunDeviceControl запускает управление устройством (status|reboot) через
+// реальный devicecontrol-адаптер с обязательным audit-логом.
 func RunDeviceControl(cfg builder.Config, args ...string) error {
 	action := ""
 	target := ""
-	vendor := "generic-http"
+	vendor := devicecontrol.VendorGenericHTTP
+	user := ""
+	pass := ""
 	confirm := ""
 	timeout := 10
 	auditPath := ""
@@ -34,12 +41,12 @@ func RunDeviceControl(cfg builder.Config, args ...string) error {
 			}
 		case "--user", "-u":
 			if i+1 < len(args) {
-				_ = args[i+1] // user — placeholder
+				user = args[i+1]
 				i++
 			}
 		case "--pass", "-p":
 			if i+1 < len(args) {
-				_ = args[i+1] // pass — placeholder
+				pass = args[i+1]
 				i++
 			}
 		case "--confirm":
@@ -64,28 +71,60 @@ func RunDeviceControl(cfg builder.Config, args ...string) error {
 	if action == "" || target == "" {
 		return fmt.Errorf("требуется --action и --target")
 	}
-	if action != "status" && action != "reboot" {
+	if action != devicecontrol.ActionStatus && action != devicecontrol.ActionReboot {
 		return fmt.Errorf("неподдерживаемое действие: %s (поддерживается status|reboot)", action)
 	}
-	if action == "reboot" && confirm != "I_UNDERSTAND" {
+	if action == devicecontrol.ActionReboot && confirm != "I_UNDERSTAND" {
 		return fmt.Errorf("для reboot требуется --confirm I_UNDERSTAND")
 	}
+	if timeout <= 0 {
+		timeout = 10
+	}
 
-	container := builder.NewContainer(cfg)
-	inventoryService := container.GetInventory()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
 
-	// Получаем снапшот для получения результатов
-	_ = inventoryService
+	req := devicecontrol.Request{
+		Action:    action,
+		TargetURL: target,
+		Vendor:    vendor,
+		Username:  user,
+		Password:  pass,
+		Timeout:   time.Duration(timeout) * time.Second,
+	}
 
 	fmt.Printf("Device Control: action=%s target=%s vendor=%s\n", action, target, vendor)
 	fmt.Printf("Timeout: %ds\n", timeout)
 
-	// TODO: реальный вызов device-control
-	fmt.Println("Status: Implemented (mock)")
+	resp, err := devicecontrol.Execute(ctx, req)
 
+	// Audit пишется всегда, включая неуспешные попытки (требование для
+	// необратимых действий).
 	if auditPath != "" {
-		fmt.Printf("Audit log: %s\n", auditPath)
+		entry := devicecontrol.AuditEntry{
+			Action:    action,
+			TargetURL: target,
+			Vendor:    vendor,
+			Success:   err == nil && resp.Success,
+			Message:   resp.Message,
+		}
+		if err != nil {
+			entry.Message = err.Error()
+		}
+		if auditErr := devicecontrol.AppendAudit(auditPath, entry); auditErr != nil {
+			fmt.Fprintf(os.Stderr, "Audit log error: %v\n", auditErr)
+		} else {
+			fmt.Printf("Audit log: %s\n", auditPath)
+		}
 	}
 
+	if err != nil {
+		return fmt.Errorf("device control: %w", err)
+	}
+
+	fmt.Printf("Status: %d\n", resp.StatusCode)
+	if resp.Message != "" {
+		fmt.Printf("Message: %s\n", resp.Message)
+	}
 	return nil
 }

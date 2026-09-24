@@ -375,7 +375,7 @@ Eliminated import cycles, replaced `nil` audit calls with live `scanResults`, ad
 
 ---
 
-## 🔘 Фаза 6: UX мобильная версия (P3) — ✅ ЗАКРЫТО
+## 🔘 Фаза 6: UX мобильная версия (P3) — ❌ ОТМЕНЕНО (2026-09-19: mobile GUI не поставлялся; код mobile_layout.go/touch_gestures.go удалён как мёртвый — задачи были закрыты ошибочно, реальные TODO остались в коде; мобильный GUI — отдельный эпик при необходимости)
 
 ### TASK-023: Mobile Layout — адаптивный layout ✅
 **Модуль:** `internal/gui/mobile_layout.go`  

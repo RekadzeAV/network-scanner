@@ -17,14 +17,15 @@
 |---------|----------|
 | Базовый функционал | ✅ 100% |
 | Текущая версия | v2.3.0 |
-| Тесты | 49 пакетов, зелёные кроме `internal/topology` (regression в работе, этап E0) |
-| Coverage критических пакетов | network 85.7%, api 75.2%, banner 90.8%, scanner 73.5% (цель 85%) |
-| Архитектурный слой v2.3 | ✅ plugin/eventbus/commands/apperror/configvalidation/benchmark (интеграция — в плане) |
+| Тесты | ✅ 52 пакета ok (`go test ./... -short`, `golangci-lint` — 0 замечаний) |
+| Race detector | ✅ `go test -race ./... -short` — 0 FAIL, 0 DATA RACE |
+| Coverage критических пакетов | scanner 88.1%, api 95.5%, devicecontrol 90.8%, topology 88.3% (цель 85% ✅) |
+| Архитектурный слой v2.3 | ✅ plugin/eventbus/commands/apperror/configvalidation/benchmark (eventbus подключён к scan-циклу, E6) |
 | CLI размер | 60.6 MB |
 | GUI размер | 58.5 MB |
 
 **Текущая версия:** v2.3.0
-**Фокус развития:** устранение regression, coverage 85%+, интеграция архитектурного слоя
+**Фокус развития:** расширения E7 (ICMP/UDP/PDF/plugin-probes), event-driven GUI, метрики
 
 ---
 
@@ -129,7 +130,7 @@ network-scanner/
 - **[QUICKSTART-macOS.md](docs/QUICKSTART-macOS.md)** - Быстрый старт для macOS
 - **[ROADMAP.md](docs/ROADMAP.md)** - Канонический роадмап проекта
 - **[UNIFIED_OPTIMIZED_PLAN_2026-09-15.md](docs/UNIFIED_OPTIMIZED_PLAN_2026-09-15.md)** - Единый оптимизированный план работ
-- **[IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)** - План реализации v2.3
+- **[ROADMAP.md](docs/ROADMAP.md)** - Roadmap и план реализации v2.3
 
 ### Отчеты и чеклисты
 - **[BUILD_STRUCTURE.md](docs/BUILD_STRUCTURE.md)** - Структура каталогов релизной сборки
@@ -565,7 +566,7 @@ make p3-close-all
 2. Проверьте окружение: `./scripts/setup-windows-env.sh`
 3. Соберите: `./scripts/build-windows.sh`
 
-Подробнее: [QUICKSTART_WINDOWS_BUILD.md](QUICKSTART_WINDOWS_BUILD.md) или [docs/SETUP_WINDOWS_CROSS_COMPILE.md](docs/SETUP_WINDOWS_CROSS_COMPILE.md)
+Подробнее: [docs/QUICKSTART_WINDOWS_BUILD.md](docs/QUICKSTART_WINDOWS_BUILD.md) или [docs/SETUP_WINDOWS_CROSS_COMPILE.md](docs/SETUP_WINDOWS_CROSS_COMPILE.md)
 
 ## 🎯 Основные возможности
 
@@ -900,7 +901,7 @@ ipconfig /all       # Windows
 - [Инструкция по установке](docs/INSTALL.md) - Инструкции по установке
 - [Техническая документация](docs/TECHNICAL.md) - Техническая документация
 - [Архитектура проекта](docs/ARCHITECTURE.md) - Архитектура проекта (v2.0)
-- [План реализации](docs/IMPLEMENTATION_PLAN.md) - План реализации v2.0
+- [Roadmap и план реализации](docs/ROADMAP.md) - Roadmap и план реализации v2.3
 - [История изменений](CHANGELOG.md) - История изменений
 - [Правила вклада](CONTRIBUTING.md) - Правила вклада и соглашения по коммитам
 

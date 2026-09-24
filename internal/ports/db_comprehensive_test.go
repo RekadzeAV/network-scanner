@@ -1,6 +1,7 @@
 package ports
 
 import (
+	"sync"
 	"testing"
 )
 
@@ -286,3 +287,68 @@ func BenchmarkProtocolLabel(b *testing.B) {
 		_ = ProtocolLabel(443)
 	}
 }
+
+// ============================================================================
+// Конкурентность: LookupServiceName вызывается из параллельных горутин
+// сканирования (internal/scanner → scanHost). Раньше реализация использовала
+// общий `cases.Caser` (golang.org/x/text), небезопасный для конкурентного
+// использования, что давало data race (см. M2 в docs/ROADMAP.md).
+// ============================================================================
+
+func TestLookupServiceName_Concurrent(t *testing.T) {
+	const goroutines = 32
+	const iterations = 200
+
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for g := 0; g < goroutines; g++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < iterations; i++ {
+				_ = LookupServiceName(80)
+				_ = LookupServiceName(9999)
+				_ = LookupServiceName(5432)
+				_ = LookupServiceName(65530)
+				_ = formatIANAServiceName("distinct")
+			}
+		}()
+	}
+	wg.Wait()
+}
+
+// TestTitleCaseWord проверяет чистую замену title-casing без x/text.
+func TestTitleCaseWord(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{"distinct", "Distinct"},
+		{"RADIUS", "Radius"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		if got := titleCaseWord(tt.in); got != tt.want {
+			t.Errorf("titleCaseWord(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+// TestLookupServiceName_ConcurrentParallel — конкурентный доступ через
+// t.Parallel(): покрывает ту же пакетную функцию, но в модели «параллельные тесты».
+func TestLookupServiceName_ConcurrentParallel(t *testing.T) {
+	t.Parallel()
+	for i := 0; i < 500; i++ {
+		_ = LookupServiceName(80)
+		_ = LookupServiceName(9999)
+		_ = formatIANAServiceName("distinct")
+	}
+}
+
+// TestFormatIANAServiceName_Whitespace — внешние (CSV) данные с пробелами
+// больше не приводят к возврату необработанной строки.
+func TestFormatIANAServiceName_Whitespace(t *testing.T) {
+	if got := formatIANAServiceName("  ssh  "); got != "SSH" {
+		t.Errorf("formatIANAServiceName(\"  ssh  \") = %q, want SSH", got)
+	}
+}
+

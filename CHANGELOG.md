@@ -7,6 +7,65 @@
 
 ## [Unreleased]
 
+### 2026-09-24: M2 — устранение гонок данных (`go test -race` зелёный)
+
+- **`internal/ports` — data race в `formatIANAServiceName` (критично):**
+  - Причина: пакетная переменная `titleEn = cases.Title(language.English)` (`golang.org/x/text/cases`) использовалась как shared-трансформер; `cases.Caser` **не безопасен для конкурентного использования** (внутренний `cases.context` мутируется при `Transform`).
+  - Проявление: `go test -race ./internal/scanner/` — WARNING: DATA RACE между горутинами `scanHost` → `network.GetServiceName` → `ports.LookupServiceName` → `formatIANAServiceName` при параллельном сканировании подсети (port-scan и UDP-scan пути).
+  - Решение: `titleEn`/`cases`/`language` удалены; добавлена чистая функция `titleCaseWord` (капитализация через `unicode`), `formatIANAServiceName` переписана без `defer/recover` (защита от паник x/text больше не нужна), добавлен `TrimSpace` для CSV-имён с пробелами. Поведение существующих подписей сохранено (`SSH`, `HTTP-Alt`, `FTP-Data`, `PostgreSQL`, `Distinct`).
+  - Тесты: `TestLookupServiceName_Concurrent` (32 горутины × 200 итераций под `-race`), `TestTitleCaseWord`, `TestFormatIANAServiceName_Whitespace`.
+- **`internal/network` — гонка в тесте `TestARPCacheRapidRefresh`:** счётчик вызовов `refreshFunc` читался из теста, а инкрементировался в горутине `RefreshAsync` → переведён на `sync/atomic`.
+- **Проверки:** `go build ./...` чисто; `go vet` чисто; `golangci-lint run ./...` — 0 замечаний; `go test ./... -short -race` — **0 FAIL, 0 DATA RACE** (ранее `internal/scanner` падал с `DATA RACE`).
+- **Прочее:** `.gitignore` — исключение локального scratch-каталога `/.tmp_race/`.
+
+### 2026-09-23: M1–M3 (покрытие, CI-безопасность, документация) + E6 eventbus
+
+- **M1 — покрытие 85%+ по критичным пакетам:**
+  - `internal/scanner` **84.6% → 86.2%**: парсинг ARP-таблиц вынесен в чистые функции `parseLinuxARPOutput` / `parseDarwinARPLine` (+13 тестов в `internal/scanner/arp_parse_test.go`); раньше логика разбора была недостижима в тестах (Linux/Darwin ветки)
+  - `internal/api` **83.3% → 87.5%**: исправлен сломанный эндпоинт `GET /api/v1/inventory/{id_a}/diff/{id_b}` (маршрут передавал один `{id}`, а хендлер требовал `id_a` + `id_b` → всегда 400); добавлена поддержка `?id_b=` для обратной совместимости; 4 теста вместо нерабочего, `handleInventoryDiff` 18.8% → ~90%
+  - `internal/devicecontrol` **87.8%** (после P0-3), `internal/builder` **100%** (тесты E6), `internal/eventbus` **93.5%**
+- **M2 — CI-безопасность:**
+  - job `govulncheck` в `.github/workflows/ci.yml` (`go install golang.org/x/vuln/cmd/govulncheck@latest` → `govulncheck ./...`)
+  - `Dockerfile`: базовый образ `golang:1.23-alpine` → `golang:1.25-alpine` (соответствие `go.mod`); исправлен `org.opencontainers.image.source`
+  - `docker-compose.yml`: удалена deprecated-директива `version`, актуализирован `BUILD_TIME`
+- **M3 — документация:**
+  - `docs/ARCHITECTURE.md`: раздел «Событийная архитектура (eventbus)» (E6) — подключение, события, гарантии; обновлена структура проекта (eventbus/apperror/commands/configvalidation/plugin/benchmark/telemetry); убран дубль ссылки
+  - `scripts/gen-godoc.ps1` / `.sh` — генерация godoc (HTML при наличии `godoc`, иначе текстовый дамп) → `docs/dev/godoc/` (gitignored); `docs/dev/README.md`
+  - `docs/GUI.md` обновлён до v2.3.0
+- **E6 — интеграция eventbus в scan-цикл:**
+  - `scanner.NewService(...)` + `WithEventBus(bus)`; публикуются `scan.started`, `scan.completed` (HostCount/OpenPorts/Duration), `scan.failed` (reason)
+  - `builder.Container.WithEventBus(bus)` / `GetEventBus()` — fluent API, публикация opt-in (без шины поведение не меняется)
+  - Тесты: `internal/scanner/service_impl_eventbus_test.go` (4) + `internal/builder/container_test.go` (2)
+- **CLI:** `--api-token=<token>` и env `NETWORK_SCANNER_API_TOKEN` заполняют `api.Config.AuthToken`; сервер предупреждает, если auth отключён (`cmd/network-scanner/api_token.go`, 6 тестов)
+- **Проверки:** `go build ./...` чисто; `go test ./... -short` — **0 FAIL**; кросс-сборка linux/darwin/windows с `CGO_ENABLED=0` чиста
+
+### 2026-09-23: Аудит v2.3.0 + security hardening (P0) + консолидация документации (P1)
+- **P0-1 REST API auth:** добавлен `authRequiredMiddleware` (Bearer Token) в `internal/api/router.go` + поле `AuthToken` в `api.Config`. `/health` и `/api/docs` остаются публичными; пустой токен отключает проверку (dev/test). Тесты: `internal/api/auth_middleware_test.go` (6 кейсов)
+- **P0-2 remote-exec dry-run по умолчанию:** реальное выполнение включается только `--execute` (синоним `--dry-run=false`), требует `--consent I_UNDERSTAND`; в dry-run consent подставляется автоматически. Тесты: `cmd/network-scanner/cmd/remote_exec_test.go` (6 кейсов)
+- **P0-3 device-control confirm:** reboot требует `--confirm I_UNDERSTAND`; проверка дублируется в сервисе (`internal/devicecontrol`), обновлены интеграционные тесты
+- **Очистка:** удалена `internal/legacy/` (14 файлов мусора — cov-артефакты, логи, launch-скрипты)
+- **P1 документация:**
+  - `docs/CLI_REFERENCE.md` — полный справочник CLI-флагов (scan/inventory/remote-exec/device-control/gui/history)
+  - `CONTRIBUTING.md` — trunk-based branching, Conventional Commits, код-ревью
+  - `.github/CODEOWNERS` — карта ответственности по пакетам
+  - `docs/ROADMAP.md` — объединён roadmap + `IMPLEMENTATION_PLAN.md` (старый план → `docs/archive/2026-09-cycle/IMPLEMENTATION_PLAN_v1.md`)
+  - `QUICKSTART_WINDOWS_BUILD.md` перенесён в `docs/`
+  - Актуализированы ссылки в `README.md`, `docs/{README,ARCHITECTURE,PROJECT_STRUCTURE,TECHNICAL,USER_GUIDE,GUI,PROJECT_PROMPT}.md`
+- **Артефакты аудита:** `AUDIT_REPORT.md` + `docs/audit/` (01–11)
+- **Проверки:** `go build ./...` чисто; `go test ./... -short` — **48 пакетов ok / 0 FAIL**
+
+### 2026-09-22: Единый cobra-диспатч CLI + рабочие inventory-подкоманды (E7/дедупликация)
+- **Удалён legacy-диспатчер:** ручной `switch os.Args[1]` в `ExecuteCLI` (scan.go) заменён делегированием в cobra `rootCmd` — единый слой для `scan/inventory/remote-exec/device-control/gui/version` (принцип дедупликации плана). Удалён мёртвый `printUsage` (заменён cobra-справкой)
+- **`inventory list|diff|save` реализованы** (были заглушки «требует integration с builder»):
+  - `list [limit]` — позиционный limit в приоритете над `--limit`, валидация числа
+  - `diff <idA> <idB>` — базовый вывод + `--history` (формат `store.CompareSnapshotsByName` с port-changes)
+  - `save` — реальное сканирование (`--hosts-file` / `--network`, `--ports/--timeout/--threads`) → снапшот (`--id`, auto `scan-<unix>`); ранее сохранял пустой набор результатов
+  - Общий persistent-флаг `--db` (путь к SQLite), согласован с `scanCommandRun` и `services.NewInventoryService`
+- **`main.go` / `main_unix.go`:** `--help`/команды делегируются cobra (вместо legacy-текста); `--version` и `--api` сохранены
+- **`root.go`:** добавлена подкоманда `gui` (реализация под build-tag `gui`, заглушка без тега)
+- **Тесты:** новый `cmd/network-scanner/cmd/cli_wiring_test.go` — 13 тестов (регистрация команд/флагов, валидация аргументов, default DB-path); coverage пакета `cmd` 0% → 11.6%
+- **Проверки:** `go build ./...` чисто; `go vet ./...` чисто; `go test ./...` — 48+ пакетов ok / 0 FAIL; `golangci-lint run ./cmd/...` — 0 замечаний; живые прогоны `inventory list/diff/save` на реальной SQLite
+
 ### 2026-09-21: GUI UX-переработка (Этап 1–3)
 - **Сканирование:** панель сгруппирована — «Основное» (сеть/порты/запуск/статус) всегда видимо; «Пресеты и профиль», «Производительность и опции» — в `widget.Accordion` (свернуто по умолчанию)
 - **Инструменты:** плоская сетка 10 кнопок заменена карточками-категориями «Сетевые утилиты», «Wake-on-LAN», «Управление устройством (HTTP API)», «Аудит и риски»; параметры сгруппированы по своим инструментам
