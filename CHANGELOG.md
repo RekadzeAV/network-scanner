@@ -7,6 +7,27 @@
 
 ## [Unreleased]
 
+### 2026-09-25: E7/P3-3 — ICMP ping probe: детерминированные тесты + документация
+
+- **Тесты (`internal/scanner/icmp_ping_test.go`):**
+  - ветка ICMP покрыта детерминированно через `fakeICMPPinger` (`SetICMPPinger`):
+    клэмп таймаута до `icmpPingTimeout`, сохранение меньшего таймаута сканера,
+    проброс ошибки пингера, short-circuit `isHostAlive` при живом ICMP и
+    TCP-fallback при мёртвом ICMP
+  - табличные тесты `validateICMPPingHost` — 14 кейсов shell-injection guard
+    (метасимволы, ведущий `-`, длинный хост, не-FQDN, `TrimSpace`)
+  - табличные тесты `icmpContainsString` — зафиксирована фактическая семантика
+    «любая из подстрок» и распознавание вывода Linux/Windows `ping`
+  - `fakeICMPPinger` расширен полями `calls`/`lastTTL` (единая реализация вместо дубля)
+- **Покрытие `internal/scanner/icmp_ping.go`:** `validateICMPPingHost`,
+  `icmpContainsString`, `PingICMPPool`, `SetICMPPinger`, `pingICMP` — **100%**;
+  `PingICMP` — 82.6% (непокрытые строки — живые платформенно-зависимые ветки вывода `ping`)
+- **Документация:** `docs/TECHNICAL.md` — раздел «ICMP ping probe (E7 / P3-3)»:
+  состав, аргументы по ОС, ограничение таймаута, интеграция в `isHostAlive`,
+  тесты и явное ограничение на недетерминированные живые прогоны
+- **Проверки:** `go test ./internal/scanner/ -run 'ICMP|Ping|IsHostAlive'` — ok;
+  `golangci-lint run ./internal/scanner/...` — 0 замечаний; `docs-link-check` — 0 битых ссылок
+
 ### 2026-09-24: M2 — устранение гонок данных (`go test -race` зелёный)
 
 - **`internal/ports` — data race в `formatIANAServiceName` (критично):**

@@ -102,7 +102,18 @@
 
 ## ЭТАП 7: Расширения (после релиза v2.3.0)
 
-ICMP ping → доку/тесты; Docker-доставка → CI-образ; systemd/desktop units; hostlist importer → CLI/GUI; UDP-скан; PDF-отчёты; plugin-probes; event-driven GUI.
+| # | Задача | Статус |
+|---|--------|--------|
+| 7.1 | ICMP ping → тесты + документация (P3-3) | ✅ done (2026-09-25: fake-пингер, табличные тесты, покрытие `icmp_ping.go` 100%/82.6%, раздел в `docs/TECHNICAL.md`) |
+| 7.2 | UDP-скан (улучшение) | pending |
+| 7.3 | PDF/HTML-отчёты + планировщик | pending |
+| 7.4 | plugin-probes (реальные плагины) | pending |
+| 7.5 | Event-driven GUI через eventbus | pending |
+| 7.6 | systemd/desktop units, Docker-доставка | pending |
+| 7.7 | hostlist importer → CLI/GUI | pending |
+| 7.8 | Метрики Prometheus + structured logging (P3-1) | pending |
+| 7.9 | Аудит-лог для изменяющих операций (P3-2) | pending |
+| 7.10 | Strict TLS в remoteexec | pending |
 
 ---
 

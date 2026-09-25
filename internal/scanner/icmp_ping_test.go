@@ -2,13 +2,97 @@ package scanner
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 )
 
 // ============================================================================
-// M6.1: Тесты для ICMP ping probe (Этап 6)
+// M6.1: Тесты для ICMP ping probe (Этап 6 / E7 — P3-3)
+//
+// Живые прогоны (PingICMP к localhost/192.0.2.254) не детерминированы: ICMP
+// может быть заблокирован firewall'ом, а код возврата ping различается по ОС.
+// Ниже — детерминированные тесты через fake-пингер (SetICMPPinger) и точные
+// проверки парсера/валидатора, дающие стабильный результат в CI.
 // ============================================================================
+
+// fakeICMPPinger — подменяемый ICMP-пингер (объявлен в scanner_loopback_cov_test.go:
+// поля calls/lastTTL используются в тестах ветки ICMP).
+
+// TestPingICMP_ClampsTimeoutToICMPPingTimeout — таймаут ICMP не превышает icmpPingTimeout.
+func TestPingICMP_ClampsTimeoutToICMPPingTimeout(t *testing.T) {
+	ns := NewNetworkScanner("192.0.2.0/24", 5*time.Second, "", 10, false)
+	fake := &fakeICMPPinger{alive: true}
+	ns.SetICMPPinger(fake)
+
+	alive, err := ns.pingICMP("192.0.2.10")
+	if err != nil {
+		t.Fatalf("pingICMP() error = %v", err)
+	}
+	if !alive {
+		t.Fatal("pingICMP() alive = false, want true")
+	}
+	if fake.calls != 1 {
+		t.Fatalf("PingICMP calls = %d, want 1", fake.calls)
+	}
+	if fake.lastTTL != icmpPingTimeout {
+		t.Errorf("timeout = %v, want %v (clamped)", fake.lastTTL, icmpPingTimeout)
+	}
+}
+
+// TestPingICMP_KeepsSmallerTimeout — меньший таймаут сканера не увеличивается.
+func TestPingICMP_KeepsSmallerTimeout(t *testing.T) {
+	ns := NewNetworkScanner("192.0.2.0/24", 200*time.Millisecond, "", 10, false)
+	fake := &fakeICMPPinger{alive: false}
+	ns.SetICMPPinger(fake)
+
+	if _, err := ns.pingICMP("192.0.2.10"); err != nil {
+		t.Fatalf("pingICMP() error = %v", err)
+	}
+	if fake.lastTTL != 200*time.Millisecond {
+		t.Errorf("timeout = %v, want 200ms", fake.lastTTL)
+	}
+}
+
+// TestPingICMP_PropagatesError — ошибка пингера доходит до вызывающего кода.
+func TestPingICMP_PropagatesError(t *testing.T) {
+	ns := NewNetworkScanner("192.0.2.0/24", icmpPingTimeout, "", 10, false)
+	wantErr := errors.New("icmp failed")
+	ns.SetICMPPinger(&fakeICMPPinger{err: wantErr})
+
+	if _, err := ns.pingICMP("192.0.2.10"); !errors.Is(err, wantErr) {
+		t.Fatalf("pingICMP() error = %v, want %v", err, wantErr)
+	}
+}
+
+// TestIsHostAlive_ICMPAliveShortCircuits — живой ICMP-хост считается активным без TCP-probe.
+func TestIsHostAlive_ICMPAliveShortCircuits(t *testing.T) {
+	ns := NewNetworkScanner("192.0.2.0/24", icmpPingTimeout, "", 10, false)
+	ns.SetICMPPingEnabled(true)
+	ns.SetICMPPinger(&fakeICMPPinger{alive: true})
+
+	if !ns.isHostAlive("192.0.2.10") {
+		t.Fatal("isHostAlive() = false, want true при живом ICMP")
+	}
+}
+
+// TestIsHostAlive_ICMPDeadFallsBackToTCP — мёртвый ICMP не отменяет TCP-probe fallback.
+func TestIsHostAlive_ICMPDeadFallsBackToTCP(t *testing.T) {
+	ns := NewNetworkScanner("192.0.2.0/24", 100*time.Millisecond, "", 10, false)
+	ns.SetICMPPingEnabled(true)
+	fake := &fakeICMPPinger{alive: false, err: errors.New("unreachable")}
+	ns.SetICMPPinger(fake)
+
+	// У 192.0.2.254 заведомо нет открытых commonHostPorts → результат false,
+	// но ICMP-пингер должен быть вызван (fallback-ветка не пропускает его).
+	if ns.isHostAlive("192.0.2.254") {
+		t.Fatal("isHostAlive() = true, want false для TEST-NET адреса")
+	}
+	if fake.calls == 0 {
+		t.Fatal("ICMP pinger not called: ICMP-ветка пропущена")
+	}
+}
 
 // TestDefaultICMPPinger_Ping_Success — ветка: успешный ICMP ping
 func TestDefaultICMPPinger_Ping_Success(t *testing.T) {
@@ -205,5 +289,103 @@ func TestICMPResult_Structure(t *testing.T) {
 	}
 	if result.Error != nil {
 		t.Errorf("expected Error to be nil, got %v", result.Error)
+	}
+}
+
+// TestValidateICMPPingHost_Table — таблица валидации хоста (shell-injection guard).
+func TestValidateICMPPingHost_Table(t *testing.T) {
+	tests := []struct {
+		name    string
+		host    string
+		wantErr bool
+	}{
+		{"ipv4", "192.168.1.1", false},
+		{"ipv6", "::1", false},
+		{"fqdn", "example.com", false},
+		{"trimmed", "  example.com  ", false},
+		{"empty", "", true},
+		{"space", "example com", true},
+		{"semicolon", "example.com;rm -rf /", true},
+		{"backtick", "example.com`whoami`", true},
+		{"pipe", "example.com|cat", true},
+		{"leading-dash", "-c100", true},
+		{"dollar", "example.com$(id)", true},
+		{"no-dot", "localhost", true},
+		{"too-long", strings.Repeat("a", 254) + ".com", true},
+		{"quote", "example.com\"", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := validateICMPPingHost(tt.host)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("validateICMPPingHost(%q) err = nil, want error", tt.host)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("validateICMPPingHost(%q) unexpected error: %v", tt.host, err)
+			}
+			if got != strings.TrimSpace(tt.host) {
+				t.Errorf("validateICMPPingHost(%q) = %q, want trimmed original", tt.host, got)
+			}
+		})
+	}
+}
+
+// TestICMPContainsString_Table — точные проверки разбора вывода ping.
+func TestICMPContainsString_Table(t *testing.T) {
+	linuxOutput := "1 packets transmitted, 1 received, 0% packet loss, time 0ms"
+	failOutput := "1 packets transmitted, 0 received, 100% packet loss, time 0ms"
+	winOutput := "Reply from 127.0.0.1: bytes=32 time<1ms TTL=128"
+
+	tests := []struct {
+		name string
+		s    string
+		subs []string
+		want bool
+	}{
+		{"linux-ok", linuxOutput, []string{"1 packets transmitted", "1 received"}, true},
+		// Реализация — «любая из подстрок»: failOutput содержит
+		// "1 packets transmitted" → true. Точная семантика успеха/неуспеха
+		// проверяется в PingICMP (нужны ОБЕ подстроки).
+		{"linux-fail-any-substring", failOutput, []string{"1 packets transmitted", "1 received"}, true},
+		{"windows-lowercase", winOutput, []string{"bytes=32"}, true},
+		{"windows-linux-phrase-not-matched", winOutput, []string{"bytes from"}, false},
+		{"substring-hit", "1 received", []string{"1 received"}, true},
+		{"shorter-than-substr", "abc", []string{"abcdef"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := icmpContainsString(tt.s, tt.subs...); got != tt.want {
+				t.Errorf("icmpContainsString(%q, %v) = %v, want %v", tt.s, tt.subs, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestPingICMPPool_ContextCancelledShape — форма результата пула при отмене контекста.
+func TestPingICMPPool_ContextCancelledShape(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	results := PingICMPPool(ctx, []string{"192.0.2.254", "192.0.2.253"}, icmpPingTimeout)
+	if len(results) != 2 {
+		t.Fatalf("len(results) = %d, want 2", len(results))
+	}
+	for _, r := range results {
+		if r.Alive {
+			t.Errorf("host %s: Alive = true, want false при отменённом контексте", r.Host)
+		}
+		if r.Error == nil {
+			t.Errorf("host %s: Error = nil, want context error", r.Host)
+		}
+	}
+}
+
+// TestPingICMPPool_NilHosts — nil-срез возвращает пустой результат без паники.
+func TestPingICMPPool_NilHosts(t *testing.T) {
+	if got := PingICMPPool(context.Background(), nil, icmpPingTimeout); len(got) != 0 {
+		t.Fatalf("PingICMPPool(nil) len = %d, want 0", len(got))
 	}
 }

@@ -1,0 +1,12 @@
+test(scanner): E7/P3-3 — детерминированные тесты ICMP ping probe + документация
+
+- icmp_ping_test.go: fake-пингер (клэмп таймаута, проброс ошибки,
+  short-circuit isHostAlive, TCP-fallback), таблицы validateICMPPingHost (14
+  shell-injection кейсов) и разбора вывода ping
+- scanner_loopback_cov_test.go: fakeICMPPinger расширен calls/lastTTL
+- покрытие icmp_ping.go: validateICMPPingHost/icmpContainsString/PingICMPPool/
+  SetICMPPinger/pingICMP — 100%, PingICMP — 82.6%
+- docs/TECHNICAL.md: раздел «ICMP ping probe (E7 / P3-3)»; ROADMAP/CHANGELOG/
+  UNIFIED-план: статусы E7 и релиза v2.3.x
+
+Проверки: go build/vet чисто, golangci-lint 0, scanner-тесты ok, docs-link-check ok

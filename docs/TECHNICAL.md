@@ -793,6 +793,57 @@ require (
 
 ---
 
+## ICMP ping probe (E7 / P3-3)
+
+`internal/scanner/icmp_ping.go` реализует ICMP-проверку живости хоста через
+системную утилиту `ping` (без raw-сокетов и дополнительных привилегий).
+
+### Состав
+
+| Элемент | Назначение |
+|---------|------------|
+| `ICMPPinger` | Интерфейс: `PingICMP(host string, timeout time.Duration) (bool, error)` |
+| `DefaultICMPPinger` | Реализация через `ping`; аргументы зависят от ОС |
+| `validateICMPPingHost` | Guard против инъекций в аргументы CLI: IP/FQDN, длина ≤253, запрет shell-метасимволов и ведущего `-` |
+| `icmpContainsString` | Разбор вывода `ping` (Linux/Windows/macOS) |
+| `PingICMPPool` | Пакетный прогон по списку хостов |
+| `SetICMPPingEnabled` / `SetICMPPinger` | Включение ICMP-ветки и подмена пингера (тесты) |
+
+### Аргументы по платформам
+
+| ОС | Команда |
+|----|---------|
+| Windows | `ping -n 1 -w <timeout_ms> <host>` |
+| macOS | `ping -c 1 -t <timeout_s> <host>` |
+| Linux/Unix | `ping -c 1 -W <timeout_s> <host>` |
+
+Таймаут ограничен сверху значением `icmpPingTimeout` (1s): на «мёртвых» хостах
+ответа всё равно не будет раньше таймаута.
+
+### Интеграция в сканирование
+
+Когда ICMP включён (`SetICMPPingEnabled(true)`), `isHostAlive` сначала выполняет
+ICMP-ping; при успехе хост сразу считается активным (без TCP-probe по common
+ports), при неудаче — срабатывает прежний TCP-fallback. По умолчанию ICMP
+выключен, поэтому поведение сканирования не меняется.
+
+### Тесты и ограничения
+
+`internal/scanner/icmp_ping_test.go`:
+
+- детерминированные тесты ветки ICMP через `fakeICMPPinger`
+  (`SetICMPPinger`): клэмп таймаута, проброс ошибки, short-circuit при живом ICMP,
+  fallback на TCP при мёртвом ICMP;
+- табличные тесты `validateICMPPingHost` (shell-injection guard) и разбора вывода `ping`;
+- покрытие файла: `validateICMPPingHost` / `icmpContainsString` / `PingICMPPool` /
+  `SetICMPPinger` / `pingICMP` — 100%, `PingICMP` — 82.6%.
+
+**Ограничение:** живые прогоны к реальным адресам не детерминированы (ICMP может
+блокироваться firewall'ом, коды возврата и текст вывода различаются по ОС), поэтому
+проверки «в сети» носят информационный характер, а гейт в CI — на fake-пингере.
+
+---
+
 ## Регрессионные smoke-проверки
 
 Для быстрых проверок CLI путей используйте:

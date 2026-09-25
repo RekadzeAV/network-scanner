@@ -30,12 +30,19 @@ func (p *fakeProber) ResolveMAC(ip string) (net.HardwareAddr, error) {
 }
 
 // fakeICMPPinger — подменяемый ICMP-пингер.
+//
+// calls/lastTTL фиксируют факт вызова и таймаут, переданный пингеру
+// (используются в тестах ветки ICMP в icmp_ping_test.go).
 type fakeICMPPinger struct {
-	alive bool
-	err   error
+	alive   bool
+	err     error
+	calls   int
+	lastTTL time.Duration
 }
 
 func (p *fakeICMPPinger) PingICMP(host string, timeout time.Duration) (bool, error) {
+	p.calls++
+	p.lastTTL = timeout
 	return p.alive, p.err
 }
 

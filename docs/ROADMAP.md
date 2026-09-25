@@ -64,6 +64,17 @@
 - [x] Подкоманда `gui` в cobra root; общий persistent-флаг `--db`
 - [x] Тесты `cli_wiring_test.go` (13), coverage `cmd` 0% → 11.6%, lint 0
 
+### Этап E7 / P3-3: ICMP ping probe — тесты и документация (2026-09-25) ✅
+- [x] Детерминированные тесты ICMP-ветки через `fakeICMPPinger` (`SetICMPPinger`):
+      клэмп таймаута до `icmpPingTimeout`, проброс ошибки, short-circuit при живом
+      ICMP, TCP-fallback при мёртвом ICMP
+- [x] Табличные тесты `validateICMPPingHost` (shell-injection guard: 14 кейсов) и
+      разбора вывода `ping` (`icmpContainsString`)
+- [x] Покрытие `internal/scanner/icmp_ping.go`: `validateICMPPingHost`/`icmpContainsString`/
+      `PingICMPPool`/`SetICMPPinger`/`pingICMP` — 100%, `PingICMP` — 82.6%
+- [x] Документация: раздел «ICMP ping probe (E7 / P3-3)» в `docs/TECHNICAL.md`
+      (состав, аргументы по ОС, интеграция в `isHostAlive`, тесты и ограничения)
+
 ### Этап M2: Устранение гонок данных (2026-09-24) ✅
 - [x] `internal/ports`: устранена гонка в `formatIANAServiceName` — общий `cases.Caser`
       (`golang.org/x/text/cases`) из пакетного состояния вызывался параллельно из
@@ -173,15 +184,16 @@
 
 ### v2.3.x (Q3 2026) — текущая серия
 **Входящие задачи:**
-- M1 (core coverage 85%+)
-- M2 (govulncheck, docker-compose)
-- M3 (ARCHITECTURE.md, автогенерация docs, GUI.md)
+- M1 (core coverage 85%+) ✅
+- M2 (govulncheck, docker-compose, race-гейт) ✅
+- M3 (ARCHITECTURE.md, автогенерация docs, GUI.md) ✅
+- E7/P3-3 (ICMP ping: тесты + документация) ✅
 
 **Критерии выхода:**
-- [ ] Coverage core ≥ 85%
-- [ ] Все CI checks проходят (lint, test, build, govulncheck)
-- [ ] Документация обновлена
-- [ ] Нет critical bugs
+- [x] Coverage core ≥ 85%
+- [x] Все CI checks проходят (lint, test, build, govulncheck, race)
+- [x] Документация обновлена
+- [ ] Нет critical bugs (открытых нет; плавающий `internal/scanner/daemon` — наблюдение)
 
 ### v2.4.0 (Q4 2026)
 **Цель:** Интеграция архитектурного слоя v2.3
