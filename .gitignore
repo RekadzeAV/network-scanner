@@ -61,6 +61,8 @@ internal/api/nonexistent/
 
 # Local lint/test scratch artifacts (never commit)
 /.tmp_*
+# Локальные шаблоны commit-сообщений (git commit -F .commitmsg-*.txt)
+/.commitmsg-*.txt
 # Local `go test -race` scratch dir (GOTMPDIR/GOCACHE): обход блокировки
 # temp-каталога антивирусом на Windows, см. M2 в docs/ROADMAP.md
 /.tmp_race/
