@@ -79,6 +79,31 @@ jobs:
       - name: Run govulncheck
         run: govulncheck ./...
 
+  race:
+    name: Race detector (M2 gate)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Install libpcap headers (cgo gopacket/pcap)
+        run: sudo apt-get update && sudo apt-get install -y libpcap-dev
+
+      - name: Download dependencies
+        run: go mod download
+
+      # Гейт M2: конкурентные пути сканирования (internal/ports, network,
+      # scanner) проверяются детектором гонок. -p 4 ограничивает параллелизм
+      # пакетов, чтобы race-прогон укладывался в лимиты runner'а.
+      - name: Run tests with race detector
+        run: go test -race -count=1 -p 4 ./... -short
+
+
   build:
     name: Build (${{ matrix.os }}, ${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
