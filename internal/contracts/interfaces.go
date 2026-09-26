@@ -117,15 +117,16 @@ type SecurityService interface {
 
 // RemoteExecRequest запрос удалённого выполнения
 type RemoteExecRequest struct {
-	Transport string
-	Target    string
-	User      string
-	Password  string
-	Command   string
-	Policy    PolicyConfig
-	Consent   string
-	DryRun    bool
-	Timeout   time.Duration
+	Transport  string
+	Target     string
+	User       string
+	Password   string
+	Command    string
+	Policy     PolicyConfig
+	Consent    string
+	DryRun     bool
+	Timeout    time.Duration
+	RequireTLS bool
 }
 
 // PolicyConfig конфигурация политики безопасности

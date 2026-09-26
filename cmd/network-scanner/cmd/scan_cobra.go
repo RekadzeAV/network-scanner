@@ -447,10 +447,15 @@ var remoteExecCmd = &cobra.Command{
   --execute            переключает команду из dry-run в режим выполнения
   --consent I_UNDERSTAND  явное согласие на удалённый запуск команды
 
+Строгий TLS-канал (--require-tls): ssh использует StrictHostKeyChecking=yes,
+winrm — winrs -usessl по https; транспорт wmi в строгом режиме отклоняется.
+
 Примеры:
   network-scanner remote-exec --transport ssh --target 10.0.0.5 --command "uptime"
   network-scanner remote-exec --transport ssh --target 10.0.0.5 --command "uptime" \
-      --allow-hosts 10.0.0.5 --allow-commands "uptime" --execute --consent I_UNDERSTAND`,
+      --allow-hosts 10.0.0.5 --allow-commands "uptime" --execute --consent I_UNDERSTAND
+  network-scanner remote-exec --transport winrm --target host1 --command "hostname" \
+      --require-tls --execute --consent I_UNDERSTAND`,
 	RunE: func(c *cobra.Command, _ []string) error {
 		cfg := builder.Config{LogLevel: "info", DBPath: defaultInventoryDBPath()}
 		// Флаги передаются в существующий ручной парсер RunRemoteExecCLI для
@@ -494,6 +499,9 @@ func init() {
 	remoteExecCmd.Flags().Bool("execute", false, "Реально выполнить команду (требует --consent I_UNDERSTAND)")
 	remoteExecCmd.Flags().Int("timeout", defaultRemoteExecTimeout, "Таймаут в секундах")
 	remoteExecCmd.Flags().String("audit-log", "", "Путь к audit-логу")
+	// E7/7.10: строгий TLS-канал (ssh StrictHostKeyChecking=yes / winrm -usessl https).
+	remoteExecCmd.Flags().Bool("require-tls", false, "Строгий TLS-канал: ssh host key, winrm https; wmi не поддерживает")
+	remoteExecCmd.Flags().Bool("strict-tls", false, "Синоним --require-tls")
 	remoteExecCmd.MarkFlagsMutuallyExclusive("dry-run", "execute")
 
 	// device-control: флаги зеркалят ручной парсер RunDeviceControl.

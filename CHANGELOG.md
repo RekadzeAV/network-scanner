@@ -7,6 +7,29 @@
 
 ## [Unreleased]
 
+### 2026-09-25: E7/7.10 — строгий TLS-режим в remote-exec
+
+- **`internal/remoteexec`:** поле `Request.RequireTLS` — строгий канал:
+  - `ssh`: добавляется `-o StrictHostKeyChecking=yes` (неизвестный/изменённый
+    host key отклоняется вместо слепого подключения; `BatchMode=yes` и
+    `ConnectTimeout` сохранены);
+  - `winrm`: `winrs -usessl` + цель по `https` (`winRMTarget` не дублирует схему,
+    если она задана явно);
+  - `wmi`: возвращается ошибка `transport wmi does not support a TLS channel` —
+    DCOM не даёт TLS-канал (рекомендуется `winrm`);
+  - при `RequireTLS=false` аргументы и поведение прежние (обратная совместимость).
+- **Проброс:** `contracts.RemoteExecRequest.RequireTLS` →
+  `services.RemoteExecService` (Execute/DryRun) → `remoteexec.Request`.
+- **CLI:** `--require-tls` / `--strict-tls` в `remote-exec`; вывод строки
+  `TLS: strict (require-tls)` в dry-run и при выполнении.
+- **Тесты:** перехват argv mock-раннером (`runSSH`/`runWinRM` strict и default),
+  таблица `winRMTarget` (5 кейсов), отказ `wmi`+`RequireTLS`, dry-run со strict-TLS,
+  разбор CLI-флага (`--require-tls`, `--strict-tls`, `--require-tls=false`).
+- **Документация:** `docs/CLI_REFERENCE.md` — флаг и примеры; `docs/ROADMAP.md` —
+  остаточный риск «TLS в remoteexec — best-effort» снят.
+- **Проверки:** `go build ./...`; `go test ./internal/remoteexec/... ./internal/services/... ./cmd/network-scanner/...`
+  — ok; `gofmt` на изменённых файлах чист.
+
 ### 2026-09-25: E7/P3-3 — ICMP ping probe: детерминированные тесты + документация
 
 - **Тесты (`internal/scanner/icmp_ping_test.go`):**

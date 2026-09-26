@@ -36,6 +36,7 @@ type remoteExecOptions struct {
 	dryRun        bool
 	timeout       int
 	auditPath     string
+	requireTLS    bool
 }
 
 // parseRemoteExecArgs разбирает и валидирует argv подкоманды remote-exec.
@@ -117,6 +118,10 @@ func parseRemoteExecArgs(args []string) (remoteExecOptions, error) {
 			if v, ok := next(); ok {
 				opts.auditPath = v
 			}
+		case "--require-tls", "--strict-tls":
+			// Строгий режим канала (E7/7.10): ssh — StrictHostKeyChecking=yes,
+			// winrm — -usessl по https. Для wmi TLS не поддерживается (ошибка).
+			opts.requireTLS = parseBoolFlag(inline, hasInline, true)
 		}
 	}
 
@@ -187,9 +192,10 @@ func RunRemoteExecCLI(cfg builder.Config, args ...string) error {
 			AllowHosts:    opts.allowHosts,
 			AllowCommands: opts.allowCommands,
 		},
-		Consent: opts.consent,
-		DryRun:  opts.dryRun,
-		Timeout: time.Duration(opts.timeout) * time.Second,
+		Consent:    opts.consent,
+		DryRun:     opts.dryRun,
+		Timeout:    time.Duration(opts.timeout) * time.Second,
+		RequireTLS: opts.requireTLS,
 	}
 
 	container := builder.NewContainer(cfg)
@@ -198,6 +204,9 @@ func RunRemoteExecCLI(cfg builder.Config, args ...string) error {
 	if opts.dryRun {
 		fmt.Println("=== Dry Run (реальное выполнение выключено; добавьте --execute) ===")
 		fmt.Printf("Transport: %s\nTarget: %s\nCommand: %s\n", opts.transport, opts.target, opts.command)
+		if opts.requireTLS {
+			fmt.Println("TLS: strict (require-tls)")
+		}
 		if err := remoteExecService.DryRun(context.TODO(), req); err != nil {
 			return fmt.Errorf("dry run failed: %w", err)
 		}
@@ -210,6 +219,9 @@ func RunRemoteExecCLI(cfg builder.Config, args ...string) error {
 
 	fmt.Println("=== Remote Exec ===")
 	fmt.Printf("Transport: %s\nTarget: %s\nCommand: %s\n", opts.transport, opts.target, opts.command)
+	if opts.requireTLS {
+		fmt.Println("TLS: strict (require-tls)")
+	}
 
 	res, err := remoteExecService.Execute(context.TODO(), req)
 	if err != nil {

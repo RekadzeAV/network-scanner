@@ -96,8 +96,19 @@ network-scanner remote-exec --transport ssh --target 192.168.1.10 --user admin -
 | `--policy-strict` | | bool | `false` | Строгая политика |
 | `--consent` | | string | `"I_UNDERSTAND"` | Подтверждение операции |
 | `--dry-run` | | bool | `false` | Проверить политику без выполнения |
+| `--require-tls` | | bool | `false` | Строгий TLS-канал: `ssh` — `StrictHostKeyChecking=yes`; `winrm` — `-usessl` по `https`; для `wmi` не поддерживается (ошибка). Синоним: `--strict-tls` |
 | `--timeout` | | int | `15` | Таймаут в секундах |
 | `--audit-log` | | string | `""` | Путь к audit-логу |
+
+Пример строгого режима (E7/7.10):
+
+```bash
+# SSH: строгая проверка host key
+network-scanner remote-exec --transport ssh --target 192.168.1.10 --command "uptime" --require-tls
+
+# WinRM: шифрованный канал (winrs -usessl по https/5986)
+network-scanner remote-exec --transport winrm --target host1 --command "hostname" --require-tls --execute --consent I_UNDERSTAND
+```
 
 ---
 

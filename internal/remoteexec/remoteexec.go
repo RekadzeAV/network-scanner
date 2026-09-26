@@ -31,6 +31,11 @@ type Request struct {
 	DryRun          bool
 	Timeout         time.Duration
 	ConnectTimeoutS int
+	// RequireTLS требует шифрованный канал для транспорта:
+	//   - ssh   — StrictHostKeyChecking=yes (строгая проверка host key);
+	//   - winrm — winrs -usessl и подключение по https;
+	//   - wmi   — не поддерживает TLS-канал (возвращается ошибка).
+	RequireTLS bool
 }
 
 // Response describes the result of remote execution.
@@ -108,6 +113,9 @@ func validateRequest(req Request) error {
 	if (req.Transport == TransportWMI || req.Transport == TransportWinRM) && runtime.GOOS != "windows" {
 		return fmt.Errorf("transport %s is supported only on windows", req.Transport)
 	}
+	if req.RequireTLS && req.Transport == TransportWMI {
+		return errors.New("transport wmi does not support a TLS channel: use winrm with require-tls")
+	}
 	return nil
 }
 
@@ -132,9 +140,13 @@ func runSSH(ctx context.Context, req Request) (string, error) {
 	args := []string{
 		"-o", "BatchMode=yes",
 		"-o", fmt.Sprintf("ConnectTimeout=%d", req.ConnectTimeoutS),
-		target,
-		req.Command,
 	}
+	if req.RequireTLS {
+		// Строгая проверка host key: неизвестный/изменённый ключ отклоняется,
+		// соединение не выполняется вслепую (MITM-защита канала).
+		args = append(args, "-o", "StrictHostKeyChecking=yes")
+	}
+	args = append(args, target, req.Command)
 	cmd := execCommandContext(ctx, "ssh", args...)
 	out, err := cmd.CombinedOutput()
 	return string(out), err
@@ -148,10 +160,29 @@ func runWMI(ctx context.Context, req Request) (string, error) {
 }
 
 func runWinRM(ctx context.Context, req Request) (string, error) {
-	args := []string{"-r:" + req.Target, req.Command}
+	args := make([]string, 0, 3)
+	if req.RequireTLS {
+		// Шифрованный канал: winrs -usessl по https (5986) вместо http (5985).
+		args = append(args, "-usessl")
+	}
+	args = append(args, "-r:"+winRMTarget(req.Target, req.RequireTLS), req.Command)
 	cmd := execCommandContext(ctx, "winrs", args...)
 	out, err := cmd.CombinedOutput()
 	return string(out), err
+}
+
+// winRMTarget формирует значение winrs -r: для цели. В strict-режиме
+// используется схема https (при отсутствии схемы в target), иначе target
+// передаётся как есть — прежнее поведение сохраняется.
+func winRMTarget(target string, requireTLS bool) string {
+	if !requireTLS {
+		return target
+	}
+	lower := strings.ToLower(target)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
+		return target
+	}
+	return "https://" + target
 }
 
 func containsFold(items []string, value string) bool {

@@ -64,6 +64,24 @@
 - [x] Подкоманда `gui` в cobra root; общий persistent-флаг `--db`
 - [x] Тесты `cli_wiring_test.go` (13), coverage `cmd` 0% → 11.6%, lint 0
 
+### Этап E7 / 7.10: Строгий TLS в remoteexec (2026-09-25) ✅
+- [x] `remoteexec.Request.RequireTLS` + `contracts.RemoteExecRequest.RequireTLS`
+      (проброс через `services.RemoteExecService`); поле сохраняет прежнее
+      поведение при `false`
+- [x] `ssh`: добавляется `-o StrictHostKeyChecking=yes` (отклонение неизвестного/
+      изменённого host key вместо слепого подключения)
+- [x] `winrm`: `winrs -usessl` и цель по `https` (`winRMTarget`: схема не
+      дублируется, если пользователь указал её явно)
+- [x] `wmi`: в строгом режиме возвращается ошибка — DCOM-канал не даёт TLS
+      (рекомендация: использовать `winrm --require-tls`)
+- [x] CLI: `--require-tls` / `--strict-tls` (+ вывод строки `TLS: strict` в
+      dry-run и при выполнении)
+- [x] Тесты: перехват argv через mock-раннер (ssh/winrm strict и default),
+      таблица `winRMTarget`, отказ `wmi`+TLS, dry-run с `--require-tls`,
+      разбор CLI-флага (включая `--require-tls=false`)
+- [x] Документация: `docs/CLI_REFERENCE.md` (флаг + примеры), ROADMAP — остаточный
+      риск «TLS best-effort» снят
+
 ### Этап E7 / P3-3: ICMP ping probe — тесты и документация (2026-09-25) ✅
 - [x] Детерминированные тесты ICMP-ветки через `fakeICMPPinger` (`SetICMPPinger`):
       клэмп таймаута до `icmpPingTimeout`, проброс ошибки, short-circuit при живом
@@ -177,7 +195,9 @@
 - [x] REST API: Bearer Token auth (P0-1)
 - [x] remote-exec: dry-run по умолчанию (P0-2)
 - [x] device-control: confirm для reboot (P0-3)
-- [ ] TLS в remoteexec — best-effort, требуется строгий режим верификации
+- [x] TLS в remoteexec — строгий режим (`--require-tls`, E7/7.10):
+      `ssh` → `StrictHostKeyChecking=yes`; `winrm` → `winrs -usessl` по `https`;
+      `wmi` в строгом режиме отклоняется (TLS-канал не поддерживается)
 - [ ] Аудит-лог для всех изменяющих операций (частично реализован)
 
 ## 📅 План релизов

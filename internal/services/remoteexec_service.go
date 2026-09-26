@@ -23,6 +23,7 @@ func (s *RemoteExecService) Execute(ctx context.Context, req contracts.RemoteExe
 		Consent:       req.Consent,
 		DryRun:        req.DryRun,
 		Timeout:       req.Timeout,
+		RequireTLS:    req.RequireTLS,
 	}
 
 	res, err := remoteexec.Execute(ctx, internalReq)
@@ -48,6 +49,7 @@ func (s *RemoteExecService) DryRun(ctx context.Context, req contracts.RemoteExec
 		Consent:       req.Consent,
 		DryRun:        true,
 		Timeout:       req.Timeout,
+		RequireTLS:    req.RequireTLS,
 	}
 
 	_, err := remoteexec.Execute(ctx, internalReq)

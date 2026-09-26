@@ -113,7 +113,7 @@
 | 7.7 | hostlist importer → CLI/GUI | pending |
 | 7.8 | Метрики Prometheus + structured logging (P3-1) | pending |
 | 7.9 | Аудит-лог для изменяющих операций (P3-2) | pending |
-| 7.10 | Strict TLS в remoteexec | pending |
+| 7.10 | Strict TLS в remoteexec | ✅ done (2026-09-25: `--require-tls`; ssh `StrictHostKeyChecking=yes`, winrm `-usessl`+https, wmi отклоняется; тесты + CLI_REFERENCE) |
 
 ---
 

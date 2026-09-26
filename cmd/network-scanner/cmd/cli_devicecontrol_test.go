@@ -115,10 +115,38 @@ func TestRunRemoteExecCLI_RequiresTransportTargetCommand(t *testing.T) {
 }
 
 func TestRemoteExecCmd_HasExpectedFlags(t *testing.T) {
-	for _, name := range []string{"transport", "target", "user", "pass", "command", "allow-hosts", "allow-commands", "policy-file", "policy-strict", "consent", "dry-run", "timeout", "audit-log"} {
+	for _, name := range []string{"transport", "target", "user", "pass", "command", "allow-hosts", "allow-commands", "policy-file", "policy-strict", "consent", "dry-run", "timeout", "audit-log", "require-tls", "strict-tls"} {
 		if remoteExecCmd.Flags().Lookup(name) == nil {
 			t.Errorf("remote-exec не имеет флага --%s", name)
 		}
+	}
+}
+
+// TestRemoteExecCmd_RequireTLSWiring — E7/7.10: cobra-флаг --require-tls должен
+// доходить до ручного парсера (иначе strict TLS молча игнорируется).
+func TestRemoteExecCmd_RequireTLSWiring(t *testing.T) {
+	t.Cleanup(func() {
+		_ = remoteExecCmd.Flags().Set("require-tls", "false")
+		_ = remoteExecCmd.Flags().Set("strict-tls", "false")
+		_ = remoteExecCmd.Flags().Set("transport", "")
+		_ = remoteExecCmd.Flags().Set("target", "")
+		_ = remoteExecCmd.Flags().Set("command", "")
+		_ = remoteExecCmd.Flags().Set("allow-hosts", "")
+		_ = remoteExecCmd.Flags().Set("allow-commands", "")
+	})
+	_ = remoteExecCmd.Flags().Set("transport", "ssh")
+	_ = remoteExecCmd.Flags().Set("target", "10.0.0.1")
+	_ = remoteExecCmd.Flags().Set("command", "uptime")
+	_ = remoteExecCmd.Flags().Set("allow-hosts", "10.0.0.1")
+	_ = remoteExecCmd.Flags().Set("allow-commands", "uptime")
+	_ = remoteExecCmd.Flags().Set("require-tls", "true")
+
+	opts, err := parseRemoteExecArgs(flagsToArgs(remoteExecCmd))
+	if err != nil {
+		t.Fatalf("неожиданная ошибка: %v", err)
+	}
+	if !opts.requireTLS {
+		t.Error("--require-tls из cobra-флагов не дошёл до парсера")
 	}
 }
 

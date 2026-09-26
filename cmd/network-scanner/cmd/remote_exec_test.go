@@ -28,6 +28,45 @@ func TestParseRemoteExecArgs_DryRunByDefault(t *testing.T) {
 	}
 }
 
+// TestParseRemoteExecArgs_RequireTLS — E7/7.10: флаг строгого TLS-канала.
+func TestParseRemoteExecArgs_RequireTLS(t *testing.T) {
+	// По умолчанию выключен.
+	opts, err := parseRemoteExecArgs(baseRemoteExecArgs())
+	if err != nil {
+		t.Fatalf("неожиданная ошибка: %v", err)
+	}
+	if opts.requireTLS {
+		t.Error("require-tls должен быть выключен по умолчанию")
+	}
+
+	// --require-tls включает строгий режим.
+	opts, err = parseRemoteExecArgs(append(baseRemoteExecArgs(), "--require-tls"))
+	if err != nil {
+		t.Fatalf("неожиданная ошибка: %v", err)
+	}
+	if !opts.requireTLS {
+		t.Error("--require-tls должен включать строгий TLS")
+	}
+
+	// Синоним --strict-tls.
+	opts, err = parseRemoteExecArgs(append(baseRemoteExecArgs(), "--strict-tls"))
+	if err != nil {
+		t.Fatalf("неожиданная ошибка: %v", err)
+	}
+	if !opts.requireTLS {
+		t.Error("--strict-tls должен включать строгий TLS")
+	}
+
+	// Явное отключение.
+	opts, err = parseRemoteExecArgs(append(baseRemoteExecArgs(), "--require-tls=false"))
+	if err != nil {
+		t.Fatalf("неожиданная ошибка: %v", err)
+	}
+	if opts.requireTLS {
+		t.Error("--require-tls=false должен выключать строгий TLS")
+	}
+}
+
 func TestParseRemoteExecArgs_ExecuteWithoutConsentRejected(t *testing.T) {
 	args := append(baseRemoteExecArgs(), "--execute")
 	_, err := parseRemoteExecArgs(args)
