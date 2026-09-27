@@ -844,6 +844,44 @@ ports), при неудаче — срабатывает прежний TCP-fall
 
 ---
 
+## Журнал изменяющих операций (audit trail, E7/7.9)
+
+Все операции, меняющие состояние внешних систем, журналируются в JSONL
+(по одной записи на строку) — это позволяет восстановить картину действий
+при разборе инцидентов.
+
+| Операция | Журнал по умолчанию | Обязательность записи |
+|----------|---------------------|-----------------------|
+| `remote-exec` (ssh/winrm) | `<UserConfigDir>/network-scanner/remote-exec.log` | всегда: dry-run, отказ политики, успех, ошибка |
+| `device-control` (status/reboot) | `<UserConfigDir>/network-scanner/device-actions.log` | всегда: успех и неуспех (reboot необратим) |
+
+**Расположение.** Пути централизованы в `internal/auditpath`
+(`DefaultPath`/`DeviceActionsPath`/`RemoteExecPath`) и общие для CLI и GUI.
+Инвариант: журнал **никогда не пишется в текущий рабочий каталог** — базой служит
+`os.UserConfigDir()`, при его недоступности — `os.TempDir()`. Инвариант закреплён
+тестами `internal/auditpath` и `internal/gui/security_hardening_test.go`.
+Флаг `--audit-log` переопределяет путь явно.
+
+**Защита секретов.** Перед записью команда и сообщение об ошибке проходят через
+`redact.SanitizeText` — типовые паттерны (`password/passwd/pwd/token/secret/api-key`,
+`--password <value>`, `-p <value>`) заменяются на `***`:
+
+```json
+{"timestamp":"2026-09-27T01:06:57+04:00","actor":"HOST\\user","transport":"ssh",
+ "target":"10.0.0.1","command":"mysql --password=*** -e \"select 1\"",
+ "dry_run":true,"success":true,"message":"dry-run: policy check passed"}
+```
+
+**Поля записи.** `timestamp` (RFC3339), `actor` (системный пользователь),
+`transport`/`action`, `target`, `command`/`target_url`, `dry_run`, `success`,
+`message`. Аудит-журнал относится только к операциям, инициированным оператором
+(`--execute` + `--consent I_UNDERSTAND`); отказ в правах/политике также фиксируется.
+
+**GUI** пишет действия с устройствами в тот же файл через `deviceAuditLogPath()`
+(делегирует в `auditpath`), поэтому CLI- и GUI-источники попадают в единый поток.
+
+---
+
 ## Регрессионные smoke-проверки
 
 Для быстрых проверок CLI путей используйте:

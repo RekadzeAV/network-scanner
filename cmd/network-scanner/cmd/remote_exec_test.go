@@ -1,8 +1,14 @@
 package cmd
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"network-scanner/internal/auditpath"
+	"network-scanner/internal/contracts"
 )
 
 // ============================================================================
@@ -28,7 +34,154 @@ func TestParseRemoteExecArgs_DryRunByDefault(t *testing.T) {
 	}
 }
 
-// TestParseRemoteExecArgs_RequireTLS — E7/7.10: флаг строгого TLS-канала.
+// ============================================================================
+// E7/7.9: аудит-лог изменяющих операций.
+//
+// Проверяем, что журнал ведётся для всех операций (dry-run, успех, ошибка),
+// команда санитизируется, а путь не попадает в CWD.
+// ============================================================================
+
+// TestWriteRemoteExecAudit_WritesJSONL — запись появляется в указанном файле.
+func TestWriteRemoteExecAudit_WritesJSONL(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "nested", "remote-exec.log")
+
+	opts := remoteExecOptions{transport: "ssh", target: "10.0.0.1", command: "uptime"}
+	gotPath, err := writeRemoteExecAudit(path, opts, true, contracts.RemoteExecResponse{Success: true}, nil)
+	if err != nil {
+		t.Fatalf("writeRemoteExecAudit() error = %v", err)
+	}
+	if gotPath != path {
+		t.Fatalf("path = %q, want %q", gotPath, path)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	text := string(data)
+	for _, want := range []string{`"transport":"ssh"`, `"target":"10.0.0.1"`, `"dry_run":true`, `"success":true`} {
+		if !strings.Contains(text, want) {
+			t.Errorf("audit log missing %s, got: %s", want, text)
+		}
+	}
+}
+
+// TestWriteRemoteExecAudit_SanitizesSecrets — секреты в команде не попадают в журнал.
+func TestWriteRemoteExecAudit_SanitizesSecrets(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "remote-exec.log")
+	opts := remoteExecOptions{
+		transport: "ssh",
+		target:    "10.0.0.1",
+		command:   "mysql --password SuperSecret123 -e 'select 1'",
+	}
+	if _, err := writeRemoteExecAudit(path, opts, false, contracts.RemoteExecResponse{Success: true}, nil); err != nil {
+		t.Fatalf("writeRemoteExecAudit() error = %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	if strings.Contains(string(data), "SuperSecret123") {
+		t.Fatalf("audit log leaked a secret: %s", string(data))
+	}
+	if !strings.Contains(string(data), "***") {
+		t.Fatalf("audit log should contain redacted marker, got: %s", string(data))
+	}
+}
+
+// TestWriteRemoteExecAudit_ErrorMessage — ошибка выполнения фиксируется в журнале.
+func TestWriteRemoteExecAudit_ErrorMessage(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "remote-exec.log")
+	opts := remoteExecOptions{transport: "ssh", target: "10.0.0.1", command: "uptime"}
+
+	if _, err := writeRemoteExecAudit(path, opts, false, contracts.RemoteExecResponse{}, errors.New("ssh: connect failed")); err != nil {
+		t.Fatalf("writeRemoteExecAudit() error = %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+	text := string(data)
+	if !strings.Contains(text, `"success":false`) {
+		t.Errorf("expected success=false, got: %s", text)
+	}
+	if !strings.Contains(text, "connect failed") {
+		t.Errorf("expected error message in audit, got: %s", text)
+	}
+}
+
+// TestWriteRemoteExecAudit_DefaultPathOutsideCWD — путь по умолчанию не в CWD.
+func TestWriteRemoteExecAudit_DefaultPathOutsideCWD(t *testing.T) {
+	opts := remoteExecOptions{transport: "ssh", target: "10.0.0.1", command: "uptime"}
+	gotPath, err := writeRemoteExecAudit("", opts, true, contracts.RemoteExecResponse{Success: true}, nil)
+	if err != nil {
+		t.Fatalf("writeRemoteExecAudit() error = %v", err)
+	}
+	defer func() { _ = os.Remove(gotPath) }()
+
+	if gotPath != auditpath.RemoteExecPath() {
+		t.Fatalf("path = %q, want default %q", gotPath, auditpath.RemoteExecPath())
+	}
+	cwd, err := os.Getwd()
+	if err == nil && cwd != "" {
+		if rel, relErr := filepath.Rel(cwd, gotPath); relErr == nil && !strings.HasPrefix(rel, "..") {
+			t.Fatalf("default audit path %q must not live inside CWD %q", gotPath, cwd)
+		}
+	}
+}
+
+// TestRunRemoteExecCLI_DryRunWritesAudit — сквозной путь: dry-run пишет журнал.
+func TestRunRemoteExecCLI_DryRunWritesAudit(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "remote-exec.log")
+	args := append(baseRemoteExecArgs(),
+		"--allow-hosts", "10.0.0.1",
+		"--allow-commands", "uptime",
+		"--audit-log", path,
+	)
+	if err := RunRemoteExecCLI(testCfg(t), args...); err != nil {
+		t.Fatalf("RunRemoteExecCLI() error = %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("audit log not written: %v", err)
+	}
+	text := string(data)
+	if !strings.Contains(text, `"dry_run":true`) {
+		t.Errorf("dry-run audit expected, got: %s", text)
+	}
+	if !strings.Contains(text, `"actor":`) {
+		t.Errorf("audit entry must contain actor, got: %s", text)
+	}
+}
+
+// TestRunRemoteExecCLI_PolicyFailureStillAudited — отказ политики тоже в журнале.
+func TestRunRemoteExecCLI_PolicyFailureStillAudited(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "remote-exec.log")
+	// 10.0.0.99 не в allowlist → dry-run вернёт ошибку политики.
+	args := []string{
+		"--transport", "ssh",
+		"--target", "10.0.0.99",
+		"--command", "uptime",
+		"--allow-hosts", "10.0.0.1",
+		"--allow-commands", "uptime",
+		"--audit-log", path,
+	}
+	if err := RunRemoteExecCLI(testCfg(t), args...); err == nil {
+		t.Fatal("ожидалась ошибка политики")
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("audit log not written for failed policy check: %v", err)
+	}
+	if !strings.Contains(string(data), `"success":false`) {
+		t.Errorf("expected success=false in audit, got: %s", string(data))
+	}
+}
 func TestParseRemoteExecArgs_RequireTLS(t *testing.T) {
 	// По умолчанию выключен.
 	opts, err := parseRemoteExecArgs(baseRemoteExecArgs())

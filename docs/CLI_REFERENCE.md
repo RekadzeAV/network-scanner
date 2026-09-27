@@ -98,7 +98,7 @@ network-scanner remote-exec --transport ssh --target 192.168.1.10 --user admin -
 | `--dry-run` | | bool | `false` | Проверить политику без выполнения |
 | `--require-tls` | | bool | `false` | Строгий TLS-канал: `ssh` — `StrictHostKeyChecking=yes`; `winrm` — `-usessl` по `https`; для `wmi` не поддерживается (ошибка). Синоним: `--strict-tls` |
 | `--timeout` | | int | `15` | Таймаут в секундах |
-| `--audit-log` | | string | `""` | Путь к audit-логу |
+| `--audit-log` | | string | `""` | Путь к JSONL-журналу операций. **Если не задан — журнал ведётся по умолчанию** в пользовательском конфиг-каталоге (`<UserConfigDir>/network-scanner/remote-exec.log`), никогда в CWD (E7/7.9) |
 
 Пример строгого режима (E7/7.10):
 
@@ -127,7 +127,7 @@ network-scanner device-control --action reboot --target http://192.168.1.1 --con
 | `--pass` | `-p` | string | `""` | Password |
 | `--confirm` | | string | `""` | Подтверждение reboot: `I_UNDERSTAND` |
 | `--timeout` | | int | `10` | Таймаут в секундах |
-| `--audit-log` | | string | `""` | Путь к audit-логу (JSONL) |
+| `--audit-log` | | string | `""` | Путь к JSONL-журналу. **Если не задан — журнал ведётся по умолчанию** в `<UserConfigDir>/network-scanner/device-actions.log` (никогда в CWD, E7/7.9) |
 
 ---
 

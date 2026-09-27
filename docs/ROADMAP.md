@@ -64,6 +64,25 @@
 - [x] Подкоманда `gui` в cobra root; общий persistent-флаг `--db`
 - [x] Тесты `cli_wiring_test.go` (13), coverage `cmd` 0% → 11.6%, lint 0
 
+### Этап E7 / 7.9: Аудит-лог изменяющих операций (2026-09-25) ✅
+- [x] Новый пакет `internal/auditpath` — единый источник путей журналов
+      (`DeviceActionsPath`, `RemoteExecPath`); база `os.UserConfigDir()`,
+      fallback `os.TempDir()`; инвариант «никогда не CWD» + тесты
+- [x] `remote-exec` **реально пишет** журнал (ранее только выводил путь):
+      `writeRemoteExecAudit` фиксирует dry-run, отказ политики, успех и ошибку;
+      при отсутствии `--audit-log` используется `remote-exec.log` по умолчанию
+- [x] `device-control` CLI: журнал ведётся и без `--audit-log`
+      (`device-actions.log`), запись и при необратимом `reboot`
+- [x] Секреты маскируются при записи (`redact.SanitizeText`) для команды и
+      сообщений об ошибке — в журнал не попадают пароли/токены
+- [x] GUI `deviceAuditLogPath()` делегирован в `auditpath` (единый поток CLI+GUI);
+      существующие инварианты `security_hardening_test.go` сохранены
+- [x] Тесты: `internal/auditpath` (4 кейса, включая «не в CWD»),
+      `cmd/network-scanner/cmd` (6 кейсов: JSONL-поля, маскирование секрета,
+      ошибка, путь по умолчанию, dry-run e2e, отказ политики с записью)
+- [x] Документация: `docs/CLI_REFERENCE.md` (дефолты для обеих команд),
+      `docs/TECHNICAL.md` — раздел «Журнал изменяющих операций (audit trail)»
+
 ### Этап E7 / 7.10: Строгий TLS в remoteexec (2026-09-25) ✅
 - [x] `remoteexec.Request.RequireTLS` + `contracts.RemoteExecRequest.RequireTLS`
       (проброс через `services.RemoteExecService`); поле сохраняет прежнее
@@ -198,7 +217,10 @@
 - [x] TLS в remoteexec — строгий режим (`--require-tls`, E7/7.10):
       `ssh` → `StrictHostKeyChecking=yes`; `winrm` → `winrs -usessl` по `https`;
       `wmi` в строгом режиме отклоняется (TLS-канал не поддерживается)
-- [ ] Аудит-лог для всех изменяющих операций (частично реализован)
+- [x] Аудит-лог для всех изменяющих операций (E7/7.9): `remote-exec` пишет журнал
+      для dry-run/отказа политики/успеха/ошибки; CLI device-control ведёт журнал
+      по умолчанию; общие пути в `internal/auditpath` (вне CWD), секреты
+      маскируются через `redact`
 
 ## 📅 План релизов
 

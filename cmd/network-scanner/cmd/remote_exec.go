@@ -3,12 +3,16 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"network-scanner/internal/auditpath"
 	"network-scanner/internal/builder"
 	"network-scanner/internal/contracts"
+	"network-scanner/internal/redact"
+	"network-scanner/internal/remoteexec"
 )
 
 // remoteExecConsentToken — токен явного согласия на реальное удалённое
@@ -169,11 +173,47 @@ func parseBoolFlag(inline string, hasInline bool, def bool) bool {
 	return v
 }
 
+// writeRemoteExecAudit записывает запись журнала для одной операции remote-exec.
+//
+// Журнал ведётся для ВСЕХ изменяющих операций (E7/7.9), включая dry-run и
+// неуспешные попытки: фиксируется факт и результат обращения к политике.
+// Команда санитизируется (redact), чтобы пароли/токены в аргументах не попадали
+// в журнал. При пустом path используется путь по умолчанию (вне CWD).
+func writeRemoteExecAudit(path string, opts remoteExecOptions, dryRun bool, res contracts.RemoteExecResponse, execErr error) (string, error) {
+	target := strings.TrimSpace(path)
+	if target == "" {
+		target = auditpath.RemoteExecPath()
+	}
+	entry := remoteexec.AuditEntry{
+		Transport: opts.transport,
+		Target:    opts.target,
+		Command:   redact.SanitizeText(opts.command),
+		DryRun:    dryRun,
+		Success:   execErr == nil && res.Success,
+	}
+	switch {
+	case execErr != nil:
+		entry.Message = redact.SanitizeText(execErr.Error())
+	case dryRun:
+		entry.Message = "dry-run: policy check passed"
+	default:
+		entry.Message = "executed"
+	}
+	if err := remoteexec.AppendAudit(target, entry); err != nil {
+		return target, err
+	}
+	return target, nil
+}
+
 // RunRemoteExecCLI запускает удалённое выполнение.
 //
 // По умолчанию работает в dry-run (P0-2): проверяет транспорт, цель и команду
 // против политики, но не подключается к хосту. Реальное выполнение — только с
 // --execute и --consent I_UNDERSTAND.
+//
+// Аудит (E7/7.9): запись в журнал делается для всех операций — dry-run,
+// успешное и неуспешное выполнение. При отсутствии --audit-log используется
+// путь по умолчанию в пользовательском конфиг-каталоге (никогда не CWD).
 func RunRemoteExecCLI(cfg builder.Config, args ...string) error {
 	opts, err := parseRemoteExecArgs(args)
 	if err != nil {
@@ -207,13 +247,13 @@ func RunRemoteExecCLI(cfg builder.Config, args ...string) error {
 		if opts.requireTLS {
 			fmt.Println("TLS: strict (require-tls)")
 		}
-		if err := remoteExecService.DryRun(context.TODO(), req); err != nil {
-			return fmt.Errorf("dry run failed: %w", err)
+		dryErr := remoteExecService.DryRun(context.TODO(), req)
+		logPath, auditErr := writeRemoteExecAudit(opts.auditPath, opts, true, contracts.RemoteExecResponse{Success: dryErr == nil}, dryErr)
+		reportAudit(logPath, auditErr)
+		if dryErr != nil {
+			return fmt.Errorf("dry run failed: %w", dryErr)
 		}
 		fmt.Println("Policy check passed")
-		if opts.auditPath != "" {
-			fmt.Printf("Audit log: %s\n", opts.auditPath)
-		}
 		return nil
 	}
 
@@ -224,6 +264,8 @@ func RunRemoteExecCLI(cfg builder.Config, args ...string) error {
 	}
 
 	res, err := remoteExecService.Execute(context.TODO(), req)
+	logPath, auditErr := writeRemoteExecAudit(opts.auditPath, opts, false, res, err)
+	reportAudit(logPath, auditErr)
 	if err != nil {
 		return fmt.Errorf("remote exec failed: %w", err)
 	}
@@ -237,12 +279,17 @@ func RunRemoteExecCLI(cfg builder.Config, args ...string) error {
 		fmt.Println("Status: Failed")
 	}
 
-	// Audit log
-	if opts.auditPath != "" {
-		fmt.Printf("Audit log: %s\n", opts.auditPath)
-	}
-
 	return nil
+}
+
+// reportAudit печатает результат записи в журнал. Ошибка журнала не прерывает
+// выполнение команды, но всегда видна пользователю в stderr.
+func reportAudit(path string, err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Audit log error (%s): %v\n", path, err)
+		return
+	}
+	fmt.Printf("Audit log: %s\n", path)
 }
 
 func parseCSV(s string) []string {

@@ -6,8 +6,10 @@ import (
 	"os"
 	"time"
 
+	"network-scanner/internal/auditpath"
 	"network-scanner/internal/builder"
 	"network-scanner/internal/devicecontrol"
+	"network-scanner/internal/redact"
 )
 
 // RunDeviceControl запускает управление устройством (status|reboot) через
@@ -99,23 +101,26 @@ func RunDeviceControl(cfg builder.Config, args ...string) error {
 	resp, err := devicecontrol.Execute(ctx, req)
 
 	// Audit пишется всегда, включая неуспешные попытки (требование для
-	// необратимых действий).
-	if auditPath != "" {
-		entry := devicecontrol.AuditEntry{
-			Action:    action,
-			TargetURL: target,
-			Vendor:    vendor,
-			Success:   err == nil && resp.Success,
-			Message:   resp.Message,
-		}
-		if err != nil {
-			entry.Message = err.Error()
-		}
-		if auditErr := devicecontrol.AppendAudit(auditPath, entry); auditErr != nil {
-			fmt.Fprintf(os.Stderr, "Audit log error: %v\n", auditErr)
-		} else {
-			fmt.Printf("Audit log: %s\n", auditPath)
-		}
+	// необратимых действий). E7/7.9: при отсутствии --audit-log журнал
+	// ведётся по умолчанию в пользовательском конфиг-каталоге (вне CWD).
+	auditTarget := auditPath
+	if auditTarget == "" {
+		auditTarget = auditpath.DeviceActionsPath()
+	}
+	entry := devicecontrol.AuditEntry{
+		Action:    action,
+		TargetURL: target,
+		Vendor:    vendor,
+		Success:   err == nil && resp.Success,
+		Message:   redact.SanitizeText(resp.Message),
+	}
+	if err != nil {
+		entry.Message = redact.SanitizeText(err.Error())
+	}
+	if auditErr := devicecontrol.AppendAudit(auditTarget, entry); auditErr != nil {
+		fmt.Fprintf(os.Stderr, "Audit log error (%s): %v\n", auditTarget, auditErr)
+	} else {
+		fmt.Printf("Audit log: %s\n", auditTarget)
 	}
 
 	if err != nil {

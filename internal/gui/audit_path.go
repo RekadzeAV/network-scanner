@@ -1,14 +1,14 @@
 package gui
 
 import (
-	"os"
 	"path/filepath"
-	"strings"
+
+	"network-scanner/internal/auditpath"
 )
 
 // auditLogDirName — подкаталог в пользовательской конфигурации для журналов
-// чувствительных действий (device control).
-const auditLogDirName = "network-scanner"
+// чувствительных действий (device control). Оставлен для тестов и совместимости.
+const auditLogDirName = auditpath.DirName
 
 // deviceAuditLogPath возвращает абсолютный путь к журналу действий с
 // устройствами. Журнал пишется в пользовательский конфигурационный каталог
@@ -17,13 +17,9 @@ const auditLogDirName = "network-scanner"
 //
 // Если системный конфигурационный каталог недоступен, используется временный
 // каталог как безопасный fallback (никогда не CWD).
+//
+// Реализация делегирована в internal/auditpath — единый источник путей журналов
+// для GUI и CLI (E7/7.9).
 func deviceAuditLogPath() string {
-	base := ""
-	if dir, err := os.UserConfigDir(); err == nil {
-		base = strings.TrimSpace(dir)
-	}
-	if base == "" {
-		base = os.TempDir()
-	}
-	return filepath.Join(base, auditLogDirName, "device-actions.log")
+	return filepath.Clean(auditpath.DeviceActionsPath())
 }

@@ -7,6 +7,33 @@
 
 ## [Unreleased]
 
+### 2026-09-25: E7/7.9 — аудит-лог для всех изменяющих операций
+
+- **Новый пакет `internal/auditpath`:** единый источник путей журналов
+  (`DefaultPath`, `DeviceActionsPath`, `RemoteExecPath`). База — `os.UserConfigDir()`,
+  fallback — `os.TempDir()`; инвариант «журнал никогда не в CWD» закреплён тестами.
+- **`remote-exec` — исправлен реальный пробел:** раньше CLI только печатал
+  «Audit log: …», но ничего не записывал. Теперь `writeRemoteExecAudit` пишет JSONL:
+  - dry-run (успешная проверка политики),
+  - отказ политики/валидации (`success:false` + текст ошибки),
+  - реальное выполнение (успех/ошибка);
+  - при отсутствии `--audit-log` используется `remote-exec.log` по умолчанию.
+- **`device-control` CLI:** журнал теперь ведётся и без `--audit-log`
+  (`device-actions.log`); запись делается всегда, включая необратимый `reboot`.
+- **Защита секретов:** команда и сообщения об ошибке проходят через
+  `redact.SanitizeText` — проверено живьём: `--password Secret123` →
+  `"--command":"mysql --password=*** -e \"select 1\""`.
+- **GUI/CLI единый поток:** `gui.deviceAuditLogPath()` делегирован в `auditpath`;
+  инварианты `internal/gui/security_hardening_test.go` сохранены.
+- **Тесты:** `internal/auditpath` (4) + `cmd/network-scanner/cmd` (6: JSONL-поля,
+  маскирование секрета, текст ошибки, путь по умолчанию вне CWD, e2e dry-run,
+  отказ политики с записью в журнал).
+- **Документация:** `docs/CLI_REFERENCE.md` — дефолтные пути для обеих команд;
+  `docs/TECHNICAL.md` — раздел «Журнал изменяющих операций (audit trail, E7/7.9)»
+  (расположение, поля, маскирование, пример записи).
+- **Проверки:** `go build ./...`; `go test ./cmd/... ./internal/auditpath/... ./internal/gui/...`
+  — ok; живой прогон CLI подтвердил запись и маскирование.
+
 ### 2026-09-25: E7/7.10 — строгий TLS-режим в remote-exec
 
 - **`internal/remoteexec`:** поле `Request.RequireTLS` — строгий канал:
