@@ -64,6 +64,24 @@
 - [x] Подкоманда `gui` в cobra root; общий persistent-флаг `--db`
 - [x] Тесты `cli_wiring_test.go` (13), coverage `cmd` 0% → 11.6%, lint 0
 
+### Этап E7 / 7.7: Импорт списков хостов (hostlist importer → CLI) (2026-09-25) ✅
+- [x] Пакет `internal/network/hostlist_importer` подключён к CLI: `--hosts-file` +
+      новый `--hosts-format` (`auto|csv|txt|json|targets`); auto по расширению
+- [x] Обратная совместимость: `.txt` и файлы без расширения используют прежний
+      target-формат (IP/CIDR/диапазон `a.b.c.d-N`, `#`-комментарии)
+- [x] **Исправлены два бага, найденные живой проверкой:**
+      (1) `isValidEntry` мутировал копию структуры и не возвращал флаги —
+      CIDR никогда не раскрывался, одиночные IP ошибочно помечались `IsCIDR`;
+      (2) `ImportFromString` не раскрывал CIDR (расхождение с `ImportFromFile`)
+- [x] **Исправлена маршрутизация целей:** автоопределение локальной сети
+      перебивало адреса из файла (вживую: `--hosts-file` со `192.168.77.x`
+      сканировал `10.0.0.0/8`); теперь цели из файла приоритетнее, одиночный IP
+      сканируется как `/32`, явный `--network` сохраняет приоритет
+- [x] Применено единообразно в `scan` (cobra + legacy) и `inventory save --hosts-file`
+- [x] Тесты: `internal/network` (+4, включая регрессии раскрытия CIDR),
+      `cmd` (+6: CSV/JSON/TXT, явный формат, ошибка формата, приоритет целей)
+- [x] Документация: `docs/CLI_REFERENCE.md` (`--hosts-file`, `--hosts-format`)
+
 ### Этап E7 / 7.9: Аудит-лог изменяющих операций (2026-09-25) ✅
 - [x] Новый пакет `internal/auditpath` — единый источник путей журналов
       (`DeviceActionsPath`, `RemoteExecPath`); база `os.UserConfigDir()`,

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"network-scanner/internal/builder"
@@ -14,6 +15,94 @@ import (
 	"network-scanner/internal/presenter"
 	"network-scanner/internal/snmpcollector"
 )
+
+// hostsFromFileOptions — параметры чтения целей из файла (E7/7.7).
+type hostsFromFileOptions struct {
+	// Format — явно заданный формат: auto|csv|txt|json|targets.
+	// Пусто/"auto" — автоопределение: .csv/.json → HostListImporter,
+	// остальные расширения → расширенный target-парсер (IP/CIDR/range).
+	Format string
+	// MaxEntries — лимит числа хостов после раскрытия CIDR (0 → по умолчанию).
+	MaxEntries int
+}
+
+// loadTargetsFromFile читает список целей с поддержкой двух парсеров:
+//
+//   - "targets" (по умолчанию для .txt и файлов без расширения) —
+//     внутренний формат: IP / CIDR / диапазон `192.168.1.1-10` / комментарии `#`;
+//   - "csv"/"json" (или auto для .csv/.json) — расширенный импорт через
+//     HostListImporter: колонки IP,Hostname,Comment (CSV) либо JSON-массив
+//     HostEntry с раскрытием CIDR и лимитом количества хостов.
+//
+// Возвращает плоский список IP-адресов (совместим с прежним поведением
+// ParseTargetsFromFile) и текстовое описание применённого формата.
+func loadTargetsFromFile(path string, opts hostsFromFileOptions) ([]string, string, error) {
+	format := strings.ToLower(strings.TrimSpace(opts.Format))
+	if format == "" {
+		format = "auto"
+	}
+
+	switch format {
+	case "targets", "plain", "legacy":
+		ips, err := network.ParseTargetsFromFile(path)
+		return ips, "targets", err
+	case "csv", "json", "txt":
+		entries, err := importHostEntries(path, format, opts.MaxEntries)
+		if err != nil {
+			return nil, "", err
+		}
+		return hostEntriesToIPs(entries), format, nil
+	case "auto":
+		if ext := strings.ToLower(filepath.Ext(path)); ext == ".csv" || ext == ".json" {
+			entries, err := importHostEntries(path, "auto", opts.MaxEntries)
+			if err != nil {
+				return nil, "", err
+			}
+			return hostEntriesToIPs(entries), strings.TrimPrefix(ext, "."), nil
+		}
+		ips, err := network.ParseTargetsFromFile(path)
+		return ips, "targets", err
+	default:
+		return nil, "", fmt.Errorf("неподдерживаемый формат списка хостов: %s (ожидается auto|csv|txt|json|targets)", opts.Format)
+	}
+}
+
+// importHostEntries читает файл через расширенный HostListImporter.
+func importHostEntries(path, format string, maxEntries int) ([]network.HostEntry, error) {
+	importer := network.NewHostListImporter(maxEntries)
+	numeric, err := hostListFormatValue(format)
+	if err != nil {
+		return nil, err
+	}
+	return importer.ImportFromFile(path, numeric)
+}
+
+// hostListFormatValue переводит строковый формат в значение HostListFormat.
+func hostListFormatValue(format string) (network.HostListFormat, error) {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "", "auto":
+		return network.FormatAuto, nil
+	case "csv":
+		return network.FormatCSV, nil
+	case "txt":
+		return network.FormatTXT, nil
+	case "json":
+		return network.FormatJSON, nil
+	default:
+		return network.FormatAuto, fmt.Errorf("неподдерживаемый формат импорта: %s", format)
+	}
+}
+
+// hostEntriesToIPs разворачивает записи импортера в плоский список IP.
+func hostEntriesToIPs(entries []network.HostEntry) []string {
+	ips := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if ip := strings.TrimSpace(e.IP); ip != "" {
+			ips = append(ips, ip)
+		}
+	}
+	return ips
+}
 
 // RunScan запускает сканирование через сервис
 func RunScan(cfg builder.Config, args ...string) error {
@@ -35,6 +124,7 @@ func RunScan(cfg builder.Config, args ...string) error {
 	snmptCommunity := "public"
 	snmptTimeout := 2
 	hostsFile := ""
+	hostsFormat := ""
 	exportHTML := false
 	exportXML := false
 
@@ -98,6 +188,11 @@ func RunScan(cfg builder.Config, args ...string) error {
 				hostsFile = args[i+1]
 				i++
 			}
+		case "--hosts-format":
+			if i+1 < len(args) {
+				hostsFormat = args[i+1]
+				i++
+			}
 		case "--export-html":
 			exportHTML = true
 		case "--export-xml":
@@ -105,23 +200,34 @@ func RunScan(cfg builder.Config, args ...string) error {
 		}
 	}
 
-	// Автоопределение сети или чтение из файла
-	var targets []string
-	var err error
+	// Цели: автоопределение сети выполняется только если нет ни --network, ни
+	// файла целей — иначе указанные в файле адреса игнорировались бы (E7/7.7).
+	var targetList []string
+	if networkCIDR == "" && hostsFile == "" {
+		auto, err := network.DetectLocalNetwork()
+		if err != nil {
+			return fmt.Errorf("не удалось определить сеть: %w", err)
+		}
+		networkCIDR = auto
+	}
 
 	if hostsFile != "" {
-		// Чтение целей из файла
+		// Чтение целей из файла: расширенный импорт (CSV/JSON/TXT) или
+		// прежний target-формат — см. loadTargetsFromFile (E7/7.7).
 		fmt.Printf("Чтение целей из файла: %s\n", hostsFile)
-		targets, err = network.ParseTargetsFromFile(hostsFile)
-		if err != nil {
-			return fmt.Errorf("ошибка чтения файла целей: %w", err)
+		ips, usedFormat, loadErr := loadTargetsFromFile(hostsFile, hostsFromFileOptions{Format: hostsFormat})
+		if loadErr != nil {
+			return fmt.Errorf("ошибка чтения файла целей: %w", loadErr)
 		}
-		fmt.Printf("Найдено %d целей в файле\n", len(targets))
+		targetList = ips
+		fmt.Printf("Найдено %d целей в файле (формат: %s)\n", len(targetList), usedFormat)
 
-		// Если networkCIDR не указан, используем первый CIDR из файла
-		if networkCIDR == "" && len(targets) > 0 {
-			// Проверяем, есть ли CIDR в файле
-			networkCIDR = targets[0] // Используем первый IP как точку отсчёта
+		if len(targetList) > 0 && strings.TrimSpace(networkCIDR) == "" {
+			if strings.Contains(targetList[0], "/") {
+				networkCIDR = targetList[0]
+			} else {
+				networkCIDR = targetList[0] + "/32"
+			}
 		}
 	}
 

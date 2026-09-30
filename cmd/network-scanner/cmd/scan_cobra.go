@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -54,7 +55,8 @@ func init() {
 	scanCmd.Flags().Bool("snmp", false, "Включить SNMP опрос устройств")
 	scanCmd.Flags().String("snmp-community", "public", "SNMP community (по умолчанию public)")
 	scanCmd.Flags().Int("snmp-timeout", 2, "Таймаут SNMP в секундах (по умолчанию 2)")
-	scanCmd.Flags().String("hosts-file", "", "Файл с целями (IP, CIDR, ranges)")
+	scanCmd.Flags().String("hosts-file", "", "Файл с целями (IP, CIDR, ranges; либо CSV/JSON через --hosts-format)")
+	scanCmd.Flags().String("hosts-format", "", "Формат файла целей: auto|csv|txt|json|targets (по умолчанию auto)")
 	scanCmd.Flags().Bool("export-html", false, "Экспорт результатов в HTML")
 	scanCmd.Flags().Bool("export-xml", false, "Экспорт результатов в XML")
 	scanCmd.Flags().Bool("json", false, "Вывод результатов в JSON формате")
@@ -63,6 +65,7 @@ func init() {
 	_ = scanCmd.Flags().SetAnnotation("network", "category", []string{"network"})
 	_ = scanCmd.Flags().SetAnnotation("ports", "category", []string{"network"})
 	_ = scanCmd.Flags().SetAnnotation("hosts-file", "category", []string{"network"})
+	_ = scanCmd.Flags().SetAnnotation("hosts-format", "category", []string{"network"})
 	_ = scanCmd.Flags().SetAnnotation("udp", "category", []string{"scan"})
 	_ = scanCmd.Flags().SetAnnotation("grab-banners", "category", []string{"scan"})
 	_ = scanCmd.Flags().SetAnnotation("os-detect-active", "category", []string{"scan"})
@@ -106,24 +109,44 @@ func RunScanCobra(c *cobra.Command, cfg builder.Config) error {
 	snmptCommunity, _ := c.Flags().GetString("snmp-community")
 	snmptTimeout, _ := c.Flags().GetInt("snmp-timeout")
 	hostsFile, _ := c.Flags().GetString("hosts-file")
+	hostsFormat, _ := c.Flags().GetString("hosts-format")
 	exportHTML, _ := c.Flags().GetBool("export-html")
 	exportXML, _ := c.Flags().GetBool("export-xml")
 	jsonOutput, _ := c.Flags().GetBool("json")
 
-	// Автоопределение сети или чтение из файла
-	var targets []string
-	var err error
+	// Цели: сначала автоопределение сети / явный --network, затем — файл целей.
+	// Важно: цели из файла имеют приоритет над автоопределением локальной сети,
+	// иначе указанные в файле адреса игнорировались бы (E7/7.7).
+	// Цели: автоопределение сети / явный --network, затем — файл целей.
+	var targetList []string
+	if networkCIDR == "" && hostsFile == "" {
+		auto, err := network.DetectLocalNetwork()
+		if err != nil {
+			return fmt.Errorf("не удалось определить сеть: %w", err)
+		}
+		networkCIDR = auto
+	}
 
 	if hostsFile != "" {
+		// Расширенный импорт (CSV/JSON/TXT) либо прежний target-формат (E7/7.7).
 		fmt.Printf("Чтение целей из файла: %s\n", hostsFile)
-		targets, err = network.ParseTargetsFromFile(hostsFile)
-		if err != nil {
-			return fmt.Errorf("ошибка чтения файла целей: %w", err)
+		ips, usedFormat, impErr := loadTargetsFromFile(hostsFile, hostsFromFileOptions{Format: hostsFormat})
+		if impErr != nil {
+			return fmt.Errorf("ошибка чтения файла целей: %w", impErr)
 		}
-		fmt.Printf("Найдено %d целей в файле\n", len(targets))
+		targetList = ips
+		fmt.Printf("Найдено %d целей в файле (формат: %s)\n", len(targetList), usedFormat)
 
-		if networkCIDR == "" && len(targets) > 0 {
-			networkCIDR = targets[0]
+		if len(targetList) > 0 {
+			switch {
+			case strings.TrimSpace(networkCIDR) != "":
+				// явный --network остаётся в приоритете
+			case strings.Contains(targetList[0], "/"):
+				networkCIDR = targetList[0]
+			default:
+				// список одиночных адресов: сканируем их как набор /32
+				networkCIDR = targetList[0] + "/32"
+			}
 		}
 	}
 
@@ -402,12 +425,19 @@ var inventorySaveCmd = &cobra.Command{
 // сервисный слой builder (без прямого вызова display/presenter).
 func runScanForInventory(cfg builder.Config, hostsFile, networkCIDR, portRange string, timeout, threads int) ([]contracts.ScanResult, error) {
 	if hostsFile != "" {
-		targets, err := network.ParseTargetsFromFile(hostsFile)
+		// Тот же загрузчик целей, что и в scan (E7/7.7): auto по расширению,
+		// поддержка CSV/JSON/TXT, CIDR-раскрытие и лимит хостов.
+		targets, _, err := loadTargetsFromFile(hostsFile, hostsFromFileOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("ошибка чтения файла целей: %w", err)
 		}
-		if networkCIDR == "" && len(targets) > 0 {
-			networkCIDR = targets[0]
+		if strings.TrimSpace(networkCIDR) == "" && len(targets) > 0 {
+			// Цели из файла приоритетнее автоопределения локальной сети.
+			if strings.Contains(targets[0], "/") {
+				networkCIDR = targets[0]
+			} else {
+				networkCIDR = targets[0] + "/32"
+			}
 		}
 	}
 	if networkCIDR == "" {

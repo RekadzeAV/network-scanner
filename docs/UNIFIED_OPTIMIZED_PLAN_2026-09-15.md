@@ -110,7 +110,7 @@
 | 7.4 | plugin-probes (реальные плагины) | pending |
 | 7.5 | Event-driven GUI через eventbus | pending |
 | 7.6 | systemd/desktop units, Docker-доставка | pending |
-| 7.7 | hostlist importer → CLI/GUI | pending |
+| 7.7 | hostlist importer → CLI/GUI | ✅ done (2026-09-25: CLI `--hosts-file` + `--hosts-format` (auto/csv/txt/json/targets), приоритет целей из файла над автосетью; исправлены раскрытие CIDR и `isValidEntry`. GUI — отдельный поток) |
 | 7.8 | Метрики Prometheus + structured logging (P3-1) | pending |
 | 7.9 | Аудит-лог для изменяющих операций (P3-2) | ✅ done (2026-09-25: `internal/auditpath` (пути вне CWD), remote-exec пишет журнал для dry-run/отказа/успеха/ошибки, device-control — по умолчанию, маскирование секретов через `redact`) |
 | 7.10 | Strict TLS в remoteexec | ✅ done (2026-09-25: `--require-tls`; ssh `StrictHostKeyChecking=yes`, winrm `-usessl`+https, wmi отклоняется; тесты + CLI_REFERENCE) |

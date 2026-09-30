@@ -182,6 +182,151 @@ func TestRunRemoteExecCLI_PolicyFailureStillAudited(t *testing.T) {
 		t.Errorf("expected success=false in audit, got: %s", string(data))
 	}
 }
+
+// ============================================================================
+// E7/7.7: импорт списков хостов (hostlist importer → CLI).
+// ============================================================================
+
+func TestLoadTargetsFromFile_CSV(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.csv")
+	content := "192.168.1.10,router\n192.168.1.20,switch,Основной\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write csv: %v", err)
+	}
+
+	ips, format, err := loadTargetsFromFile(path, hostsFromFileOptions{})
+	if err != nil {
+		t.Fatalf("loadTargetsFromFile() error = %v", err)
+	}
+	if format != "csv" {
+		t.Errorf("format = %q, want csv (auto по расширению)", format)
+	}
+	if len(ips) != 2 || ips[0] != "192.168.1.10" || ips[1] != "192.168.1.20" {
+		t.Fatalf("ips = %v, want [192.168.1.10 192.168.1.20]", ips)
+	}
+}
+
+func TestLoadTargetsFromFile_JSON(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.json")
+	content := `[{"ip":"10.0.0.5","hostname":"srv"},{"ip":"10.0.0.6"}]`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write json: %v", err)
+	}
+
+	ips, format, err := loadTargetsFromFile(path, hostsFromFileOptions{})
+	if err != nil {
+		t.Fatalf("loadTargetsFromFile() error = %v", err)
+	}
+	if format != "json" {
+		t.Errorf("format = %q, want json", format)
+	}
+	if len(ips) != 2 || ips[1] != "10.0.0.6" {
+		t.Fatalf("ips = %v, want [10.0.0.5 10.0.0.6]", ips)
+	}
+}
+
+func TestLoadTargetsFromFile_CSV_CIDRExpanded(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cidr.csv")
+	// CIDR-запись в CSV раскрывается импортером в отдельные IP.
+	if err := os.WriteFile(path, []byte("192.168.5.0/30\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	ips, _, err := loadTargetsFromFile(path, hostsFromFileOptions{Format: "csv"})
+	if err != nil {
+		t.Fatalf("loadTargetsFromFile() error = %v", err)
+	}
+	if len(ips) != 4 {
+		t.Fatalf("ips = %v, want 4 адреса из /30", ips)
+	}
+}
+
+func TestLoadTargetsFromFile_TargetsFormatKeepsRanges(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "targets.txt")
+	content := "# comment\n192.168.1.1-3\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	ips, format, err := loadTargetsFromFile(path, hostsFromFileOptions{})
+	if err != nil {
+		t.Fatalf("loadTargetsFromFile() error = %v", err)
+	}
+	if format != "targets" {
+		t.Errorf("format = %q, want targets (обратная совместимость .txt)", format)
+	}
+	if len(ips) != 3 {
+		t.Fatalf("ips = %v, want 3 адреса из диапазона", ips)
+	}
+}
+
+func TestLoadTargetsFromFile_ExplicitTargetsFormat(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.csv")
+	// Даже при .csv явный --hosts-format targets использует прежний парсер.
+	if err := os.WriteFile(path, []byte("192.0.2.1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	ips, format, err := loadTargetsFromFile(path, hostsFromFileOptions{Format: "targets"})
+	if err != nil {
+		t.Fatalf("loadTargetsFromFile() error = %v", err)
+	}
+	if format != "targets" || len(ips) != 1 || ips[0] != "192.0.2.1" {
+		t.Fatalf("ips = %v, format = %q, want [192.0.2.1]/targets", ips, format)
+	}
+}
+
+func TestLoadTargetsFromFile_UnsupportedFormat(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.xml")
+	if err := os.WriteFile(path, []byte("<hosts/>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, err := loadTargetsFromFile(path, hostsFromFileOptions{Format: "xml"})
+	if err == nil || !strings.Contains(err.Error(), "неподдерживаемый формат") {
+		t.Fatalf("expected unsupported format error, got: %v", err)
+	}
+}
+
+func TestScanCmd_HasHostsFormatFlag(t *testing.T) {
+	for _, name := range []string{"hosts-file", "hosts-format"} {
+		if scanCmd.Flags().Lookup(name) == nil {
+			t.Errorf("scan не имеет флага --%s", name)
+		}
+	}
+}
+
+// TestScanTargetsPriority — цели из файла приоритетнее автоопределения сети,
+// иначе адреса из файла игнорировались бы (E7/7.7).
+func TestScanTargetsPriority(t *testing.T) {
+	dir := t.TempDir()
+	csvPath := filepath.Join(dir, "hosts.csv")
+	if err := os.WriteFile(csvPath, []byte("192.168.99.10,router\n192.168.99.0/30\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	ips, format, err := loadTargetsFromFile(csvPath, hostsFromFileOptions{})
+	if err != nil {
+		t.Fatalf("loadTargetsFromFile() error = %v", err)
+	}
+	if format != "csv" {
+		t.Errorf("format = %q, want csv", format)
+	}
+	// 1 одиночный + 4 из /30 = 5 целей
+	if len(ips) != 5 {
+		t.Fatalf("ips = %v, want 5 целей", ips)
+	}
+	if ips[0] != "192.168.99.10" {
+		t.Errorf("ips[0] = %q, want 192.168.99.10 (первая цель — источник CIDR)", ips[0])
+	}
+}
+
 func TestParseRemoteExecArgs_RequireTLS(t *testing.T) {
 	// По умолчанию выключен.
 	opts, err := parseRemoteExecArgs(baseRemoteExecArgs())

@@ -89,18 +89,19 @@ func (h *HostListImporter) ImportFromFile(path string, format HostListFormat) ([
 	// Валидация и расширение CIDR
 	validated := make([]HostEntry, 0, len(entries))
 	for _, entry := range entries {
-		if !h.isValidEntry(entry) {
+		valid, ok := h.isValidEntry(entry)
+		if !ok {
 			continue
 		}
-		if entry.IsCIDR {
+		if valid.IsCIDR {
 			// Расширяем CIDR в отдельные IP
-			cidrEntries, err := expandCIDR(entry)
+			cidrEntries, err := expandCIDR(valid)
 			if err != nil {
 				continue
 			}
 			validated = append(validated, cidrEntries...)
 		} else {
-			validated = append(validated, entry)
+			validated = append(validated, valid)
 		}
 	}
 
@@ -135,12 +136,23 @@ func (h *HostListImporter) ImportFromString(content string, format HostListForma
 		return nil, fmt.Errorf("парсинг: %w", err)
 	}
 
-	// Валидация
+	// Валидация и раскрытие CIDR — единое поведение с ImportFromFile (E7/7.7):
+	// иначе CIDR из JSON/CSV-строки возвращался бы как один «хост».
 	validated := make([]HostEntry, 0, len(entries))
 	for _, entry := range entries {
-		if h.isValidEntry(entry) {
-			validated = append(validated, entry)
+		valid, ok := h.isValidEntry(entry)
+		if !ok {
+			continue
 		}
+		if valid.IsCIDR {
+			cidrEntries, err := expandCIDR(valid)
+			if err != nil {
+				continue
+			}
+			validated = append(validated, cidrEntries...)
+			continue
+		}
+		validated = append(validated, valid)
 	}
 
 	if len(validated) > h.maxEntries {
@@ -351,36 +363,36 @@ func (h *HostListImporter) parseJSONString(content string) ([]HostEntry, error) 
 	return entries, nil
 }
 
-// isValidEntry проверяет валидность записи
-func (h *HostListImporter) isValidEntry(entry HostEntry) bool {
+// isValidEntry проверяет валидность записи.
+//
+// Важно: IsCIDR/IsIPv6 вычисляются и возвращаются вместе с результатом —
+// вызывающий код раскрывает CIDR в отдельные адреса по флагу IsCIDR.
+// Ранее метод мутировал копию структуры и не возвращал её, поэтому CIDR
+// никогда не раскрывался, а одиночные IP ошибочно помечались как CIDR
+// (в ветке с «/» флаги были перепутаны).
+func (h *HostListImporter) isValidEntry(entry HostEntry) (HostEntry, bool) {
 	entry.IP = strings.TrimSpace(entry.IP)
 	if entry.IP == "" {
-		return false
+		return entry, false
 	}
 
-	// Проверяем, является ли IP CIDR
 	if strings.Contains(entry.IP, "/") {
 		_, _, err := net.ParseCIDR(entry.IP)
 		if err != nil {
-			// Не валидный CIDR, пытаемся как IP
-			ip := net.ParseIP(entry.IP)
-			if ip == nil {
-				return false
-			}
-			entry.IsCIDR = false
-		} else {
-			entry.IsCIDR = true
+			return entry, false
 		}
-	} else {
-		ip := net.ParseIP(entry.IP)
-		if ip == nil {
-			return false
-		}
-		entry.IsCIDR = false
-		entry.IsIPv6 = ip.To4() == nil
+		entry.IsCIDR = true
+		entry.IsIPv6 = false
+		return entry, true
 	}
 
-	return true
+	ip := net.ParseIP(entry.IP)
+	if ip == nil {
+		return entry, false
+	}
+	entry.IsCIDR = false
+	entry.IsIPv6 = ip.To4() == nil
+	return entry, true
 }
 
 // expandCIDR расширяет CIDR запись в список отдельных IP

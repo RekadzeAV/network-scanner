@@ -1,6 +1,7 @@
 package network
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,6 +10,61 @@ import (
 // ============================================================================
 // M6.2: Тесты для HostListImporter (Импортируемые списки хостов)
 // ============================================================================
+
+// TestHostListImporter_CIDRExpanded — E7/7.7 (регрессия): ранее из-за
+// перепутанных флагов в isValidEntry (мутировалась копия структуры) CIDR не
+// раскрывался, а одиночные IP ошибочно помечались IsCIDR=true.
+func TestHostListImporter_CIDRExpanded(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cidr.txt")
+	if err := os.WriteFile(path, []byte("192.168.7.0/30\n"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	entries, err := DefaultHostListImporter().ImportFromFile(path, FormatTXT)
+	if err != nil {
+		t.Fatalf("ImportFromFile() error = %v", err)
+	}
+	if len(entries) != 4 {
+		t.Fatalf("entries = %d, want 4 (раскрытие /30)", len(entries))
+	}
+	for _, e := range entries {
+		if e.IsCIDR {
+			t.Errorf("entry %s: IsCIDR = true, want false после раскрытия", e.IP)
+		}
+		if net.ParseIP(e.IP) == nil {
+			t.Errorf("entry IP %q is not a valid IP", e.IP)
+		}
+	}
+}
+
+// TestHostListImporter_SingleIPsNotCIDR — одиночные IP не помечаются как CIDR.
+func TestHostListImporter_SingleIPsNotCIDR(t *testing.T) {
+	entries, err := DefaultHostListImporter().ImportFromString("10.0.0.1\n10.0.0.2\n", FormatTXT)
+	if err != nil {
+		t.Fatalf("ImportFromString() error = %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("entries = %d, want 2", len(entries))
+	}
+	for _, e := range entries {
+		if e.IsCIDR {
+			t.Errorf("entry %s: IsCIDR = true, want false для одиночного IP", e.IP)
+		}
+	}
+}
+
+// TestHostListImporter_JSONCIDRExpanded — CIDR в JSON-списке тоже раскрывается.
+func TestHostListImporter_JSONCIDRExpanded(t *testing.T) {
+	entries, err := DefaultHostListImporter().ImportFromString(
+		`[{"ip":"10.10.0.0/31","comment":"pair"}]`, FormatJSON)
+	if err != nil {
+		t.Fatalf("ImportFromString() error = %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("entries = %d, want 2 (раскрытие /31)", len(entries))
+	}
+}
 
 // TestHostListImporter_New — ветка: создание импортера
 func TestHostListImporter_New(t *testing.T) {
@@ -257,7 +313,10 @@ not-an-ip`
 	}
 }
 
-// TestHostListImporter_CIDR_Expansion — ветка: расширение CIDR
+// TestHostListImporter_CIDR_Expansion — ветка: расширение CIDR.
+//
+// E7/7.7: ImportFromString теперь раскрывает CIDR самостоятельно (единое
+// поведение с ImportFromFile), поэтому на выходе — уже раскрытые адреса.
 func TestHostListImporter_CIDR_Expansion(t *testing.T) {
 	importer := DefaultHostListImporter()
 	content := `192.168.1.0/30 test-cidr`
@@ -267,20 +326,21 @@ func TestHostListImporter_CIDR_Expansion(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(entries) != 1 {
-		t.Fatalf("expected 1 CIDR entry, got %d", len(entries))
+	// /30 = 4 адреса, CIDR-флаг снят после раскрытия.
+	if len(entries) != 4 {
+		t.Fatalf("expected 4 expanded entries, got %d", len(entries))
 	}
-	if !entries[0].IsCIDR {
-		t.Error("expected IsCIDR to be true")
+	for _, e := range entries {
+		if e.IsCIDR {
+			t.Errorf("entry %s: IsCIDR = true, want false", e.IP)
+		}
 	}
 
-	// Расширяем вручную
-	expanded, err := expandCIDR(entries[0])
+	// expandCIDR остаётся доступной для ручного раскрытия CIDR-записи.
+	expanded, err := expandCIDR(HostEntry{IP: "192.168.1.0/30"})
 	if err != nil {
 		t.Fatalf("unexpected error expanding CIDR: %v", err)
 	}
-
-	// /30 = 4 адреса
 	if len(expanded) != 4 {
 		t.Errorf("expected 4 expanded IPs, got %d", len(expanded))
 	}
