@@ -64,6 +64,21 @@
 - [x] Подкоманда `gui` в cobra root; общий persistent-флаг `--db`
 - [x] Тесты `cli_wiring_test.go` (13), coverage `cmd` 0% → 11.6%, lint 0
 
+### Этап E7 / 7.2: Улучшение UDP-скана (настраиваемые порты) (2026-09-25) ✅
+- [x] Список UDP-портов вынесен из тела `scanHostUDP` в `defaultUDPPorts` +
+      `DefaultUDPPorts()` (копия) + `SetUDPPorts()` / `NormalizeUDPPorts()`
+- [x] Нормализация: дедупликация, сортировка, фильтрация значений вне 1..65535;
+      пустой/полностью невалидный список возвращает дефолт (UDP-скан не «пустеет»)
+- [x] Буфер результатов UDP теперь `len(udpPorts)` вместо константы 9 — при
+      расширенном списке портов производители не блокируются на отправке
+      (удалена константа `udpResultBufferSize`)
+- [x] Проброс: `contracts.ScanConfig.UDPPorts` → `scanner.Service` → `SetUDPPorts`
+- [x] CLI: `--udp-ports` (`53,161` или `1-1024`) в cobra- и legacy-путях `scan`
+- [x] Тесты: `internal/scanner/udp_ports_test.go` (дефолт-копия, нормализация,
+      сеттер), `cmd` (таблица `parsePortSpec` — 12 кейсов, включая диапазоны и
+      ошибки; наличие флага)
+- [x] Документация: `docs/CLI_REFERENCE.md` (`--udp-ports`)
+
 ### Этап E7 / 7.8: Метрики Prometheus + structured logging (2026-09-25) ✅
 - [x] Новый пакет `internal/metrics` — реестр Counter/Gauge/Summary и HTTP-экспозиция
       `/metrics` в формате Prometheus (text/plain; version=0.0.4) **без внешних зависимостей**

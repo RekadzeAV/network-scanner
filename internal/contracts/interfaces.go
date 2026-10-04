@@ -13,6 +13,9 @@ type ScanConfig struct {
 	Threads     int
 	ShowClosed  bool
 	ScanUDP     bool
+	// UDPPorts — список UDP-портов для проверки (E7/7.2). Пусто — дефолт
+	// (типовые сервисы). Нормализуется в scanner.SetUDPPorts.
+	UDPPorts    []int
 	GrabBanners bool
 	OSActive    bool
 	VerboseLogs bool

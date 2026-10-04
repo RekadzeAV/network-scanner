@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -162,11 +163,12 @@ type NetworkScanner struct {
 	portRange       string
 	threads         int
 	showClosed      bool
-	scanTCPPorts    bool // Сканировать TCP-порты из portRange (если false — только ping/MAC/hostname)
-	scanUDP         bool // Включить UDP сканирование
-	grabBanners     bool // Читать баннеры с типовых TCP-портов (медленнее)
-	osDetectActive  bool // Активный режим эвристик ОС (дополнительные сигнатуры)
-	verbosePortLogs bool // Подробные логи по каждому порту/пробе (шумно, медленнее)
+	scanTCPPorts    bool  // Сканировать TCP-порты из portRange (если false — только ping/MAC/hostname)
+	scanUDP         bool  // Включить UDP сканирование
+	udpPorts        []int // Настраиваемый список UDP-портов (nil → defaultUDPPorts)
+	grabBanners     bool  // Читать баннеры с типовых TCP-портов (медленнее)
+	osDetectActive  bool  // Активный режим эвристик ОС (дополнительные сигнатуры)
+	verbosePortLogs bool  // Подробные логи по каждому порту/пробе (шумно, медленнее)
 	results         []Result
 	mu              sync.RWMutex
 	ctx             context.Context
@@ -208,7 +210,6 @@ const (
 
 	// Магические числа для сканирования
 	udpSemaphoreSize       = 50
-	udpResultBufferSize    = 9 // равно knownUDPPorts
 	udpCollectTimeout      = 100 * time.Millisecond
 	udpProbeTimeoutDivisor = 3
 
@@ -306,6 +307,68 @@ func (ns *NetworkScanner) SetProgressCallback(callback ProgressCallback) {
 // Вызывать ДО Scan(). По умолчанию UDP отключено.
 func (ns *NetworkScanner) SetScanUDP(enable bool) {
 	ns.scanUDP = enable
+}
+
+// defaultUDPPorts — типовые UDP-порты для сканирования (E7/7.2).
+//
+// Раньше список был захардкожен прямо в scanHostUDP, из-за чего UDP-набор
+// нельзя было изменить без правки кода. Теперь это дефолт, переопределяемый
+// через SetUDPPorts (и флаг CLI --udp-ports).
+//
+//	53(DNS) 67/68(DHCP) 69(TFTP) 123(NTP) 161(SNMP) 162(SNMPTrap)
+//	514(Syslog) 1194(OpenVPN)
+var defaultUDPPorts = []int{53, 67, 68, 69, 123, 161, 162, 514, 1194}
+
+// DefaultUDPPorts возвращает копию списка UDP-портов по умолчанию.
+func DefaultUDPPorts() []int {
+	out := make([]int, len(defaultUDPPorts))
+	copy(out, defaultUDPPorts)
+	return out
+}
+
+// SetUDPPorts задаёт список UDP-портов для проверки (E7/7.2).
+//
+// Нормализация: убираются дубликаты и невалидные значения (вне 1..65535),
+// список сортируется для воспроизводимого порядка проверки. Пустой или
+// полностью невалидный список означает возврат к дефолту, поэтому UDP-скан
+// не может случайно оказаться «пустым» и молча пропустить хосты.
+//
+// Вызывать ДО Scan().
+func (ns *NetworkScanner) SetUDPPorts(ports []int) {
+	ns.udpPorts = NormalizeUDPPorts(ports)
+}
+
+// NormalizeUDPPorts очищает и сортирует список UDP-портов.
+// Возвращает копию defaultUDPPorts, если после нормализации ничего не осталось.
+func NormalizeUDPPorts(ports []int) []int {
+	if len(ports) == 0 {
+		return DefaultUDPPorts()
+	}
+	seen := make(map[int]struct{}, len(ports))
+	out := make([]int, 0, len(ports))
+	for _, p := range ports {
+		if p <= 0 || p > 65535 {
+			continue
+		}
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	if len(out) == 0 {
+		return DefaultUDPPorts()
+	}
+	sort.Ints(out)
+	return out
+}
+
+// effectiveUDPPorts возвращает список UDP-портов для текущего сканирования.
+func (ns *NetworkScanner) effectiveUDPPorts() []int {
+	if len(ns.udpPorts) == 0 {
+		return DefaultUDPPorts()
+	}
+	return ns.udpPorts
 }
 
 // SetScanTCPPorts включает или отключает перебор TCP-портов.
@@ -1048,10 +1111,12 @@ func (ns *NetworkScanner) scanHostUDP(ipStr string, result *Result) {
 	logger.LogDebug("Начинаю UDP сканирование для хоста %s", ipStr)
 	defer logger.LogDebug("UDP сканирование для хоста %s завершено", ipStr)
 
-	udpPorts := []int{53, 67, 68, 69, 123, 161, 162, 514, 1194}
+	udpPorts := ns.effectiveUDPPorts()
 	udpSem := make(chan struct{}, udpSemaphoreSize)
 	udpWg := sync.WaitGroup{}
-	udpResults := make(chan PortInfo, udpResultBufferSize)
+	// Буфер результатов ≥ числа проверяемых портов: иначе горутины-производители
+	// блокируются на отправке, пока основной цикл не вычитал результат (E7/7.2).
+	udpResults := make(chan PortInfo, len(udpPorts))
 	udpDone := make(chan struct{})
 
 udpPortLoop:

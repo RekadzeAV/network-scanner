@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -105,6 +106,52 @@ func hostEntriesToIPs(entries []network.HostEntry) []string {
 	return ips
 }
 
+// parsePortSpec разбирает список портов в формате "53,161" или "1-1024".
+// Возвращает плоский список номеров портов (в порядке возрастания).
+func parsePortSpec(spec string) ([]int, error) {
+	spec = strings.TrimSpace(spec)
+	if spec == "" {
+		return nil, nil
+	}
+	var out []int
+	for _, part := range strings.Split(spec, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if strings.Contains(part, "-") {
+			bounds := strings.SplitN(part, "-", 2)
+			start, err := strconv.Atoi(strings.TrimSpace(bounds[0]))
+			if err != nil {
+				return nil, fmt.Errorf("неверный порт в диапазоне %q: %w", part, err)
+			}
+			end, err := strconv.Atoi(strings.TrimSpace(bounds[1]))
+			if err != nil {
+				return nil, fmt.Errorf("неверный порт в диапазоне %q: %w", part, err)
+			}
+			if start > end {
+				start, end = end, start
+			}
+			if start < 1 || end > 65535 {
+				return nil, fmt.Errorf("диапазон %q вне 1..65535", part)
+			}
+			for p := start; p <= end; p++ {
+				out = append(out, p)
+			}
+			continue
+		}
+		port, err := strconv.Atoi(part)
+		if err != nil {
+			return nil, fmt.Errorf("неверный порт %q: %w", part, err)
+		}
+		if port < 1 || port > 65535 {
+			return nil, fmt.Errorf("порт %d вне 1..65535", port)
+		}
+		out = append(out, port)
+	}
+	return out, nil
+}
+
 // RunScan запускает сканирование через сервис
 func RunScan(cfg builder.Config, args ...string) error {
 	// Метрики (E7/7.8): флаги разбираются и в legacy-пути.
@@ -117,6 +164,7 @@ func RunScan(cfg builder.Config, args ...string) error {
 	threads := 50
 	showClosed := false
 	scanUDP := false
+	udpPortsSpec := ""
 	grabBanners := false
 	osDetectActive := false
 	verboseLogs := false
@@ -158,6 +206,11 @@ func RunScan(cfg builder.Config, args ...string) error {
 			showClosed = true
 		case "--udp":
 			scanUDP = true
+		case "--udp-ports":
+			if i+1 < len(args) {
+				udpPortsSpec = args[i+1]
+				i++
+			}
 		case "--grab-banners":
 			grabBanners = true
 		case "--os-detect-active":
@@ -264,6 +317,15 @@ func RunScan(cfg builder.Config, args ...string) error {
 	// Запуск сканирования
 	fmt.Printf("Сканирование сети: %s\n", networkCIDR)
 
+	// UDP-порты (E7/7.2): явный список через --udp-ports, иначе дефолт.
+	udpPorts, err := parsePortSpec(udpPortsSpec)
+	if err != nil {
+		return fmt.Errorf("--udp-ports: %w", err)
+	}
+	if scanUDP && len(udpPorts) > 0 {
+		fmt.Printf("UDP порты: %v\n", udpPorts)
+	}
+
 	results, err := scannerService.Scan(context.TODO(), contracts.ScanConfig{
 		NetworkCIDR: networkCIDR,
 		PortRange:   portRange,
@@ -271,6 +333,7 @@ func RunScan(cfg builder.Config, args ...string) error {
 		Threads:     threads,
 		ShowClosed:  showClosed,
 		ScanUDP:     scanUDP,
+		UDPPorts:    udpPorts,
 		GrabBanners: grabBanners,
 		OSActive:    osDetectActive,
 		VerboseLogs: verboseLogs,

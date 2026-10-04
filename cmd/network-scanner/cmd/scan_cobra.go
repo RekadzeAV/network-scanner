@@ -60,6 +60,7 @@ func init() {
 	scanCmd.Flags().String("hosts-format", "", "Формат файла целей: auto|csv|txt|json|targets (по умолчанию auto)")
 	scanCmd.Flags().Bool("metrics", false, "Экспонировать метрики Prometheus на /metrics (E7/7.8)")
 	scanCmd.Flags().String("metrics-addr", "", "Адрес эндпоинта метрик (по умолчанию 127.0.0.1:9101)")
+	scanCmd.Flags().String("udp-ports", "", "UDP-порты для проверки при --udp (напр. 53,161 или 1-1024; по умолчанию типовые сервисы)")
 	scanCmd.Flags().Bool("export-html", false, "Экспорт результатов в HTML")
 	scanCmd.Flags().Bool("export-xml", false, "Экспорт результатов в XML")
 	scanCmd.Flags().Bool("json", false, "Вывод результатов в JSON формате")
@@ -109,6 +110,7 @@ func RunScanCobra(c *cobra.Command, cfg builder.Config) error {
 	threads, _ := c.Flags().GetInt("threads")
 	showClosed, _ := c.Flags().GetBool("show-closed")
 	scanUDP, _ := c.Flags().GetBool("udp")
+	udpPortsSpec, _ := c.Flags().GetString("udp-ports")
 	grabBanners, _ := c.Flags().GetBool("grab-banners")
 	osDetectActive, _ := c.Flags().GetBool("os-detect-active")
 	verboseLogs, _ := c.Flags().GetBool("verbose-port-logs")
@@ -193,6 +195,15 @@ func RunScanCobra(c *cobra.Command, cfg builder.Config) error {
 	// Запуск сканирования
 	fmt.Printf("Сканирование сети: %s\n", networkCIDR)
 
+	// UDP-порты (E7/7.2): явный список через --udp-ports, иначе дефолт сканера.
+	udpPorts, err := parsePortSpec(udpPortsSpec)
+	if err != nil {
+		return fmt.Errorf("--udp-ports: %w", err)
+	}
+	if scanUDP && len(udpPorts) > 0 {
+		fmt.Printf("UDP порты: %v\n", udpPorts)
+	}
+
 	results, err := scannerService.Scan(context.TODO(), contracts.ScanConfig{
 		NetworkCIDR: networkCIDR,
 		PortRange:   portRange,
@@ -200,6 +211,7 @@ func RunScanCobra(c *cobra.Command, cfg builder.Config) error {
 		Threads:     threads,
 		ShowClosed:  showClosed,
 		ScanUDP:     scanUDP,
+		UDPPorts:    udpPorts,
 		GrabBanners: grabBanners,
 		OSActive:    osDetectActive,
 		VerboseLogs: verboseLogs,

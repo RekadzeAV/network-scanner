@@ -105,7 +105,7 @@
 | # | Задача | Статус |
 |---|--------|--------|
 | 7.1 | ICMP ping → тесты + документация (P3-3) | ✅ done (2026-09-25: fake-пингер, табличные тесты, покрытие `icmp_ping.go` 100%/82.6%, раздел в `docs/TECHNICAL.md`) |
-| 7.2 | UDP-скан (улучшение) | pending |
+| 7.2 | UDP-скан (улучшение) | ✅ done (2026-09-25: `SetUDPPorts`/`NormalizeUDPPorts`, CLI `--udp-ports` (`53,161` / `1-1024`), буфер результатов по числу портов, `ScanConfig.UDPPorts`) |
 | 7.3 | PDF/HTML-отчёты + планировщик | pending |
 | 7.4 | plugin-probes (реальные плагины) | pending |
 | 7.5 | Event-driven GUI через eventbus | pending |

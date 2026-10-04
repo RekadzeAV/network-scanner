@@ -42,6 +42,58 @@ func TestParseMetricsArgs(t *testing.T) {
 	}
 }
 
+// TestScanCmd_HasUDPPortsFlag — флаг настраиваемых UDP-портов (E7/7.2).
+func TestScanCmd_HasUDPPortsFlag(t *testing.T) {
+	if scanCmd.Flags().Lookup("udp-ports") == nil {
+		t.Error("scan не имеет флага --udp-ports")
+	}
+}
+
+// TestParsePortSpec — разбор списка/диапазона UDP-портов (E7/7.2).
+func TestParsePortSpec(t *testing.T) {
+	tests := []struct {
+		name    string
+		spec    string
+		want    []int
+		wantErr bool
+	}{
+		{"empty", "", nil, false},
+		{"single", "53", []int{53}, false},
+		{"csv", "53,161,514", []int{53, 161, 514}, false},
+		{"range", "53-55", []int{53, 54, 55}, false},
+		{"mixed", "53,100-102", []int{53, 100, 101, 102}, false},
+		{"reversed-range", "55-53", []int{53, 54, 55}, false},
+		{"spaces", " 53 , 161 ", []int{53, 161}, false},
+		{"non-numeric", "abc", nil, true},
+		{"range-non-numeric", "53-x", nil, true},
+		{"port-zero", "0", nil, true},
+		{"port-too-large", "65536", nil, true},
+		{"range-out-of-bounds", "1-65536", nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parsePortSpec(tt.spec)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("parsePortSpec(%q) err = nil, want error", tt.spec)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parsePortSpec(%q) unexpected error: %v", tt.spec, err)
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("parsePortSpec(%q) = %v, want %v", tt.spec, got, tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Fatalf("parsePortSpec(%q) = %v, want %v", tt.spec, got, tt.want)
+				}
+			}
+		})
+	}
+}
+
 // TestScanCmd_HasMetricsFlags — флаги присутствуют в scan.
 func TestScanCmd_HasMetricsFlags(t *testing.T) {
 	for _, name := range []string{"metrics", "metrics-addr"} {

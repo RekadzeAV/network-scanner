@@ -92,6 +92,9 @@ func (s *scannerServiceImpl) Scan(ctx context.Context, cfg contracts.ScanConfig,
 	)
 
 	ns.SetScanUDP(cfg.ScanUDP)
+	if len(cfg.UDPPorts) > 0 {
+		ns.SetUDPPorts(cfg.UDPPorts)
+	}
 	ns.SetGrabBanners(cfg.GrabBanners)
 	ns.SetOSDetectActive(cfg.OSActive)
 	ns.SetVerbosePortLogs(cfg.VerboseLogs)
