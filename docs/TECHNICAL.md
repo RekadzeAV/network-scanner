@@ -844,6 +844,59 @@ ports), при неудаче — срабатывает прежний TCP-fall
 
 ---
 
+## Метрики и наблюдаемость (E7/7.8)
+
+### Метрики Prometheus
+
+Пакет `internal/metrics` даёт реестр метрик и HTTP-эндпоинт `/metrics` в формате
+Prometheus (`text/plain; version=0.0.4`). Внешние зависимости не используются —
+текстовая экспозиция формируется собственным кодом.
+
+| Тип | Методы |
+|-----|--------|
+| `Counter` | `Inc`, `Add` (отрицательные игнорируются), `Value` |
+| `Gauge` | `Set`, `Inc`, `Dec`, `Add`, `Value` |
+| `Summary` | `Observe`, `ObserveDuration`, `Sum`, `Count` |
+
+Экспонируемые метрики сканирования (обновляются из eventbus, E6):
+
+| Метрика | Тип | Источник события |
+|---------|-----|------------------|
+| `network_scanner_scan_total` | counter | `scan.started` |
+| `network_scanner_scan_active` | gauge | `scan.started` / `completed` / `failed` |
+| `network_scanner_scan_hosts_total` | counter | `scan.completed` (HostCount) |
+| `network_scanner_scan_open_ports_total` | counter | `scan.completed` (OpenPorts) |
+| `network_scanner_scan_duration_seconds` | summary | `scan.completed` (Duration) |
+| `network_scanner_scan_failures_total` | counter | `scan.failed` |
+
+Включение (opt-in, только loopback по умолчанию):
+
+```bash
+network-scanner scan --network 192.168.1.0/24 --metrics
+# либо с явным адресом
+network-scanner scan --network 192.168.1.0/24 --metrics --metrics-addr 0.0.0.0:9101
+```
+
+Безопасность: по умолчанию адрес `127.0.0.1:9101` — эндпоинт недоступен из сети
+без явного указания `--metrics-addr`. Сервер имеет таймауты (ReadHeader/Read/Write/Idle).
+
+### Structured logging
+
+`logger.LogStructured(level, message, attrs)` пишет JSON-строку с полями
+`level`/`msg`/`timestamp` (RFC3339Nano) и переданными атрибутами — для
+машиночитаемого сбора и фильтрации. В релизной сборке функция — заглушка
+(логирование включается build-тегом `debug`, как и остальной файловый лог).
+
+```go
+logger.LogStructured("warn", "remote-exec policy rejected", map[string]interface{}{
+    "target": "10.0.0.9",
+    "reason": "not in allowlist",
+})
+// {"level":"warn","msg":"...","target":"10.0.0.9","timestamp":"..."}
+```
+
+---
+
 ## Журнал изменяющих операций (audit trail, E7/7.9)
 
 Все операции, меняющие состояние внешних систем, журналируются в JSONL

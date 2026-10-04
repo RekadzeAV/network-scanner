@@ -1,3 +1,6 @@
+//go:build !debug
+// +build !debug
+
 package logger
 
 import (
@@ -6,6 +9,9 @@ import (
 
 // These tests exercise the release (non-debug) build of logger,
 // where all functions are no-ops.
+//
+// Теги !debug обязательны: в debug-сборке используется файловая
+// реализация (см. logger.go), и «заглушечные» ожидания неприменимы.
 
 func TestInit(t *testing.T) {
 	err := Init("test-app", "1.0.0")

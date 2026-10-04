@@ -26,6 +26,10 @@ func LogError(err error, context string) {
 func LogDebug(format string, args ...interface{}) {
 }
 
+// LogStructured записывает структурированное сообщение (заглушка для релизной версии).
+func LogStructured(level, message string, attrs map[string]interface{}) {
+}
+
 // GetLogFileName возвращает имя файла лога (заглушка для релизной версии)
 func GetLogFileName() string {
 	return ""

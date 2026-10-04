@@ -4,10 +4,12 @@
 package logger
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -137,6 +139,34 @@ func LogDebug(format string, args ...interface{}) {
 
 	message := fmt.Sprintf("DEBUG: %s", fmt.Sprintf(format, args...))
 	writeLog(message)
+}
+
+// LogStructured записывает структурированное сообщение (key=value пары).
+//
+// Формат: JSON-строка с полями level/msg/timestamp + переданные атрибуты.
+// Используется для машиночитаемых логов (сбор, фильтрация, алерты).
+func LogStructured(level, message string, attrs map[string]interface{}) {
+	logMutex.Lock()
+	defer logMutex.Unlock()
+
+	if !initialized || logFile == nil {
+		return
+	}
+
+	payload := make(map[string]interface{}, len(attrs)+3)
+	for k, v := range attrs {
+		payload[k] = v
+	}
+	payload["level"] = strings.ToLower(strings.TrimSpace(level))
+	payload["msg"] = message
+	payload["timestamp"] = time.Now().Format(time.RFC3339Nano)
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		writeLog(fmt.Sprintf("ERROR: не удалось сериализовать structured-лог: %v", err))
+		return
+	}
+	logFile.WriteString(string(data) + "\n")
 }
 
 // GetLogFileName возвращает имя файла лога

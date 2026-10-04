@@ -76,6 +76,24 @@ network-scanner scan --network 192.168.1.0/24 --ports 1-1000
 | `--export-xml` | bool | `false` | Экспорт результатов в XML |
 | `--json` | bool | `false` | Вывод результатов в JSON формате |
 
+| `--metrics` | | bool | `false` | Экспонировать метрики Prometheus на `/metrics` (E7/7.8) |
+| `--metrics-addr` | | string | `127.0.0.1:9101` | Адрес эндпоинта метрик (по умолчанию — только loopback) |
+
+Пример экспозиции метрик:
+
+```bash
+# Метрики доступны на http://127.0.0.1:9101/metrics во время сканирования
+network-scanner scan --network 192.168.1.0/24 --metrics
+
+# Явный адрес (например, для сбора Prometheus в контейнере)
+network-scanner scan --network 192.168.1.0/24 --metrics --metrics-addr 0.0.0.0:9101
+```
+
+Метрики обновляются по событиям шины (E6): `scan.started` → `network_scanner_scan_total`
+и `network_scanner_scan_active`; `scan.completed` → `network_scanner_scan_hosts_total`,
+`network_scanner_scan_open_ports_total`, `network_scanner_scan_duration_seconds`;
+`scan.failed` → `network_scanner_scan_failures_total`.
+
 ---
 
 ## `remote-exec` — Удалённое выполнение

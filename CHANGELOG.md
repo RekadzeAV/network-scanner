@@ -7,6 +7,26 @@
 
 ## [Unreleased]
 
+### 2026-09-25: E7/7.8 — метрики Prometheus + structured logging
+
+- **Новый пакет `internal/metrics`** (без внешних зависимостей):
+  - реестр `Counter`/`Gauge`/`Summary` с конкурентным доступом;
+  - `Registry.Handler()` — HTTP-экспозиция `/metrics` в формате Prometheus
+    (`text/plain; version=0.0.4`) с сортировкой и `# HELP`/`# TYPE`;
+- **Метрики сканирования из eventbus (E6):** `scan.started` → `network_scanner_scan_total`
+  и `_scan_active`; `scan.completed` → `_scan_hosts_total`, `_scan_open_ports_total`,
+  `_scan_duration_seconds`; `scan.failed` → `_scan_failures_total`.
+- **CLI:** `--metrics` и `--metrics-addr` (по умолчанию `127.0.0.1:9101`, loopback)
+  в cobra- и legacy-путях `scan`; `builder.Config.MetricsAddr`.
+- **Structured logging:** `logger.LogStructured(level, msg, attrs)` — JSON-строка
+  (`level`/`msg`/`timestamp` + атрибуты); единый API для debug/release-сборок
+  (в релизе — заглушка; тесты разделены build-тегами).
+- **Тесты:** `internal/metrics` (88.4% — counter/gauge/summary, формат, HTTP-хендлер,
+  конкурентность, поток событий, парсинг payload), `cmd` (парсинг флагов, сквозной
+  HTTP-эндпоинт, wiring шины), `logger` (JSON в debug, заглушка в release).
+- **Документация:** `docs/TECHNICAL.md` — раздел «Метрики и наблюдаемость»;
+  `docs/CLI_REFERENCE.md` — флаги и примеры.
+
 ### 2026-09-25: E7/7.7 — импорт списков хостов (hostlist importer → CLI)
 
 - **CLI:** `--hosts-file` теперь поддерживает расширенные форматы через

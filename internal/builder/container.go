@@ -23,7 +23,9 @@ type Container struct {
 type Config struct {
 	LogLevel string
 	DBPath   string // Путь к inventory SQLite базе
-	// Add more config fields as needed.
+	// MetricsAddr — адрес HTTP-эндпоинта /metrics (E7/7.8). Пусто — метрики
+	// не экспонируются; значение по умолчанию задаётся CLI (loopback).
+	MetricsAddr string
 }
 
 // NewContainer creates a new DI container with all services.

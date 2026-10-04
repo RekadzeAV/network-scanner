@@ -64,6 +64,23 @@
 - [x] Подкоманда `gui` в cobra root; общий persistent-флаг `--db`
 - [x] Тесты `cli_wiring_test.go` (13), coverage `cmd` 0% → 11.6%, lint 0
 
+### Этап E7 / 7.8: Метрики Prometheus + structured logging (2026-09-25) ✅
+- [x] Новый пакет `internal/metrics` — реестр Counter/Gauge/Summary и HTTP-экспозиция
+      `/metrics` в формате Prometheus (text/plain; version=0.0.4) **без внешних зависимостей**
+- [x] `NetworkScanner`-метрики обновляются из eventbus (E6): `scan.started` →
+      `network_scanner_scan_total`/`_scan_active`; `scan.completed` →
+      `_scan_hosts_total`/`_scan_open_ports_total`/`_scan_duration_seconds`;
+      `scan.failed` → `_scan_failures_total`
+- [x] CLI: `--metrics` + `--metrics-addr` (по умолчанию loopback `127.0.0.1:9101`,
+      opt-in); поддержано в cobra- и legacy-путях `scan`
+- [x] Structured logging: `logger.LogStructured(level, msg, attrs)` — JSON-строка
+      (level/msg/timestamp + атрибуты), единый API для debug/release-сборок
+- [x] Тесты: `internal/metrics` (88.4% — counter/gauge/summary, формат, HTTP-хендлер,
+      конкурентность, поток событий), `cmd` (парсинг флагов, HTTP-эндпоинт, wiring),
+      `logger` (JSON в debug, заглушка в release)
+- [x] Документация: `docs/TECHNICAL.md` (раздел «Метрики и наблюдаемость»)
+      и `docs/CLI_REFERENCE.md` (флаги + примеры)
+
 ### Этап E7 / 7.7: Импорт списков хостов (hostlist importer → CLI) (2026-09-25) ✅
 - [x] Пакет `internal/network/hostlist_importer` подключён к CLI: `--hosts-file` +
       новый `--hosts-format` (`auto|csv|txt|json|targets`); auto по расширению

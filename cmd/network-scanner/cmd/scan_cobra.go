@@ -16,6 +16,7 @@ import (
 	"network-scanner/internal/builder"
 	"network-scanner/internal/contracts"
 	"network-scanner/internal/display"
+	"network-scanner/internal/metrics"
 	"network-scanner/internal/network"
 	"network-scanner/internal/presenter"
 	"network-scanner/internal/scanner"
@@ -57,6 +58,8 @@ func init() {
 	scanCmd.Flags().Int("snmp-timeout", 2, "Таймаут SNMP в секундах (по умолчанию 2)")
 	scanCmd.Flags().String("hosts-file", "", "Файл с целями (IP, CIDR, ranges; либо CSV/JSON через --hosts-format)")
 	scanCmd.Flags().String("hosts-format", "", "Формат файла целей: auto|csv|txt|json|targets (по умолчанию auto)")
+	scanCmd.Flags().Bool("metrics", false, "Экспонировать метрики Prometheus на /metrics (E7/7.8)")
+	scanCmd.Flags().String("metrics-addr", "", "Адрес эндпоинта метрик (по умолчанию 127.0.0.1:9101)")
 	scanCmd.Flags().Bool("export-html", false, "Экспорт результатов в HTML")
 	scanCmd.Flags().Bool("export-xml", false, "Экспорт результатов в XML")
 	scanCmd.Flags().Bool("json", false, "Вывод результатов в JSON формате")
@@ -91,6 +94,14 @@ func scanCommandRun(c *cobra.Command, _ []string) error {
 
 // RunScanCobra запускает сканирование через cobra флаги
 func RunScanCobra(c *cobra.Command, cfg builder.Config) error {
+	// Метрики (E7/7.8): opt-in, только loopback по умолчанию.
+	metricsEnabled, _ := c.Flags().GetBool("metrics")
+	metricsAddr, _ := c.Flags().GetString("metrics-addr")
+	if metricsAddr == "" {
+		metricsAddr = defaultMetricsAddr
+	}
+	cfg.MetricsAddr = metricsAddr
+
 	// Парсинг флагов
 	networkCIDR, _ := c.Flags().GetString("network")
 	portRange, _ := c.Flags().GetString("ports")
@@ -160,6 +171,23 @@ func RunScanCobra(c *cobra.Command, cfg builder.Config) error {
 
 	// Создание контейнера и сервиса
 	container := builder.NewContainer(cfg)
+
+	// Метрики: сервер + подписка на события сканирования.
+	var stopMetrics func()
+	if metricsEnabled {
+		reg := metrics.NewRegistry()
+		subscribeScanMetrics(container, reg)
+		stop, mErr := startMetricsServer(reg, cfg)
+		if mErr != nil {
+			return fmt.Errorf("метрики: %w", mErr)
+		}
+		stopMetrics = stop
+		fmt.Printf("Метрики: http://%s/metrics\n", formatAddrForLog(cfg.MetricsAddr))
+	}
+	if stopMetrics != nil {
+		defer stopMetrics()
+	}
+
 	scannerService := container.GetScanner()
 
 	// Запуск сканирования

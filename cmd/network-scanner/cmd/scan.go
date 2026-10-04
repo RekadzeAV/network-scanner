@@ -11,6 +11,7 @@ import (
 	"network-scanner/internal/builder"
 	"network-scanner/internal/contracts"
 	"network-scanner/internal/display"
+	"network-scanner/internal/metrics"
 	"network-scanner/internal/network"
 	"network-scanner/internal/presenter"
 	"network-scanner/internal/snmpcollector"
@@ -106,6 +107,9 @@ func hostEntriesToIPs(entries []network.HostEntry) []string {
 
 // RunScan запускает сканирование через сервис
 func RunScan(cfg builder.Config, args ...string) error {
+	// Метрики (E7/7.8): флаги разбираются и в legacy-пути.
+	metricsOpts := parseMetricsArgs(args)
+
 	// Парсинг флагов
 	networkCIDR := ""
 	portRange := "1-1000"
@@ -241,6 +245,20 @@ func RunScan(cfg builder.Config, args ...string) error {
 
 	// Создание контейнера и сервиса
 	container := builder.NewContainer(cfg)
+
+	// Метрики (E7/7.8): opt-in, адрес по умолчанию — loopback.
+	if metricsOpts.Enabled {
+		cfg.MetricsAddr = metricsOpts.Addr
+		reg := metrics.NewRegistry()
+		subscribeScanMetrics(container, reg)
+		if stop, mErr := startMetricsServer(reg, cfg); mErr == nil {
+			defer stop()
+			fmt.Printf("Метрики: http://%s/metrics\n", formatAddrForLog(cfg.MetricsAddr))
+		} else {
+			fmt.Printf("Метрики недоступны: %v\n", mErr)
+		}
+	}
+
 	scannerService := container.GetScanner()
 
 	// Запуск сканирования
