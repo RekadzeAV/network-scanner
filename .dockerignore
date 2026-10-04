@@ -1,0 +1,54 @@
+# === Контекст сборки Docker: только то, что нужно для компиляции ===
+# Всё остальное исключается, чтобы не раздувать образ и не класть в слои
+# артефакты разработки, логи, coverage и потенциальные секреты.
+
+# Git и CI
+.git
+.github
+.gitignore
+.gitattributes
+
+# Артефакты сборки и локальные запуски
+build/
+release/
+dist/
+out/
+*.exe
+*.test
+*.out
+cov-*
+*_cov*
+coverage*
+
+# Логи и временные файлы
+*.log
+.tmp_*/
+tmp/
+docs/dev/godoc/
+
+# Кэши и модули
+vendor/
+.go-cache/
+gocache/
+
+# Документация и ресурсы, не нужные для бинаря
+docs/
+*.md
+!README.md
+assets/
+config/
+Update-project/
+Vendor list/
+
+# Редакторы и ОС
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Секреты и локальное окружение
+.env
+.env.*
+*.pem
+*.key

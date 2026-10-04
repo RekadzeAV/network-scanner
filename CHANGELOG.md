@@ -49,8 +49,39 @@
   (6 тестов: порядок по всем режимам, неизменяемость входа, whitelist, колбэк),
   `gui_smoke_test.go` (`TestResultsSortSettingsRoundtrip` — полный цикл
   селектор → настройки → новое приложение), актуализированы `accent_colors_test.go`
-  и `app_autoprofile_state_test.go` (цвета из темы вместо хардкода).
+  и `app_autoprofile_state_test.go` (цвета из темы вместо хардкода); убрана плавающая
+  проверка в `TestIntegrationOperationsManager_Cancellation` — статус читался один раз
+  сразу после сигнала из задачи, до `finish()` менеджера (в нагруженном прогоне
+  ловился `running`); теперь ожидание терминального статуса через существующий
+  `waitOperationStatus`.
 - **Документация:** новый `docs/UX_AUDIT.md` — реестр «закрыто / частично / открыто»
+### 2026-09-25: E7/7.6 — systemd/desktop units + Docker-доставка
+
+- **systemd:** `network-scanner.service` переименован в
+  `network-scanner-scan.service` и переведён на `Type=oneshot` (сканирование
+  разовое); добавлен `network-scanner-scan.timer` для периодического запуска
+  (`OnUnitActiveSec=6h`, `Persistent=true`, `RandomizedDelaySec`).
+- **Исправлены дефекты юнита:** неверный URL документации, фиктивный
+  `ExecReload` (у приложения нет обработчика SIGHUP), `User=root` заменён на
+  выделенного пользователя с минимальными capabilities
+  (`CAP_NET_RAW`/`CAP_NET_ADMIN` вместо полного root), удалён посторонний
+  `GOLOG_FORMAT`, добавлены `ProtectHome`, `ProtectKernel*`, `RestrictSUIDSGID`,
+  `LimitNOFILE`, `TimeoutStartSec`.
+- **desktop-файл:** убрана нерабочая ассоциация `x-scheme-handler/network` и
+  подстановка `%U`; добавлены `TryExec`, `StartupWMClass`, корректные категории.
+- **Валидация конфигов:** `scripts/verify-units.sh` и `scripts/verify-units.ps1`
+  (39 проверок) + цели `make units-check` / `units-check-win`. Валидатор
+  проверен на «сломанном» юните — ловит `Type=simple` и `User=root`.
+- **Docker:** добавлен `.dockerignore` (исключает `.git`, артефакты сборки, логи,
+  coverage, `.env`); `docker-compose.yml` параметризован через окружение
+  (`VERSION`/`BUILD_TIME`/`GIT_COMMIT`) вместо зашитой устаревшей даты, добавлены
+  `no-new-privileges`, проброс `NETWORK_SCANNER_API_TOKEN` и примеры запуска.
+- **Makefile:** `install-systemd` ставит юнит и таймер, создаёт каталоги;
+  `install-desktop` обновляет desktop-базу; пакет `deb` включает оба юнита.
+- **CI:** новые jobs `Validate systemd units & desktop entry` (windows-latest) и
+  `Docker image build` (сборка образа + `docker run --version`).
+- **Документация:** `docs/deployment.md` — разделы «Развёртывание на Linux:
+  systemd» и «Развёртывание в Docker».
   с ссылками на код и тесты и разделом о совместимости сохранённых значений.
 - **Проверки:** `go build ./...` и `go vet ./...` чисто; `go test ./...` — 0 FAIL
   (headless-GUI-тесты без дисплея дают `SKIP`).

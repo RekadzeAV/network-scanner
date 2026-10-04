@@ -12,7 +12,7 @@ else
 	VERIFY := ./scripts/verify-build.sh build
 endif
 
-.PHONY: build cli gui verify-artifacts gui-release test test-race test-integration run deploy bootstrap bootstrap-win lint lint-tools security check-env smoke smoke-tools smoke-dtrack smoke-all p1-check p1-check-win p2-check p2-check-win p3-check p3-check-win stage2-p1-check stage2-p1-check-win stage2-p2-check stage2-p2-check-win stage2-p3-check stage2-p3-check-win ci-status ci-status-win ci-trigger ci-trigger-win p3-signoff p3-signoff-win p3-close-all p3-close-all-win p0-preflight-win p0-preflight docs-link-check-win stage2-signoff-status-win final-release-check final-release-check-win
+.PHONY: build cli gui verify-artifacts gui-release test test-race test-integration run deploy bootstrap bootstrap-win lint lint-tools security check-env smoke smoke-tools smoke-dtrack smoke-all units-check units-check-win p1-check p1-check-win p2-check p2-check-win p3-check p3-check-win stage2-p1-check stage2-p1-check-win stage2-p2-check stage2-p2-check-win stage2-p3-check stage2-p3-check-win ci-status ci-status-win ci-trigger ci-trigger-win p3-signoff p3-signoff-win p3-close-all p3-close-all-win p0-preflight-win p0-preflight docs-link-check-win stage2-signoff-status-win final-release-check final-release-check-win
 
 build:
 	$(MKDIR)
@@ -188,19 +188,34 @@ install: build
 	@sudo cp build/network-scanner-gui$(EXE) /usr/local/bin/
 	@echo "✅ Binaries installed to /usr/local/bin/"
 
+# units-check проверяет systemd-юниты и desktop-файл (E7/7.6).
+units-check:
+	@./scripts/verify-units.sh
+
+# Windows-вариант той же проверки (bash недоступен на windows-latest).
+units-check-win:
+	@powershell -ExecutionPolicy Bypass -File .\scripts\verify-units.ps1
+
 install-systemd:
-	@echo "🔧 Installing systemd service..."
-	@sudo cp config/systemd/network-scanner.service /etc/systemd/system/
+	@echo "🔧 Installing systemd units..."
+	@sudo install -d -o network-scanner -g network-scanner /var/lib/network-scanner /var/log/network-scanner
+	@sudo cp config/systemd/network-scanner-scan.service /etc/systemd/system/
+	@sudo cp config/systemd/network-scanner-scan.timer /etc/systemd/system/
 	@sudo systemctl daemon-reload
-	@sudo systemctl enable network-scanner.service
-	@echo "✅ systemd service installed"
-	@echo "   Start: sudo systemctl start network-scanner"
-	@echo "   Status: sudo systemctl status network-scanner"
+	@sudo systemctl enable --now network-scanner-scan.timer
+	@echo "✅ systemd units installed"
+	@echo "   Timer:   systemctl list-timers network-scanner-scan.timer"
+	@echo "   Run:     sudo systemctl start network-scanner-scan.service"
+	@echo "   Status:  systemctl status network-scanner-scan.timer"
+	@echo "   Logs:    journalctl -u network-scanner-scan.service"
+	@echo "   NOTE: ARP/ICMP требуют capability:"
+	@echo "     sudo setcap cap_net_raw,cap_net_admin+ep /usr/local/bin/network-scanner"
 
 install-desktop:
 	@echo "🔧 Installing desktop file..."
 	@sudo cp config/desktop/network-scanner-gui.desktop /usr/share/applications/
 	@sudo cp assets/icons/network-scanner.svg /usr/share/icons/hicolor/scalable/apps/
+	@sudo update-desktop-database /usr/share/applications 2>/dev/null || true
 	@echo "✅ Desktop file installed"
 
 install-all: install install-systemd install-desktop
@@ -221,7 +236,8 @@ deb: build
 	@cp build/network-scanner-gui$(EXE) build/deb/usr/local/bin/
 	@cp config/desktop/network-scanner-gui.desktop build/deb/usr/share/applications/
 	@cp assets/icons/network-scanner.svg build/deb/usr/share/icons/hicolor/scalable/apps/
-	@cp config/systemd/network-scanner.service build/deb/etc/systemd/system/
+	@cp config/systemd/network-scanner-scan.service build/deb/etc/systemd/system/
+	@cp config/systemd/network-scanner-scan.timer build/deb/etc/systemd/system/
 	
 	@echo "Package: network-scanner" > build/deb/network-scanner/DEBIAN/control
 	@echo "Version: $(VERSION)" >> build/deb/network-scanner/DEBIAN/control

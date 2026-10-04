@@ -1,0 +1,19 @@
+[Unit]
+Description=Network Scanner — периодическое сканирование сети
+Documentation=https://github.com/RekadzeAV/network-scanner
+
+[Timer]
+# Периодический запуск oneshot-сервиса (по умолчанию — раз в 6 часов).
+# Изменить интервал: systemctl edit network-scanner-scan.timer
+OnBootSec=5min
+OnUnitActiveSec=6h
+# Не запускать новый запуск, пока предыдущий ещё выполняется.
+# Актуально для больших сетей: сканирование может длиться дольше интервала.
+AccuracySec=1min
+RandomizedDelaySec=5min
+# Если сервис был пропущен во время остановки системы — выполнить при старте.
+Persistent=true
+Unit=network-scanner-scan.service
+
+[Install]
+WantedBy=timers.target

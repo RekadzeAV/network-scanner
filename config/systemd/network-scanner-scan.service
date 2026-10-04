@@ -1,0 +1,53 @@
+[Unit]
+Description=Network Scanner — сканирование локальной сети
+Documentation=https://github.com/RekadzeAV/network-scanner
+# ARP/ICMP требуют готовности сети и CAP_NET_RAW (см. Capabilities ниже).
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Разовая проверка сети: процесс завершается после сканирования,
+# поэтому сервис — oneshot (а не simple). Периодический запуск
+# обеспечивает network-scanner-scan.timer.
+Type=oneshot
+ExecStart=/usr/local/bin/network-scanner scan --snmp --topology --security
+RemainAfterExit=no
+
+# Вывод — в journal (journalctl -u network-scanner-scan).
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=network-scanner
+
+# --- Минимальные привилегии (E7/7.6) ---
+# Полный root не нужен: сканеру достаточно сырых сокетов для ARP/ICMP.
+# Создайте capability при установке:
+#   sudo setcap cap_net_raw,cap_net_admin+ep /usr/local/bin/network-scanner
+User=network-scanner
+Group=network-scanner
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+NoNewPrivileges=true
+
+# --- Изоляция ---
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=false
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+# Каталоги должны существовать и принадлежать пользователю:
+#   sudo install -d -o network-scanner -g network-scanner /var/lib/network-scanner /var/log/network-scanner
+ReadWritePaths=/var/lib/network-scanner /var/log/network-scanner
+
+# --- Лимиты и ресурсы ---
+# Сканирование /16 по TCP — большое число сокетов.
+LimitNOFILE=65536
+TimeoutStartSec=3600
+
+# --- Окружение ---
+Environment=NETWORK_SCANNER_LOG_LEVEL=info
+
+[Install]
+WantedBy=multi-user.target

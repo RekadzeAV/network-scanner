@@ -1,19 +1,23 @@
 [Desktop Entry]
-Version=1.0
 Type=Application
+Version=1.0
 Name=Network Scanner
-GenericName=Network Scanner
-Comment=Advanced network discovery and security analysis tool
-Exec=/usr/local/bin/network-scanner-gui %U
+GenericName=Сканер локальной сети
+Comment=Сканирование локальной сети, топология и анализ безопасности
+
+# GUI-бинарь устанавливается в /usr/local/bin (см. Makefile install-gui).
+Exec=/usr/local/bin/network-scanner-gui
+# Exec проверяется системой перед запуском — полезно, если GUI не установлен.
+TryExec=/usr/local/bin/network-scanner-gui
 Icon=network-scanner
 Terminal=false
-Categories=Network;System;Security;Utility;
-Keywords=network;scanner;security;snmp;topology;
-MimeType=x-scheme-handler/network;
-
-# Startup notification
 StartupNotify=true
+StartupWMClass=network-scanner
 
-# Desktop file metadata
-X-KDE-SubstituteUID=false
-X-GNOME-FullName=Network Scanner GUI
+Categories=Network;System;Monitor;Security;
+Keywords=network;scanner;security;snmp;topology;port;arp;
+
+# Локальное приложение: сеть ему не требуется, но пускать без сети бессмысленно.
+# (Схема-обработчик network:// намеренно НЕ объявляется — приложение её не
+#  регистрирует, и объявление давало бы неработающую ассоциацию.)
+NoDisplay=false

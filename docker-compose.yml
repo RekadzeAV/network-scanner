@@ -1,27 +1,46 @@
+# Network Scanner — доставка через Docker Compose (E7/7.6)
+#
+# Запуск:
+#   docker compose run --rm network-scanner scan --network 192.168.1.0/24 --ports 1-1000
+#   docker compose run --rm network-scanner scan --udp --udp-ports 53,161
+#
+# Метрики Prometheus (loopback-адрес контейнера):
+#   docker compose run --rm -p 127.0.0.1:9101:9101 network-scanner \
+#     scan --network 192.168.1.0/24 --metrics --metrics-addr 0.0.0.0:9101
+#
+# Значения BUILD_ARG можно переопределить: BUILD_TIME=... docker compose build
+
 services:
   network-scanner:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: "2.3.0"
-        BUILD_TIME: "2026-09-23"
-        GIT_COMMIT: "latest"
-    image: network-scanner:2.3.0
+        VERSION: "${VERSION:-2.3.0}"
+        BUILD_TIME: "${BUILD_TIME:-unknown}"
+        GIT_COMMIT: "${GIT_COMMIT:-unknown}"
+    image: network-scanner:${VERSION:-2.3.0}
     container_name: network-scanner-cli
     environment:
       - NETWORK_SCANNER_DATA_DIR=/data/scans
       - NETWORK_SCANNER_CONFIG_DIR=/data/config
-      - NETWORK_SCANNER_LOG_LEVEL=info
+      - NETWORK_SCANNER_LOG_LEVEL=${NETWORK_SCANNER_LOG_LEVEL:-info}
+      # Токен для REST API (--api); задайте в окружении, иначе auth выключен.
+      - NETWORK_SCANNER_API_TOKEN=${NETWORK_SCANNER_API_TOKEN:-}
     volumes:
       - scanner-data:/data/scans
       - scanner-config:/data/config
-    # Сеть host для доступа к локальной сети
+    # network_mode: host нужен для обнаружения хостов в локальной сети
+    # (ARP/ICMP идут на broadcast; в bridge-сети они не доходят).
+    # Требуется Linux; на Docker Desktop macOS/Windows host-сеть недоступна —
+    # там используйте обычный режим с пробросом портов и --network.
     network_mode: host
-    # Права для ICMP ping и ARP
+    # Минимальные capabilities для ARP/ICMP вместо полного root.
     cap_add:
       - NET_ADMIN
       - NET_RAW
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   scanner-data:

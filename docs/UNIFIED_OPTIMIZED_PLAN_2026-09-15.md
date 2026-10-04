@@ -109,7 +109,7 @@
 | 7.3 | PDF/HTML-отчёты + планировщик | pending |
 | 7.4 | plugin-probes (реальные плагины) | pending |
 | 7.5 | Event-driven GUI через eventbus | pending |
-| 7.6 | systemd/desktop units, Docker-доставка | pending |
+| 7.6 | systemd/desktop units, Docker-доставка | ✅ done (2026-09-25: oneshot-юнит + timer, hardening через capabilities вместо root, desktop-файл без нерабочей схемы, `verify-units.{sh,ps1}` (39 проверок) в CI, `.dockerignore`, параметризованный compose, job сборки образа) |
 | 7.7 | hostlist importer → CLI/GUI | ✅ done (2026-09-25: CLI `--hosts-file` + `--hosts-format` (auto/csv/txt/json/targets), приоритет целей из файла над автосетью; исправлены раскрытие CIDR и `isValidEntry`. GUI — отдельный поток) |
 | 7.8 | Метрики Prometheus + structured logging (P3-1) | ✅ done (2026-09-25: `internal/metrics` (Counter/Gauge/Summary + `/metrics` text/plain 0.0.4, без новых зависимостей), CLI `--metrics`/`--metrics-addr` (loopback), `logger.LogStructured` (JSON)) |
 | 7.9 | Аудит-лог для изменяющих операций (P3-2) | ✅ done (2026-09-25: `internal/auditpath` (пути вне CWD), remote-exec пишет журнал для dry-run/отказа/успеха/ошибки, device-control — по умолчанию, маскирование секретов через `redact`) |

@@ -104,6 +104,48 @@ jobs:
         run: go test -race -count=1 -p 4 ./... -short
 
 
+  units:
+    name: Validate systemd units & desktop entry (E7/7.6)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Проверка конфигов развёртывания не требует Go: скрипт проверяет
+      # секции/ключи юнитов, согласованность timer→service и desktop-файл.
+      - name: Run units validation
+        shell: pwsh
+        run: ./scripts/verify-units.ps1
+
+  docker-build:
+    name: Docker image build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Сборка CLI-образа подтверждает, что Dockerfile и .dockerignore живы,
+      # а зависимости собираются в multi-stage сборке.
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: network-scanner:ci
+          build-args: |
+            VERSION=ci
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_TIME=${{ github.event.repository.updated_at }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke check (--version)
+        run: docker run --rm network-scanner:ci --version
+
   build:
     name: Build (${{ matrix.os }}, ${{ matrix.arch }})
     runs-on: ${{ matrix.os }}

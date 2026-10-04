@@ -64,6 +64,36 @@
 - [x] Подкоманда `gui` в cobra root; общий persistent-флаг `--db`
 - [x] Тесты `cli_wiring_test.go` (13), coverage `cmd` 0% → 11.6%, lint 0
 
+### Этап E7 / 7.6: systemd/desktop units + Docker-доставка (2026-09-25) ✅
+- [x] **systemd:** `network-scanner.service` → `network-scanner-scan.service` с
+      корректной моделью `Type=oneshot` (разовое сканирование) + новый
+      `network-scanner-scan.timer` для периодического запуска (6 ч, `Persistent`,
+      `RandomizedDelaySec`)
+- [x] **Исправлены дефекты юнита:** неверный URL документации
+      (`github.com/network-scanner/...` → `RekadzeAV/...`), фиктивный
+      `ExecReload` (у приложения нет обработчика SIGHUP), `Type=simple` для
+      завершающейся команды, `User=root`, посторонний `GOLOG_FORMAT`
+- [x] **Hardening:** выделенный пользователь `network-scanner`,
+      `AmbientCapabilities`/`CapabilityBoundingSet` только `CAP_NET_RAW`/`CAP_NET_ADMIN`,
+      `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `RestrictSUIDSGID`,
+      `LimitNOFILE`, `TimeoutStartSec`
+- [x] **desktop-файл:** убран нерабочий `MimeType=x-scheme-handler/network` и
+      `%U` в `Exec`, добавлены `TryExec`, `StartupWMClass`, корректные категории
+- [x] **Валидация конфигов:** `scripts/verify-units.sh` + `scripts/verify-units.ps1`
+      (39 проверок: секции/ключи, `timer.Unit` → существующий `.service`,
+      запрет `ExecReload`/`User=root`, hardening-ключи, `Exec`/`TryExec`,
+      отсутствие схемы `network://`, наличие иконки); цели Makefile
+      `units-check` / `units-check-win`
+- [x] **Docker:** добавлен `.dockerignore` (исключает `.git`, артефакты, логи,
+      coverage, `.env`); `docker-compose.yml` параметризован (`VERSION`,
+      `BUILD_TIME`, `GIT_COMMIT` через окружение вместо зашитого устаревшей даты),
+      добавлены `no-new-privileges`, проброс токена API, примеры запуска и метрик
+- [x] **Makefile:** `install-systemd` ставит юнит+таймер и создаёт каталоги;
+      `install-desktop` обновляет кэш desktop-базы; `deb` включает оба юнита
+- [x] **CI:** job `Validate systemd units & desktop entry` (windows-latest) и
+      `Docker image build` (сборка образа + `docker run --version`)
+- [x] **Документация:** `docs/deployment.md` — разделы systemd и Docker
+
 ### Этап E7 / 7.2: Улучшение UDP-скана (настраиваемые порты) (2026-09-25) ✅
 - [x] Список UDP-портов вынесен из тела `scanHostUDP` в `defaultUDPPorts` +
       `DefaultUDPPorts()` (копия) + `SetUDPPorts()` / `NormalizeUDPPorts()`
