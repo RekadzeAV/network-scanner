@@ -106,7 +106,7 @@
 |---|--------|--------|
 | 7.1 | ICMP ping → тесты + документация (P3-3) | ✅ done (2026-09-25: fake-пингер, табличные тесты, покрытие `icmp_ping.go` 100%/82.6%, раздел в `docs/TECHNICAL.md`) |
 | 7.2 | UDP-скан (улучшение) | ✅ done (2026-09-25: `SetUDPPorts`/`NormalizeUDPPorts`, CLI `--udp-ports` (`53,161` / `1-1024`), буфер результатов по числу портов, `ScanConfig.UDPPorts`) |
-| 7.3 | PDF/HTML-отчёты + планировщик | pending |
+| 7.3 | PDF/HTML-отчёты + планировщик | ✅ done (2026-10-06: `--export-pdf` подключён к обеим CLI-веткам (генератор `report` был готов, но не вызывался), подкоманда `schedule` — циклический скан по `--interval`/`--max-runs`/`--skip-first` со всеми флагами `scan`, graceful stop по SIGINT/SIGTERM, тесты `parseInterval`/наследования флагов/PDF-сигнатуры) |
 | 7.4 | plugin-probes (реальные плагины) | pending |
 | 7.5 | Event-driven GUI через eventbus | pending |
 | 7.6 | systemd/desktop units, Docker-доставка | ✅ done (2026-09-25: oneshot-юнит + timer, hardening через capabilities вместо root, desktop-файл без нерабочей схемы, `verify-units.{sh,ps1}` (39 проверок) в CI, `.dockerignore`, параметризованный compose, job сборки образа) |

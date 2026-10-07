@@ -14,6 +14,7 @@
 | Подкоманда | Назначение |
 |-------------|------------|
 | `scan` | Сканирование сети |
+| `schedule` | Периодическое сканирование по интервалу (планировщик, E7/7.3) |
 | `remote-exec` | Удалённое выполнение команд |
 | `device-control` | Управление устройствами (перезагрузка, статус) |
 | `history` | История сканирований |
@@ -75,6 +76,7 @@ network-scanner scan --network 192.168.1.0/24 --ports 1-1000
 |------|-----|--------------|----------|
 | `--export-html` | bool | `false` | Экспорт результатов в HTML |
 | `--export-xml` | bool | `false` | Экспорт результатов в XML |
+| `--export-pdf` | bool | `false` | Экспорт результатов в PDF-отчёт: `scan-report-<timestamp>.pdf` в рабочем каталоге (генератор `internal/report`, E7/7.3) |
 | `--json` | bool | `false` | Вывод результатов в JSON формате |
 
 | `--metrics` | | bool | `false` | Экспонировать метрики Prometheus на `/metrics` (E7/7.8) |
@@ -94,6 +96,36 @@ network-scanner scan --network 192.168.1.0/24 --metrics --metrics-addr 0.0.0.0:9
 и `network_scanner_scan_active`; `scan.completed` → `network_scanner_scan_hosts_total`,
 `network_scanner_scan_open_ports_total`, `network_scanner_scan_duration_seconds`;
 `scan.failed` → `network_scanner_scan_failures_total`.
+
+---
+
+## `schedule` — Планировщик периодических сканов (E7/7.3)
+
+Циклически запускает сканирование с заданным интервалом — без внешнего
+cron/systemd-timer (полезно на Windows и для простых сценариев). Наследует
+**все флаги** `scan` (см. выше) плюс собственные:
+
+| Флаг | Тип | По умолчанию | Описание |
+|------|-----|--------------|----------|
+| `--interval` | string | `"6h"` | Интервал между сканированиями (Go duration: `30m`, `1h30m`, `6h`). Должен быть положительным |
+| `--max-runs` | int | `0` | Максимальное число запусков (`0` — без ограничения) |
+| `--skip-first` | bool | `false` | Не выполнять первый скан сразу, а ждать интервал |
+
+```bash
+# Скан каждые 6 часов, до Ctrl+C
+network-scanner schedule --interval 6h --network 192.168.1.0/24 --ports 1-1000
+
+# Два прогона с экспортом отчётов, затем выход
+network-scanner schedule --interval 30m --hosts-file targets.txt \
+  --export-html --export-pdf --max-runs 2
+```
+
+Поведение:
+
+- ошибка отдельного тика логируется в stderr и **не останавливает** цикл;
+- `SIGINT`/`SIGTERM` (Ctrl+C) — корректный выход после текущего тика;
+- для служебных (даемонных) запусков в Linux предпочитайте systemd-timer
+  (см. `docs/deployment.md`); `schedule` — переносимая альтернатива.
 
 ---
 
@@ -180,6 +212,12 @@ network-scanner --topology --security --snmp
 # Экспорт в HTML
 network-scanner --export-html
 
+# PDF-отчёт (scan-report-<timestamp>.pdf)
+network-scanner --export-pdf
+
 # JSON-вывод (для конвейеров)
 network-scanner --json
+
+# Периодический скан каждые 6 часов (E7/7.3)
+network-scanner schedule --interval 6h --network 192.168.1.0/24
 ```

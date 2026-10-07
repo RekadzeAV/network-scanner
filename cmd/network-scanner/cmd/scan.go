@@ -15,6 +15,7 @@ import (
 	"network-scanner/internal/metrics"
 	"network-scanner/internal/network"
 	"network-scanner/internal/presenter"
+	"network-scanner/internal/report"
 	"network-scanner/internal/snmpcollector"
 )
 
@@ -152,6 +153,24 @@ func parsePortSpec(spec string) ([]int, error) {
 	return out, nil
 }
 
+// exportScanPDF генерирует PDF-отчёт по результатам сканирования (E7/7.3).
+//
+// Генератор в `internal/report` уже реализован (`report.NewPDFReport` +
+// `AddScanResults`), но не был подключён к CLI: существовала только HTML-ветка.
+// Путь по умолчанию — `scan-report-<timestamp>.pdf` в рабочем каталоге
+// (переопределяется явно через возвращаемое имя, см. вызов в scan).
+func exportScanPDF(results []contracts.ScanResult) (string, error) {
+	pdf := report.NewPDFReport("Network Scanner Report")
+	pdf.AddMetadata("Generated", time.Now().Format(time.RFC3339))
+	pdf.AddMetadata("Hosts", strconv.Itoa(len(results)))
+	pdf.AddScanResults(results)
+	name := fmt.Sprintf("scan-report-%s.pdf", time.Now().Format("20060102-150405"))
+	if err := pdf.Save(name); err != nil {
+		return "", fmt.Errorf("pdf save: %w", err)
+	}
+	return name, nil
+}
+
 // RunScan запускает сканирование через сервис
 func RunScan(cfg builder.Config, args ...string) error {
 	// Метрики (E7/7.8): флаги разбираются и в legacy-пути.
@@ -179,6 +198,7 @@ func RunScan(cfg builder.Config, args ...string) error {
 	hostsFormat := ""
 	exportHTML := false
 	exportXML := false
+	exportPDF := false
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -254,6 +274,8 @@ func RunScan(cfg builder.Config, args ...string) error {
 			exportHTML = true
 		case "--export-xml":
 			exportXML = true
+		case "--export-pdf":
+			exportPDF = true
 		}
 	}
 
@@ -364,6 +386,17 @@ func RunScan(cfg builder.Config, args ...string) error {
 		err := presenter.XMLPresenter{}.Export(internalResults, "xml")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Ошибка экспорта XML: %v\n", err)
+		}
+	}
+
+	// PDF-отчёт (E7/7.3): использует report.NewPDFReport, как и security HTML.
+	if exportPDF {
+		fmt.Println("\nЭкспорт в PDF...")
+		name, err := exportScanPDF(results)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Ошибка экспорта PDF: %v\n", err)
+		} else {
+			fmt.Printf("PDF-отчёт сохранён: %s\n", name)
 		}
 	}
 

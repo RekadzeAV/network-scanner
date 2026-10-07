@@ -25,7 +25,7 @@ func findCommand(root *cobra.Command, name string) *cobra.Command {
 }
 
 func TestRootCommand_RegistersAllSubcommands(t *testing.T) {
-	want := []string{"scan", "inventory", "remote-exec", "device-control", "gui", "version"}
+	want := []string{"scan", "inventory", "remote-exec", "device-control", "gui", "version", "schedule"}
 	for _, name := range want {
 		if findCommand(rootCmd, name) == nil {
 			t.Errorf("rootCmd не содержит подкоманду %q", name)

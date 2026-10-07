@@ -64,6 +64,24 @@
 - [x] Подкоманда `gui` в cobra root; общий persistent-флаг `--db`
 - [x] Тесты `cli_wiring_test.go` (13), coverage `cmd` 0% → 11.6%, lint 0
 
+### Этап E7 / 7.3: PDF/HTML-отчёты + планировщик (2026-10-06) ✅
+- [x] **`--export-pdf`:** генератор `report.NewPDFReport` был реализован в
+      `internal/report`, но не подключён к CLI — добавлен флаг и ветка
+      `exportScanPDF` в обеих диспетчеризациях (cobra и legacy), файл
+      `scan-report-<timestamp>.pdf` в рабочем каталоге
+- [x] **Планировщик `network-scanner schedule`:** циклическое сканирование по
+      `--interval` (Go duration, валидация >0), `--max-runs`, `--skip-first`;
+      наследует все флаги `scan` (напрямую от `scanCmd`, без дублирования
+      объявлений); переиспользует `RunScanCobra`
+- [x] **Graceful stop:** SIGINT/SIGTERM — выход после текущего тика; ошибка
+      отдельного тика логируется и не останавливает цикл
+- [x] **Тесты:** `parseInterval` (10 кейсов, вкл. `0s`/`-5m`/`abc`),
+      наследование флагов schedule, валидация `max-runs`, интеграционный
+      `QuickExit` (цикл реально завершается), `TestExportScanPDF_CreatesFile`
+      (сигнатура `%PDF-`); `go test -race ./cmd/...` → ok
+- [x] **Документация:** `docs/CLI_REFERENCE.md` — раздел `schedule`, флаг
+      `--export-pdf`, примеры
+
 ### Этап E7 / 7.6: systemd/desktop units + Docker-доставка (2026-09-25) ✅
 - [x] **systemd:** `network-scanner.service` → `network-scanner-scan.service` с
       корректной моделью `Type=oneshot` (разовое сканирование) + новый

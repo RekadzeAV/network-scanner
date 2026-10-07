@@ -63,6 +63,7 @@ func init() {
 	scanCmd.Flags().String("udp-ports", "", "UDP-порты для проверки при --udp (напр. 53,161 или 1-1024; по умолчанию типовые сервисы)")
 	scanCmd.Flags().Bool("export-html", false, "Экспорт результатов в HTML")
 	scanCmd.Flags().Bool("export-xml", false, "Экспорт результатов в XML")
+	scanCmd.Flags().Bool("export-pdf", false, "Экспорт результатов в PDF-отчёт")
 	scanCmd.Flags().Bool("json", false, "Вывод результатов в JSON формате")
 
 	// Группировка флагов
@@ -82,6 +83,7 @@ func init() {
 	_ = scanCmd.Flags().SetAnnotation("inventory-save", "category", []string{"post-scan"})
 	_ = scanCmd.Flags().SetAnnotation("export-html", "category", []string{"export"})
 	_ = scanCmd.Flags().SetAnnotation("export-xml", "category", []string{"export"})
+	_ = scanCmd.Flags().SetAnnotation("export-pdf", "category", []string{"export"})
 }
 
 // scanCommandRun — обработчик команды scan
@@ -125,6 +127,7 @@ func RunScanCobra(c *cobra.Command, cfg builder.Config) error {
 	hostsFormat, _ := c.Flags().GetString("hosts-format")
 	exportHTML, _ := c.Flags().GetBool("export-html")
 	exportXML, _ := c.Flags().GetBool("export-xml")
+	exportPDF, _ := c.Flags().GetBool("export-pdf")
 	jsonOutput, _ := c.Flags().GetBool("json")
 
 	// Цели: сначала автоопределение сети / явный --network, затем — файл целей.
@@ -258,6 +261,17 @@ func RunScanCobra(c *cobra.Command, cfg builder.Config) error {
 		err := presenter.XMLPresenter{}.Export(internalResults, "xml")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Ошибка экспорта XML: %v\n", err)
+		}
+	}
+
+	// PDF-отчёт (E7/7.3).
+	if exportPDF {
+		fmt.Println("\nЭкспорт в PDF...")
+		name, err := exportScanPDF(results)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Ошибка экспорта PDF: %v\n", err)
+		} else {
+			fmt.Printf("PDF-отчёт сохранён: %s\n", name)
 		}
 	}
 
@@ -625,5 +639,6 @@ func GetScanFlags() *pflag.FlagSet {
 	flags.String("hosts-file", "", "Файл с целями")
 	flags.Bool("export-html", false, "Экспорт в HTML")
 	flags.Bool("export-xml", false, "Экспорт в XML")
+	flags.Bool("export-pdf", false, "Экспорт в PDF-отчёт")
 	return flags
 }

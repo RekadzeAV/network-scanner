@@ -55,6 +55,29 @@
   ловился `running`); теперь ожидание терминального статуса через существующий
   `waitOperationStatus`.
 - **Документация:** новый `docs/UX_AUDIT.md` — реестр «закрыто / частично / открыто»
+### 2026-10-06: E7/7.3 — PDF/HTML-отчёты + планировщик периодических сканов
+
+- **`scan --export-pdf`:** подключён генератор PDF из `internal/report`
+  (`NewPDFReport` + `AddScanResults`) к обеим CLI-веткам (cobra и legacy).
+  Раньше флага не существовало — генератор был готов, но не вызывался.
+  Результат: `scan-report-<timestamp>.pdf` в рабочем каталоге.
+- **Планировщик `network-scanner schedule`:** новая подкоманда, циклическое
+  сканирование с интервалом (`--interval`, Go duration, валидация: непустая,
+  положительная), `--max-runs` (0 — без лимита), `--skip-first`. Наследует
+  все флаги `scan` напрямую от `scanCmd` (без дублирования объявлений) и
+  переиспользует `RunScanCobra` — планировщик принимает те же параметры
+  сканирования и экспорты, что и `scan`.
+- **Поведение:** SIGINT/SIGTERM — graceful stop после текущего тика; ошибка
+  отдельного тика логируется в stderr и не прерывает цикл. На Linux для
+  даемонных запусков предпочтительнее systemd-timer (docs/deployment.md) —
+  `schedule` — переносимая альтернатива (в т.ч. для Windows).
+- **Тесты:** `parseInterval` (10 кейсов: `6h`, `1h30m`, `0s`, `-5m`, `abc`,
+  без единиц...), наследование флагов `schedule`, валидация `max-runs`,
+  интеграционный `TestRunSchedule_QuickExit` (цикл реально завершается по
+  `max-runs`), `TestExportScanPDF_CreatesFile` (сигнатура `%PDF-`).
+- **Документация:** `docs/CLI_REFERENCE.md` — раздел `schedule`, флаг
+  `--export-pdf`, примеры.
+
 ### 2026-09-25: E7/7.6 — systemd/desktop units + Docker-доставка
 
 - **systemd:** `network-scanner.service` переименован в

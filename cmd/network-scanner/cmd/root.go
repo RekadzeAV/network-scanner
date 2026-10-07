@@ -57,6 +57,7 @@ func init() {
 	rootCmd.AddCommand(remoteExecCmd)
 	rootCmd.AddCommand(deviceControlCmd)
 	rootCmd.AddCommand(guiCmd)
+	rootCmd.AddCommand(scheduleCmd)
 	rootCmd.AddCommand(versionCmd)
 }
 
