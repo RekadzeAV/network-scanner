@@ -271,13 +271,19 @@ func escapeMarkdown(s string, allowEmpty ...bool) string {
 	return s
 }
 
-// truncateString обрезает строку до указанной длины и добавляет "..."
+// truncateString обрезает строку до указанной длины (в рунах) и добавляет "..."
+// (R-11: раньше резал по байтам и резал UTF-8 пополам — кириллица превращалась
+// в mojibake; теперь работает с рунами, как и truncateStr в results_view).
 func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	if maxLen <= 0 {
+		return ""
+	}
+	r := []rune(s)
+	if len(r) <= maxLen {
 		return s
 	}
 	if maxLen <= 3 {
-		return s[:maxLen]
+		return string(r[:maxLen])
 	}
-	return s[:maxLen-3] + "..."
+	return string(r[:maxLen-3]) + "..."
 }

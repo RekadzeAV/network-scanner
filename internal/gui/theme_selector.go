@@ -4,9 +4,7 @@ import (
 	"strings"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
-	"fyne.io/fyne/v2/widget"
 )
 
 // ThemeMode определяет режим темы
@@ -160,33 +158,4 @@ func currentThemeIsDark() bool {
 		return app.Settings().ThemeVariant() == theme.VariantDark
 	}
 	return false
-}
-
-// createThemeSelector создает селектор темы для меню или тулбара
-func (a *App) createThemeSelector(items []string, current ThemeMode) *fyne.Container {
-	if a == nil || a.myWindow == nil {
-		return nil
-	}
-	selected := ""
-	for _, item := range items {
-		if themeModeFromValue(item) == current {
-			selected = item
-			break
-		}
-	}
-	sel := widget.NewSelect(items, func(value string) {
-		if a == nil {
-			return
-		}
-		mode := themeModeFromValue(value)
-		a.applyTheme(mode)
-		a.saveTheme(mode)
-		if a.statusLabel != nil {
-			a.setStatus("Тема изменена: " + themeCaption(mode))
-		}
-	})
-	if selected != "" {
-		sel.SetSelected(selected)
-	}
-	return container.NewHBox(widget.NewLabel("Тема:"), sel)
 }

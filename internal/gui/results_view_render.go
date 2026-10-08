@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
 	"network-scanner/internal/scanner"
@@ -256,53 +257,87 @@ func countOpenPorts(ports []scanner.PortInfo) int {
 	return n
 }
 
+// portChipSize — размер ячейки чипа в GridWrap (фиксированный: Fyne не умеет
+// flow-wrap для объектов переменной ширины, фикс. ячейка даёт перенос по ширине
+// без горизонтального «хвоста» за карточку — критерий P1-4).
+var portChipSize = fyne.NewSize(200, 30)
+
+// buildPortChips — чипы портов как семантический компонент (R-05/P1-4):
+// открытые первыми, затем closed/filtered (если скан их возвращал); состояние
+// различимо маркером формы и палитрой состояний, GridWrap переносит чипы.
 func (a *App) buildPortChips(r scanner.Result) fyne.CanvasObject {
-	var open []scanner.PortInfo
-	for _, p := range r.Ports {
-		if p.State == "open" {
-			open = append(open, p)
-		}
-	}
-	if len(open) == 0 {
+	chips := portChipOrder(r.Ports)
+	if len(chips) == 0 {
 		return widget.NewLabel("нет открытых")
 	}
 	limit := a.maxPortChips
 	if limit <= 0 {
 		limit = 24
 	}
-	row := make([]fyne.CanvasObject, 0)
-	for i, p := range open {
+	cells := make([]fyne.CanvasObject, 0, limit+1)
+	for i, p := range chips {
 		if i >= limit {
-			row = append(row, widget.NewLabel(fmt.Sprintf("… +%d", len(open)-limit)))
+			cells = append(cells, widget.NewLabel(fmt.Sprintf("… +%d", len(chips)-limit)))
 			break
 		}
-		lbl := p.Service
-		if lbl == "" || lbl == "Unknown" {
-			lbl = fmt.Sprintf("%d/%s", p.Port, p.Protocol)
-		} else {
-			lbl = fmt.Sprintf("%d %s", p.Port, lbl)
-		}
-		if strings.TrimSpace(p.Version) != "" {
-			lbl += " · " + truncateStr(p.Version, 40)
-		}
-		if a.showRawBanners && strings.TrimSpace(p.Banner) != "" {
-			lbl += " · " + truncateStr(p.Banner, 40)
-		}
-		t := widget.NewLabel(lbl)
-		bg := canvas.NewRectangle(a.chipBackground())
-		bg.CornerRadius = 3
-		row = append(row, container.NewStack(bg, container.NewPadded(t)))
+		cells = append(cells, a.buildPortChip(p))
 	}
-	return container.NewHBox(row...)
+	return container.NewGridWrap(portChipSize, cells...)
 }
 
+// portChipOrder — порядок чипов: сначала open (стабильно, в исходном порядке),
+// затем остальные состояния. Хост без портов даёт пустой срез.
+func portChipOrder(ports []scanner.PortInfo) []scanner.PortInfo {
+	open := make([]scanner.PortInfo, 0, len(ports))
+	other := make([]scanner.PortInfo, 0, len(ports))
+	for _, p := range ports {
+		if portStateKey(p.State) == "open" {
+			open = append(open, p)
+			continue
+		}
+		other = append(other, p)
+	}
+	return append(open, other...)
+}
+
+// buildPortChip — чип одного порта: подложка и текст из палитры состояний,
+// рамка border-strong 1 px, маркер формы состояния (WCAG 1.4.1).
+func (a *App) buildPortChip(p scanner.PortInfo) fyne.CanvasObject {
+	st := portStateStyleFor(p.State)
+	label := portChipLabel(p, a.showRawBanners)
+	if st.Marker != "" {
+		label = st.Marker + " " + label
+	}
+	txt := canvas.NewText(label, st.Text)
+	txt.TextSize = theme.CaptionTextSize()
+	bg := canvas.NewRectangle(st.Fill)
+	bg.CornerRadius = 3
+	bg.StrokeColor = paletteBorderStrong(currentThemeIsDark())
+	bg.StrokeWidth = 1
+	return container.NewStack(bg, container.NewCenter(txt))
+}
+
+// portChipLabel — текст чипа: сервис (или порт/протокол), версия и, по
+// настройке, баннер; всё усечено по рунам (R-11) до ширины ячейки.
+func portChipLabel(p scanner.PortInfo, showBanner bool) string {
+	lbl := p.Service
+	if lbl == "" || lbl == "Unknown" {
+		lbl = fmt.Sprintf("%d/%s", p.Port, p.Protocol)
+	} else {
+		lbl = fmt.Sprintf("%d %s", p.Port, lbl)
+	}
+	if v := strings.TrimSpace(p.Version); v != "" {
+		lbl += " · " + truncateStr(v, 24)
+	}
+	if showBanner {
+		if b := strings.TrimSpace(p.Banner); b != "" {
+			lbl += " · " + truncateStr(b, 24)
+		}
+	}
+	return lbl
+}
+
+// truncateStr — rune-safe усечение (делегрует truncateString, R-11).
 func truncateStr(s string, n int) string {
-	s = strings.TrimSpace(s)
-	if len(s) <= n {
-		return s
-	}
-	if n <= 3 {
-		return s[:n]
-	}
-	return s[:n-3] + "..."
+	return truncateString(strings.TrimSpace(s), n)
 }

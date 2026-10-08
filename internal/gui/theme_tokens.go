@@ -11,6 +11,7 @@ package gui
 
 import (
 	"image/color"
+	"strings"
 
 	"fyne.io/fyne/v2"
 )
@@ -76,6 +77,67 @@ var (
 )
 
 // --- Иконка приложения (процедурный рендер, image-байты не темизируются) -----
+
+// paletteBorderStrong — рамка контролов/фокус варианта темы (AA non-text).
+func paletteBorderStrong(dark bool) color.RGBA {
+	if dark {
+		return tokDarkBorderStrong
+	}
+	return tokLightBorderStrong
+}
+
+// --- Состояния портов (чипы результатов, R-05) --------------------------------
+
+// portStateStyle — стиль чипа порта: текст/подложка варианта темы и маркер
+// формы. Состояние различается НЕ только цветом (WCAG 1.4.1): open — "●",
+// filtered — "◌", unknown — "—", closed — без маркера. Значения — таблица
+// «Семантика состояний портов» §5.2 GUI_DESIGN_RECOMMENDATIONS.md; контрасты
+// текста на подложке не ниже AA (проверяются тестом).
+type portStateStyle struct {
+	Text   color.RGBA
+	Fill   color.RGBA
+	Marker string
+}
+
+var (
+	portStateStylesLight = map[string]portStateStyle{
+		"open":     {Text: rgba(0x14, 0x76, 0x2F, 0xFF), Fill: rgba(0xDC, 0xF0, 0xE2, 0xFF), Marker: "●"},
+		"closed":   {Text: rgba(0x55, 0x55, 0x5A, 0xFF), Fill: rgba(0xEF, 0xEF, 0xF1, 0xFF), Marker: ""},
+		"filtered": {Text: rgba(0x7A, 0x53, 0x00, 0xFF), Fill: rgba(0xF6, 0xE9, 0xC6, 0xFF), Marker: "◌"},
+		"unknown":  {Text: rgba(0x6E, 0x6E, 0x73, 0xFF), Fill: rgba(0xEF, 0xEF, 0xF1, 0xFF), Marker: "—"},
+	}
+
+	portStateStylesDark = map[string]portStateStyle{
+		"open":     {Text: rgba(0x7B, 0xD3, 0x94, 0xFF), Fill: rgba(0x24, 0x3D, 0x2C, 0xFF), Marker: "●"},
+		"closed":   {Text: rgba(0xB3, 0xB3, 0xB9, 0xFF), Fill: rgba(0x2A, 0x2A, 0x30, 0xFF), Marker: ""},
+		"filtered": {Text: rgba(0xE3, 0xB3, 0x41, 0xFF), Fill: rgba(0x3A, 0x32, 0x20, 0xFF), Marker: "◌"},
+		"unknown":  {Text: rgba(0x8A, 0x8A, 0x90, 0xFF), Fill: rgba(0x2A, 0x2A, 0x30, 0xFF), Marker: "—"},
+	}
+)
+
+// portStateKey — каноническое состояние порта (scanner.PortInfo.State допускает
+// разный регистр/пробелы; всё неизвестное — "unknown", не "open").
+func portStateKey(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "open":
+		return "open"
+	case "closed":
+		return "closed"
+	case "filtered":
+		return "filtered"
+	default:
+		return "unknown"
+	}
+}
+
+// portStateStyleFor — стиль чипа состояния в активном варианте темы.
+func portStateStyleFor(state string) portStateStyle {
+	styles := portStateStylesLight
+	if currentThemeIsDark() {
+		styles = portStateStylesDark
+	}
+	return styles[portStateKey(state)]
+}
 
 // paletteSurface — фон карточек/таблиц/подложек диаграмм варианта темы.
 func paletteSurface(dark bool) color.RGBA {

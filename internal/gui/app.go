@@ -391,12 +391,15 @@ func NewApp() *App {
 		myWindow.SetIcon(icon)
 	}
 
-	// Адаптивный стартовый размер: 85% от размера экрана
+	// Адаптивный стартовый размер: 85% от размера экрана, но не уже
+	// minWindowWidth (D-04: константа применялась «вхолостую», теперь
+	// используется; Fyne не поддерживает обязательный минимум окна, поэтому
+	// ограничение действует на стартовый размер).
 	screenSize := myWindow.Canvas().Size()
 	width := float32(int(screenSize.Width * 0.85))
 	height := float32(int(screenSize.Height * 0.85))
-	if width < 1024 {
-		width = 1024
+	if width < float32(minWindowWidth) {
+		width = float32(minWindowWidth)
 	}
 	if height < 600 {
 		height = 600

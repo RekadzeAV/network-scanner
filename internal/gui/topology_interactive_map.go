@@ -148,10 +148,7 @@ func (a *App) renderTopologyInteractiveMap(topo *topology.Topology) {
 		circle.Move(fyne.NewPos(p.X-10, p.Y-10))
 		objects = append(objects, circle)
 
-		display := topoDisplayName(dev)
-		if len(display) > 24 {
-			display = display[:24] + "..."
-		}
+		display := truncateString(topoDisplayName(dev), 24)
 		btn := widget.NewButton(display, func() {
 			a.topologyViewState.selectedNodeKey = key
 			a.topologyGraphStatus.SetText(fmt.Sprintf("Выбран узел: %s", topoDisplayName(dev)))

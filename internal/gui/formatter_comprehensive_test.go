@@ -3,6 +3,7 @@ package gui
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"network-scanner/internal/scanner"
 )
@@ -368,16 +369,15 @@ func TestTruncateString_EmptyString(t *testing.T) {
 	}
 }
 
-// Тест на Unicode — Go режет по байтам, не по рунам.
-// "привет" = 12 байт, truncateString("привет мир", 6) даст первые 3 байта "прив" = 6 байт
-// Но 3 байта "прив" = 2 символа (каждый кириллический = 2 байта) + 1 байт обреза
-// Фактически: "пр" (4 байта) + "и" (2 байта) = 6 байт, но maxLen=6, так что "прив" (6 байт)
-// Проверим что не паникует
+// Тест на Unicode (R-11): обрезка по рунам, а не по байтам.
+// "привет мир" = 10 рун; truncateString(..., 6) = "при" + "..." (6 рун).
+// Раньше срезалось 3 байта — кириллическая строка резалась пополам (mojibake).
 func TestTruncateString_UnicodeTruncation(t *testing.T) {
 	result := truncateString("привет мир", 6)
-	if len(result) > 6 {
-		t.Errorf("expected <=6 bytes, got %d bytes", len(result))
+	if want := "при..."; result != want {
+		t.Errorf("truncateString unicode: got %q, want %q", result, want)
 	}
-	// Должно содержать "..." или обрезанный текст
-	_ = result
+	if !utf8.ValidString(result) {
+		t.Errorf("truncateString вернул невалидный UTF-8: %q", result)
+	}
 }
