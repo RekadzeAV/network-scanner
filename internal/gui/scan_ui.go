@@ -2,7 +2,6 @@ package gui
 
 import (
 	"fmt"
-	"image/color"
 	"network-scanner/internal/logger"
 	"time"
 
@@ -84,7 +83,7 @@ func (a *App) initScanUI() {
 	a.autoProfileCheck = widget.NewCheck("Автопрофиль сканирования (рекомендуется)", nil)
 	a.autoProfileCheck.SetChecked(true)
 	a.autoProfileInfoBtn = widget.NewButtonWithIcon("Почему изменены параметры?", iconInfo(), nil)
-	a.autoProfileStateText = canvas.NewText("", color.RGBA{R: 60, G: 170, B: 80, A: 255})
+	a.autoProfileStateText = canvas.NewText("", themeColorSuccess())
 	a.autoProfileStateText.TextSize = 13
 	a.autoProfileHint = widget.NewLabel(fmt.Sprintf(
 		"Для больших подсетей автопрофиль ограничивает нагрузку: от ~%d хостов снижает threads/диапазон портов (пороги: %d/%d/%d хостов).",

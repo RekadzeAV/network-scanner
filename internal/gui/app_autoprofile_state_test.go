@@ -26,9 +26,10 @@ func TestRefreshAutoProfileStateLabel_On(t *testing.T) {
 	if a.autoProfileHeaderLabel.Text != "Режим сканирования: Автопрофиль ВКЛ" {
 		t.Fatalf("unexpected header text: %q", a.autoProfileHeaderLabel.Text)
 	}
-	want := color.RGBA{R: 60, G: 170, B: 80, A: 255}
+	// Цвет — из палитры варианта темы (не хардкод), чтобы не ломался при смене палитры.
+	want := themeColorSuccess()
 	if a.autoProfileStateText.Color != want {
-		t.Fatalf("unexpected color: %#v", a.autoProfileStateText.Color)
+		t.Fatalf("unexpected color: %#v, want theme success color %#v", a.autoProfileStateText.Color, want)
 	}
 }
 
@@ -49,9 +50,10 @@ func TestRefreshAutoProfileStateLabel_Off(t *testing.T) {
 	if a.autoProfileHeaderLabel.Text != "Режим сканирования: Автопрофиль ВЫКЛ" {
 		t.Fatalf("unexpected header text: %q", a.autoProfileHeaderLabel.Text)
 	}
-	want := color.RGBA{R: 140, G: 140, B: 140, A: 255}
+	// Цвет — из палитры варианта темы (disabled/серый).
+	want := themeColorDisabled()
 	if a.autoProfileStateText.Color != want {
-		t.Fatalf("unexpected color: %#v", a.autoProfileStateText.Color)
+		t.Fatalf("unexpected color: %#v, want theme disabled color %#v", a.autoProfileStateText.Color, want)
 	}
 }
 

@@ -14,61 +14,60 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
 // currentThemeIsDark определяет активный вариант темы (для адаптивных цветов
 // рендера, задаваемых в коде, а не через fyne.Theme). Порядок определения:
-// 1) ModernTheme, установленный через applyTheme (прямая проверка isDark);
-// 2) вариант темы приложения (режим «системная»);
+// 1) ModernTheme, установленный через applyTheme (включая режим «системная»);
+// 2) вариант темы приложения;
 // 3) светлый вариант по умолчанию.
 func (a *App) currentThemeIsDark() bool {
 	if a == nil {
 		return false
 	}
-	if a.myApp != nil {
-		if mt, ok := a.myApp.Settings().Theme().(*ModernTheme); ok {
-			return mt.isDark
-		}
-		if a.myApp.Settings().ThemeVariant() == theme.VariantDark {
-			return true
-		}
-	}
-	return false
+	return currentThemeIsDark()
 }
 
-// chipBackground возвращает фон чипов портов, адаптивный к варианту темы
-// (светлый: светло-серый; тёмный: тёмно-серый — вместо белёсого по умолчанию).
+// chipBackground возвращает фон чипов портов из палитры активного варианта
+// темы (elevation 2 — surfaceAlt).
 func (a *App) chipBackground() color.Color {
-	if a.currentThemeIsDark() {
-		return color.RGBA{R: 0x2D, G: 0x2D, B: 0x30, A: 255}
-	}
-	return color.RGBA{R: 0xF0, G: 0xF0, B: 0xF0, A: 255}
+	return paletteSurfaceAlt(a.currentThemeIsDark())
 }
 
-// rowBackground возвращает фон строк/карточек таблицы результатов,
-// адаптивный к варианту темы.
+// rowBackground возвращает фон строк/карточек таблицы результатов из палитры
+// активного варианта темы (elevation 1 — surface).
 func (a *App) rowBackground() color.Color {
-	if a.currentThemeIsDark() {
-		return color.RGBA{R: 0x25, G: 0x25, B: 0x28, A: 255}
-	}
-	return color.RGBA{R: 0xFA, G: 0xFA, B: 0xFA, A: 255}
+	return paletteSurface(a.currentThemeIsDark())
 }
 
-// themeColorSuccess — акцент успеха (зелёный бейдж автопрофиля);
-// цвета сохранены из прежнего UI (читаемы на светлой и тёмной теме).
+// themeColorSuccess — акцент успеха (бейдж автопрофиля) из палитры варианта темы.
 func themeColorSuccess() color.Color {
-	return color.RGBA{R: 60, G: 170, B: 80, A: 255}
+	if currentThemeIsDark() {
+		return tokDarkSuccess
+	}
+	return tokLightSuccess
 }
 
-// themeColorDisabled — цвет отключенного состояния.
+// themeColorPrimary — акцентный цвет варианта темы (подписи-бейджи, которые
+// должны читаться как текст: 5.96:1 light / 7.09:1 dark).
+func themeColorPrimary() color.Color {
+	if currentThemeIsDark() {
+		return tokDarkPrimary
+	}
+	return tokLightPrimary
+}
+
+// themeColorDisabled — цвет отключенного состояния из палитры варианта темы.
 func themeColorDisabled() color.Color {
-	return color.RGBA{R: 140, G: 140, B: 140, A: 255}
+	if currentThemeIsDark() {
+		return tokDarkTextDisabled
+	}
+	return tokLightTextDisabled
 }
 
 func (a *App) buildPieChart(title string, data map[string]int) fyne.CanvasObject {
-	cacheKey := buildPieChartCacheKey(title, data)
+	cacheKey := buildPieChartCacheKeyVariant(title, data, a.currentThemeIsDark())
 	if a.pieChartCache != nil {
 		if res, ok := a.pieChartCache[cacheKey]; ok {
 			pie := canvas.NewImageFromResource(res)
@@ -79,12 +78,8 @@ func (a *App) buildPieChart(title string, data map[string]int) fyne.CanvasObject
 	}
 
 	img := image.NewRGBA(image.Rect(0, 0, 260, 260))
-	// Фон диаграммы адаптивен к теме: тёмный вариант вместо белёсого,
-	// иначе pie-чарт выглядит как белый квадрат на тёмном фоне.
-	pieBg := color.RGBA{R: 250, G: 250, B: 250, A: 255}
-	if a.currentThemeIsDark() {
-		pieBg = color.RGBA{R: 0x1E, G: 0x1E, B: 0x1E, A: 255}
-	}
+	// Фон диаграммы берётся из палитры активного варианта темы.
+	pieBg := paletteSurface(a.currentThemeIsDark())
 	for y := 0; y < 260; y++ {
 		for x := 0; x < 260; x++ {
 			img.Set(x, y, pieBg)
@@ -202,6 +197,13 @@ func buildPieChartCacheKey(title string, data map[string]int) string {
 		sb.WriteString(";")
 	}
 	return sb.String()
+}
+
+// buildPieChartCacheKeyVariant — расширение ключа с учётом варианта темы.
+// Включает `dark` (текущий вариант) в ключ кэша, чтобы переключение темы
+// инвалидировало PNG-диаграммы без явной очистки карты.
+func buildPieChartCacheKeyVariant(title string, data map[string]int, dark bool) string {
+	return strconv.FormatBool(dark) + "|" + buildPieChartCacheKey(title, data)
 }
 
 func angleInSector(angle, start, end float64) bool {

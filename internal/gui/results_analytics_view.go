@@ -15,7 +15,11 @@ import (
 func (a *App) buildResultsAnalyticsView(data []scanner.Result) fyne.CanvasObject {
 	protocols, deviceTypes := collectAnalytics(data)
 	normalizedTypes := normalizeDeviceTypes(deviceTypes)
-	cacheKey := buildPieChartCacheKey("analytics:"+strings.TrimSpace(a.resultsMode), protocols) + "|" + buildPieChartCacheKey("types", normalizedTypes)
+	darkSuffix := "|v=light"
+	if a.currentThemeIsDark() {
+		darkSuffix = "|v=dark"
+	}
+	cacheKey := buildPieChartCacheKeyVariant("analytics:"+strings.TrimSpace(a.resultsMode), protocols, a.currentThemeIsDark()) + "|" + buildPieChartCacheKeyVariant("types", normalizedTypes, a.currentThemeIsDark()) + darkSuffix
 	if a.analyticsCacheView != nil && cacheKey == a.analyticsCacheKey {
 		return a.analyticsCacheView
 	}

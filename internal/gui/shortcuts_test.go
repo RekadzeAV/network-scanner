@@ -119,3 +119,99 @@ func TestShowShortcutsDialogNoPanic(t *testing.T) {
 	}()
 	a.showShortcutsDialog()
 }
+
+// TestRunShortcutResultsSections — регрессия N-02: Ctrl+4/Ctrl+5 вели в
+// несуществующие вкладки 3 и 4 и молча no-op'или. Теперь они открывают вкладку
+// «Сканирование» и переключают подрежим Security/Inventory тем же путём, что и
+// клик по радио-переключателю.
+func TestRunShortcutResultsSections(t *testing.T) {
+	a := &App{}
+	a.initResultsStateAndWidgets()
+	a.initResultsModeAndInventoryWidgets()
+	a.mainTabs = container.NewAppTabs(
+		container.NewTabItem("Сканирование", widget.NewLabel("scan")),
+		container.NewTabItem("Топология", widget.NewLabel("topo")),
+		container.NewTabItem("Инструменты", widget.NewLabel("tools")),
+	)
+
+	tests := []struct {
+		name string
+		key  fyne.KeyName
+		want string
+	}{
+		{name: "Ctrl+4 -> Security", key: fyne.Key4, want: resultsSubModeSecurity},
+		{name: "Ctrl+5 -> Inventory", key: fyne.Key5, want: resultsSubModeInventory},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			a.mainTabs.SelectIndex(2) // заведомо не вкладка сканирования
+
+			a.runShortcutAction(&desktop.CustomShortcut{KeyName: tc.key, Modifier: fyne.KeyModifierControl})
+
+			if got := a.mainTabs.SelectedIndex(); got != resultsTabScanIndex {
+				t.Fatalf("%s: вкладка = %d, ожидали %d", tc.name, got, resultsTabScanIndex)
+			}
+			if a.resultsSubMode != tc.want {
+				t.Fatalf("%s: resultsSubMode = %q, ожидали %q", tc.name, a.resultsSubMode, tc.want)
+			}
+			if a.resultsSubModeSel.Selected != tc.want {
+				t.Fatalf("%s: переключатель показывает %q, ожидали %q",
+					tc.name, a.resultsSubModeSel.Selected, tc.want)
+			}
+		})
+	}
+
+	// Повторное сочетание при уже выбранном подрежиме не должно ломать состояние.
+	a.runShortcutAction(&desktop.CustomShortcut{KeyName: fyne.Key5, Modifier: fyne.KeyModifierControl})
+	if a.resultsSubMode != resultsSubModeInventory {
+		t.Fatalf("повторный Ctrl+5 изменил подрежим на %q", a.resultsSubMode)
+	}
+}
+
+// TestShowResultsSectionShortcutNilSafe — nil-App, nil-переключатель и
+// неизвестное имя подрежима не должны паниковать и менять состояние.
+func TestShowResultsSectionShortcutNilSafe(t *testing.T) {
+	(&App{}).showResultsSectionShortcut(resultsSubModeSecurity)
+
+	a := &App{resultsSubMode: resultsSubModeDevices}
+	a.showResultsSectionShortcut("Что-то не то")
+	if a.resultsSubMode != resultsSubModeDevices {
+		t.Fatalf("неизвестное имя изменило подрежим на %q", a.resultsSubMode)
+	}
+}
+
+// TestNormalizeResultsSubMode — значения, попадающие в prefResultsSubMode и в
+// обработчик Ctrl+4/Ctrl+5, должны проходить один и тот же whitelist.
+func TestNormalizeResultsSubMode(t *testing.T) {
+	tests := []struct {
+		value string
+		want  string
+	}{
+		{value: resultsSubModeDevices, want: resultsSubModeDevices},
+		{value: resultsSubModeSecurity, want: resultsSubModeSecurity},
+		{value: resultsSubModeInventory, want: resultsSubModeInventory},
+		{value: "  Security\n", want: resultsSubModeSecurity},
+		{value: "", want: ""},
+		{value: "security", want: ""},
+		{value: "Inventory ", want: resultsSubModeInventory},
+	}
+	for _, tc := range tests {
+		if got := normalizeResultsSubMode(tc.value); got != tc.want {
+			t.Fatalf("normalizeResultsSubMode(%q) = %q, ожидали %q", tc.value, got, tc.want)
+		}
+	}
+
+	// Опции переключателя и whitelist обязаны совпадать.
+	a := &App{}
+	a.initResultsStateAndWidgets()
+	a.initResultsModeAndInventoryWidgets()
+	if len(a.resultsSubModeSel.Options) != len(resultsSubModeOptions) {
+		t.Fatalf("опций переключателя %d, ожидали %d",
+			len(a.resultsSubModeSel.Options), len(resultsSubModeOptions))
+	}
+	for _, opt := range a.resultsSubModeSel.Options {
+		if normalizeResultsSubMode(opt) == "" {
+			t.Fatalf("опция %q не проходит whitelist — не восстановится из настроек", opt)
+		}
+	}
+}

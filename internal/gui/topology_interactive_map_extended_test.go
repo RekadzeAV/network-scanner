@@ -57,8 +57,8 @@ func TestColorByConfidence_Medium(t *testing.T) {
 	if !ok {
 		t.Fatal("expected color.RGBA")
 	}
-	if rgba.R != 251 || rgba.G != 188 || rgba.B != 4 {
-		t.Errorf("expected yellow color, got %v", rgba)
+	if rgba != tokTopoConfMedium {
+		t.Errorf("expected token tokTopoConfMedium %v, got %v", tokTopoConfMedium, rgba)
 	}
 }
 
@@ -71,8 +71,8 @@ func TestColorByConfidence_Low(t *testing.T) {
 	if !ok {
 		t.Fatal("expected color.RGBA")
 	}
-	if rgba.R != 234 || rgba.G != 67 || rgba.B != 53 {
-		t.Errorf("expected red color, got %v", rgba)
+	if rgba != tokTopoConfLow {
+		t.Errorf("expected token tokTopoConfLow %v, got %v", tokTopoConfLow, rgba)
 	}
 }
 

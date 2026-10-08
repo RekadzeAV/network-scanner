@@ -1,8 +1,11 @@
 package gui
 
 import (
+	"strings"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -16,29 +19,104 @@ const (
 	prefThemeMode             = "gui.theme.mode"
 )
 
-// applyTheme применяет тему к приложению
+// themeModeLabels — подписи пунктов меню «Тема» и соответствующие им режимы.
+// Подпись больше не приводится к ThemeMode напрямую (P0-1): значения ThemeMode
+// — внутренние константы, русские строки только отображаются.
+var themeModeLabels = []struct {
+	mode    ThemeMode
+	caption string
+}{
+	{ThemeModeLight, "Светлая"},
+	{ThemeModeDark, "Тёмная"},
+	{ThemeModeSystem, "Системная"},
+}
+
+// themeCaption — подпись режима для меню и статусов.
+func themeCaption(mode ThemeMode) string {
+	for _, item := range themeModeLabels {
+		if item.mode == mode {
+			return item.caption
+		}
+	}
+	return string(ThemeModeSystem)
+}
+
+// themeModeFromValue — режим из значения виджета/меню: принимаются и внутренние
+// значения ("light"/"dark"/"system"), и подписи ("Светлая"...). Неизвестное
+// значение приводит к ThemeModeSystem, а не к «пустой» теме (P0-1).
+func themeModeFromValue(value string) ThemeMode {
+	v := strings.ToLower(strings.TrimSpace(value))
+	for _, item := range themeModeLabels {
+		if v == string(item.mode) || v == strings.ToLower(item.caption) {
+			return item.mode
+		}
+	}
+	return ThemeModeSystem
+}
+
+// newThemeForMode — тема для режима (P0-3): «системная» означает нашу палитру,
+// следующую варианту, определённому системой, а не отказ от темы (nil).
+func newThemeForMode(mode ThemeMode, accent string) *ModernTheme {
+	switch mode {
+	case ThemeModeLight:
+		return NewModernThemeAccent(false, accent)
+	case ThemeModeDark:
+		return NewModernThemeAccent(true, accent)
+	default:
+		t := NewSystemTheme()
+		t.SetAccent(accent)
+		return t
+	}
+}
+
+// applyTheme применяет тему к приложению.
 func (a *App) applyTheme(mode ThemeMode) {
 	if a == nil || a.myApp == nil {
 		return
 	}
-	var isDark bool
-	switch mode {
-	case ThemeModeDark:
-		isDark = true
-	case ThemeModeLight:
-		isDark = false
-	case ThemeModeSystem:
-		// Fyne автоматически определяет тему системы через DefaultTheme
-		a.myApp.Settings().SetTheme(nil) // nil = использовать системную
-		return
-	default:
+	a.myApp.Settings().SetTheme(newThemeForMode(mode, a.loadAccentPreset()))
+	a.invalidateThemeCaches()
+}
+
+// applyThemeToUI перестраивает виджеты, состояние которых зависит от темы и
+// которые НЕ перекрашиваются сами при Settings().SetTheme: главное меню
+// (отметки Checked у текущего пункта «Тема»/«Акцент»), canvas-тексты и
+// прямоугольники, получающие цвета из токенов в момент создания.
+// Вызывается из обработчиков смены темы/акцента после applyTheme.
+// Рекурсии нет: setupMainMenu вызывает applyTheme, но не applyThemeToUI.
+func (a *App) applyThemeToUI() {
+	if a == nil {
 		return
 	}
-	theme := NewModernTheme(isDark)
-	// Применяем сохраненный пресет акцентных цветов
-	presetName := a.loadAccentPreset()
-	theme.ApplyAccentPreset(presetName, isDark)
-	a.myApp.Settings().SetTheme(theme)
+	if a.myWindow != nil {
+		a.setupMainMenu()
+	}
+	a.refreshThemeDependentWidgets()
+}
+
+// refreshThemeDependentWidgets перекрашивает canvas-примитивы (цвета которых
+// задаются из токенов в момент создания, а не через fyne.Theme), чтобы смена
+// темы применялась без перезапуска.
+func (a *App) refreshThemeDependentWidgets() {
+	if a == nil {
+		return
+	}
+	a.refreshAutoProfileStateLabel()
+}
+
+// invalidateThemeCaches сбрасывает кэши, в которые вошли цвета палитры (P1-8).
+func (a *App) invalidateThemeCaches() {
+	if a == nil {
+		return
+	}
+	a.pieChartCache = make(map[string]fyne.Resource)
+	a.analyticsCacheKey = ""
+	a.analyticsCacheView = nil
+	a.resultsPipelineCacheMu.Lock()
+	a.resultsPipelineCacheKey = ""
+	a.resultsPipelineCacheData = nil
+	a.resultsPipelineCacheMu.Unlock()
+	a.scheduleResultsRender(true)
 }
 
 // applyAccentPreset применяет пресет акцентных цветов
@@ -48,10 +126,10 @@ func (a *App) applyAccentPreset(name string) {
 	}
 	a.saveAccentPreset(name)
 	// Перезагружаем текущую тему с новым пресетом
-	mode := a.loadTheme()
-	a.applyTheme(mode)
+	a.applyTheme(a.loadTheme())
+	a.applyThemeToUI()
 	if a.statusLabel != nil {
-		a.statusLabel.SetText("Акцентный цвет: " + name)
+		a.setStatus("Акцентный цвет: " + normalizeAccentPreset(name))
 	}
 }
 
@@ -60,9 +138,7 @@ func (a *App) loadTheme() ThemeMode {
 	if a == nil || a.myApp == nil {
 		return ThemeModeSystem
 	}
-	p := a.myApp.Preferences()
-	mode := ThemeMode(p.StringWithFallback(prefThemeMode, string(ThemeModeSystem)))
-	return mode
+	return themeModeFromValue(a.myApp.Preferences().StringWithFallback(prefThemeMode, string(ThemeModeSystem)))
 }
 
 // saveTheme сохраняет тему в Preferences
@@ -73,14 +149,27 @@ func (a *App) saveTheme(mode ThemeMode) {
 	a.myApp.Preferences().SetString(prefThemeMode, string(mode))
 }
 
+// currentThemeIsDark сообщает, тёмный ли вариант темы активен прямо сейчас.
+// Используется для цветов, задаваемых в обход fyne.Theme (canvas-примитивы,
+// кастомные виджеты), чтобы они не «слепили» белым на тёмном фоне (P0-2).
+func currentThemeIsDark() bool {
+	if app := fyne.CurrentApp(); app != nil && app.Settings() != nil {
+		if mt, ok := app.Settings().Theme().(*ModernTheme); ok {
+			return mt.IsDark()
+		}
+		return app.Settings().ThemeVariant() == theme.VariantDark
+	}
+	return false
+}
+
 // createThemeSelector создает селектор темы для меню или тулбара
 func (a *App) createThemeSelector(items []string, current ThemeMode) *fyne.Container {
 	if a == nil || a.myWindow == nil {
 		return nil
 	}
-	selected := string(current)
+	selected := ""
 	for _, item := range items {
-		if item == string(current) {
+		if themeModeFromValue(item) == current {
 			selected = item
 			break
 		}
@@ -89,13 +178,15 @@ func (a *App) createThemeSelector(items []string, current ThemeMode) *fyne.Conta
 		if a == nil {
 			return
 		}
-		mode := ThemeMode(value)
+		mode := themeModeFromValue(value)
 		a.applyTheme(mode)
 		a.saveTheme(mode)
 		if a.statusLabel != nil {
-			a.statusLabel.SetText("Тема изменена: " + value)
+			a.setStatus("Тема изменена: " + themeCaption(mode))
 		}
 	})
-	sel.SetSelected(selected)
+	if selected != "" {
+		sel.SetSelected(selected)
+	}
 	return container.NewHBox(widget.NewLabel("Тема:"), sel)
 }

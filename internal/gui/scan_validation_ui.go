@@ -64,14 +64,16 @@ func (a *App) showFieldErrorDelayed(msg *canvas.Text, err error) {
 	showFieldError(msg, err)
 }
 
-// themeColorError возвращает цвет ошибки из активной темы (с fallback).
+// themeColorError возвращает цвет ошибки из активной темы. Fallback — токен
+// ошибки светлого варианта (6.54:1 на surface), а не отдельный «свой» красный:
+// иначе подпись расходится с палитрой (C-12).
 func themeColorError() color.Color {
 	if a := fyne.CurrentApp(); a != nil && a.Settings() != nil {
 		if th := a.Settings().Theme(); th != nil {
 			return th.Color(theme.ColorNameError, a.Settings().ThemeVariant())
 		}
 	}
-	return color.RGBA{R: 200, G: 40, B: 40, A: 255}
+	return tokLightError
 }
 
 // validateCIDRField проверяет CIDR. Пустое значение допустимо (автоопределение).

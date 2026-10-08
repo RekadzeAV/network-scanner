@@ -6,9 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 
 	"network-scanner/internal/scanner"
@@ -448,6 +450,61 @@ func TestLoadScanSettings(t *testing.T) {
 
 	// Должно выполниться без паники
 	a.loadScanSettings()
+}
+
+// TestResultsSortSettingsRoundtrip — регрессия P0-6: сохранённый режим сортировки
+// обязан восстанавливаться в состояние App и в селектор через loadScanSettings.
+//
+// Тест намеренно построен на test.NewApp(): его Preferences() живёт в памяти,
+// поэтому тест выполняется и в headless-сессии/CI (реальный драйвер Fyne не
+// нужен), не читает и не портит настоящие настройки пользователя и не зависит
+// от значений, оставшихся от других тестов.
+func TestResultsSortSettingsRoundtrip(t *testing.T) {
+	for _, mode := range resultsSortOptions {
+		mode := mode
+		t.Run(mode, func(t *testing.T) {
+			saver, fyneApp := newSettingsTestApp(t)
+
+			// Путь пользователя: выбор в селекторе -> состояние + сохранение.
+			saver.resultsSortSel.OnChanged(mode)
+			saver.saveResultsViewSettings()
+			if got := fyneApp.Preferences().String(prefSortMode); got != mode {
+				t.Fatalf("в настройках %q, ожидали %q", got, mode)
+			}
+
+			// Новое приложение поверх тех же настроек: только загрузка.
+			restored, _ := newSettingsTestApp(t)
+			restored.myApp = fyneApp
+			restored.resultsSort = resultsSortByIP // дефолт, который должна перебить настройка
+			restored.loadScanSettings()
+
+			if restored.resultsSort != mode {
+				t.Fatalf("состояние после загрузки = %q, ожидали %q", restored.resultsSort, mode)
+			}
+			if restored.resultsSortSel.Selected != mode {
+				t.Fatalf("селектор после загрузки = %q, ожидали %q", restored.resultsSortSel.Selected, mode)
+			}
+		})
+	}
+}
+
+// newSettingsTestApp — App с виджетами, которых требует цикл настроек:
+// loadScanSettings безусловно пишет в поля сканирования (scanUDPCheck и др.),
+// поэтому их создаёт initScanUI; селектор сортировки делает initResultsFilterWidgets.
+func newSettingsTestApp(t *testing.T) (*App, fyne.App) {
+	t.Helper()
+	fyneApp := test.NewApp()
+	a := &App{
+		myApp:           fyneApp,
+		scanResults:     make([]scanner.Result, 0),
+		quickTypeChecks: make(map[string]*widget.Check),
+		statusLabel:     widget.NewLabel(""),
+	}
+	a.initScanUI()
+	a.initResultsStateAndWidgets()
+	a.initResultsModeAndInventoryWidgets()
+	a.initResultsFilterWidgets()
+	return a, fyneApp
 }
 
 // TestRefreshAutoProfileStateLabel проверяет обновление лейбла автопрофиля.

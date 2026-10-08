@@ -6,7 +6,20 @@ import (
 	"strings"
 )
 
-// AccentColors хранит пользовательские акцентные цвета
+// Акцентные пресеты и их сохранение в Preferences (D-02).
+//
+// Единственный источник значений — accentPresets в theme_tokens.go: там лежат
+// обе палитры пресета (light/dark) и onPrimary для текста поверх акцента.
+// Файл — тонкая прослойка: типы и функции ниже используются настройками и
+// меню «Тема → Акцент», но больше не дублируют цвета.
+
+// prefAccentPreset — ключ Preferences с именем активного акцентного пресета.
+const prefAccentPreset = "gui.theme.accent_preset"
+
+// AccentColors — набор акцентных цветов одного варианта темы.
+//
+// Имя сохранено ради существовавших вызовов; полная палитра пресета описана
+// типом accentVariant (theme_tokens.go) и включает OnPrimary.
 type AccentColors struct {
 	Primary   color.RGBA // Основной цвет (кнопки, фокус)
 	Pressed   color.RGBA // Цвет нажатия
@@ -14,97 +27,79 @@ type AccentColors struct {
 	Selection color.RGBA // Цвет выделения
 }
 
-// DefaultAccentColorsLight возвращает стандартные светлые акцентные цвета (macOS)
-func DefaultAccentColorsLight() AccentColors {
-	return AccentColors{
-		Primary:   color.RGBA{R: 0x00, G: 0x7A, B: 0xFF, A: 0xFF},
-		Pressed:   color.RGBA{R: 0x00, G: 0x5A, B: 0xCC, A: 0xFF},
-		Hover:     color.RGBA{R: 0xE5, G: 0xF2, B: 0xFF, A: 0xFF},
-		Selection: color.RGBA{R: 0x00, G: 0x7A, B: 0xFF, A: 0x40},
+// PresetThemes — встроенные пресеты акцентов (светлая палитра каждого пресета).
+// Используется как превью и для валидации имён; применение пресета выбирает
+// палитру по варианту темы.
+var PresetThemes = func() map[string]AccentColors {
+	out := make(map[string]AccentColors, len(accentPresets))
+	for name := range accentPresets {
+		out[name] = accentColorsOf(name, false)
 	}
-}
+	return out
+}()
 
-// DefaultAccentColorsDark возвращает стандартные темные акцентные цвета (Windows 11)
-func DefaultAccentColorsDark() AccentColors {
-	return AccentColors{
-		Primary:   color.RGBA{R: 0x00, G: 0x78, B: 0xD4, A: 0xFF},
-		Pressed:   color.RGBA{R: 0x00, G: 0x5A, B: 0xA0, A: 0xFF},
-		Hover:     color.RGBA{R: 0x2D, G: 0x2D, B: 0x30, A: 0xFF},
-		Selection: color.RGBA{R: 0x00, G: 0x78, B: 0xD4, A: 0x40},
+// DefaultAccentColorsLight возвращает акцент по умолчанию для светлой темы.
+func DefaultAccentColorsLight() AccentColors { return accentColorsOf(defaultAccentPreset, false) }
+
+// DefaultAccentColorsDark возвращает акцент по умолчанию для тёмной темы.
+func DefaultAccentColorsDark() AccentColors { return accentColorsOf(defaultAccentPreset, true) }
+
+// accentColorsOf — палитра пресета в виде AccentColors для старых вызовов.
+func accentColorsOf(name string, dark bool) AccentColors {
+	variant := accentPresetOf(name)
+	if dark {
+		return accentColorsFrom(variant.Dark)
 	}
+	return accentColorsFrom(variant.Light)
 }
 
-// PresetTheme — встроенные пресеты цветов
-var PresetThemes = map[string]AccentColors{
-	"macOS Blue": {
-		Primary:   color.RGBA{R: 0x00, G: 0x7A, B: 0xFF, A: 0xFF},
-		Pressed:   color.RGBA{R: 0x00, G: 0x5A, B: 0xCC, A: 0xFF},
-		Hover:     color.RGBA{R: 0xE5, G: 0xF2, B: 0xFF, A: 0xFF},
-		Selection: color.RGBA{R: 0x00, G: 0x7A, B: 0xFF, A: 0x40},
-	},
-	"Windows 11": {
-		Primary:   color.RGBA{R: 0x00, G: 0x78, B: 0xD4, A: 0xFF},
-		Pressed:   color.RGBA{R: 0x00, G: 0x5A, B: 0xA0, A: 0xFF},
-		Hover:     color.RGBA{R: 0x2D, G: 0x2D, B: 0x30, A: 0xFF},
-		Selection: color.RGBA{R: 0x00, G: 0x78, B: 0xD4, A: 0x40},
-	},
-	"Green": {
-		Primary:   color.RGBA{R: 0x34, G: 0xC7, B: 0x59, A: 0xFF},
-		Pressed:   color.RGBA{R: 0x28, G: 0xA7, B: 0x45, A: 0xFF},
-		Hover:     color.RGBA{R: 0xD4, G: 0xF7, B: 0xDB, A: 0xFF},
-		Selection: color.RGBA{R: 0x34, G: 0xC7, B: 0x59, A: 0x40},
-	},
-	"Purple": {
-		Primary:   color.RGBA{R: 0x8E, G: 0x44, B: 0xAD, A: 0xFF},
-		Pressed:   color.RGBA{R: 0x6C, G: 0x34, B: 0x83, A: 0xFF},
-		Hover:     color.RGBA{R: 0xEB, G: 0xE5, B: 0xF9, A: 0xFF},
-		Selection: color.RGBA{R: 0x8E, G: 0x44, B: 0xAD, A: 0x40},
-	},
-	"Orange": {
-		Primary:   color.RGBA{R: 0xFF, G: 0x95, B: 0x00, A: 0xFF},
-		Pressed:   color.RGBA{R: 0xE6, G: 0x7E, B: 0x00, A: 0xFF},
-		Hover:     color.RGBA{R: 0xFF, G: 0xF3, B: 0xE0, A: 0xFF},
-		Selection: color.RGBA{R: 0xFF, G: 0x95, B: 0x00, A: 0x40},
-	},
-	"Red": {
-		Primary:   color.RGBA{R: 0xFF, G: 0x3B, B: 0x30, A: 0xFF},
-		Pressed:   color.RGBA{R: 0xD7, G: 0x30, B: 0x25, A: 0xFF},
-		Hover:     color.RGBA{R: 0xFF, G: 0xE5, B: 0xE5, A: 0xFF},
-		Selection: color.RGBA{R: 0xFF, G: 0x3B, B: 0x30, A: 0x40},
-	},
-	"Teal": {
-		Primary:   color.RGBA{R: 0x00, G: 0x96, B: 0x88, A: 0xFF},
-		Pressed:   color.RGBA{R: 0x00, G: 0x79, B: 0x70, A: 0xFF},
-		Hover:     color.RGBA{R: 0xE0, G: 0xF2, B: 0xF1, A: 0xFF},
-		Selection: color.RGBA{R: 0x00, G: 0x96, B: 0x88, A: 0x40},
-	},
+func accentColorsFrom(v accentVariant) AccentColors {
+	return AccentColors{Primary: v.Primary, Pressed: v.Pressed, Hover: v.Hover, Selection: v.Selection}
 }
 
-// accentKey генерирует ключ для сохранения цвета в Preferences
+// accentPresetOf — пресет по имени; неизвестное имя приводит к умолчанию.
+func accentPresetOf(name string) accentPresetEntry {
+	if preset, ok := accentPresets[name]; ok {
+		return preset
+	}
+	return accentPresets[defaultAccentPreset]
+}
+
+// ApplyAccentPreset применяет пресет акцента.
+//
+// isDark сохранён в сигнатуре ради существовавших вызовов: палитру варианта
+// теперь выбирает сама тема (Color получает variant от Fyne), поэтому аргумент
+// на результат не влияет. Неизвестное имя игнорируется.
+func (t *ModernTheme) ApplyAccentPreset(name string, isDark bool) {
+	_ = isDark
+	if _, ok := accentPresets[name]; !ok {
+		return
+	}
+	t.SetAccent(name)
+}
+
+// accentKey — ключ Preferences для произвольного цвета акцента.
 func accentKey(name string) string {
 	return "gui.theme.accent." + name
 }
 
-// saveAccentColor сохраняет акцентный цвет в Preferences
+// saveAccentColor сохраняет отдельный акцентный цвет в Preferences.
 func (a *App) saveAccentColor(name string, c color.RGBA) {
 	if a == nil || a.myApp == nil {
 		return
 	}
-	p := a.myApp.Preferences()
 	// Упаковка RGBA обязана идти в 32 битах: в арифметике uint8 сдвиги R и G
-	// обнулялись, и в Preferences долетали только B и A — акцентный цвет после
-	// перезапуска искажался.
+	// обнулялись, и в Preferences долетали только B и A.
 	val := uint32(c.R)<<24 | uint32(c.G)<<16 | uint32(c.B)<<8 | uint32(c.A)
-	p.SetString(accentKey(name), strconv.FormatUint(uint64(val), 16))
+	a.myApp.Preferences().SetString(accentKey(name), strconv.FormatUint(uint64(val), 16))
 }
 
-// loadAccentColor загружает акцентный цвет из Preferences
+// loadAccentColor загружает отдельный акцентный цвет из Preferences.
 func (a *App) loadAccentColor(name string, defaultColor color.RGBA) color.RGBA {
 	if a == nil || a.myApp == nil {
 		return defaultColor
 	}
-	p := a.myApp.Preferences()
-	raw := strings.TrimSpace(p.String(accentKey(name)))
+	raw := strings.TrimSpace(a.myApp.Preferences().String(accentKey(name)))
 	if raw == "" {
 		return defaultColor
 	}
@@ -120,43 +115,18 @@ func (a *App) loadAccentColor(name string, defaultColor color.RGBA) color.RGBA {
 	}
 }
 
-// saveAccentPreset сохраняет выбранный пресет в Preferences
+// saveAccentPreset сохраняет имя выбранного пресета в Preferences.
 func (a *App) saveAccentPreset(name string) {
 	if a == nil || a.myApp == nil {
 		return
 	}
-	a.myApp.Preferences().SetString("gui.theme.accent_preset", name)
+	a.myApp.Preferences().SetString(prefAccentPreset, normalizeAccentPreset(name))
 }
 
-// loadAccentPreset загружает выбранный пресет из Preferences
+// loadAccentPreset загружает имя выбранного пресета (неизвестное — default).
 func (a *App) loadAccentPreset() string {
 	if a == nil || a.myApp == nil {
-		return "macOS Blue"
+		return defaultAccentPreset
 	}
-	p := a.myApp.Preferences()
-	name := strings.TrimSpace(p.StringWithFallback("gui.theme.accent_preset", "macOS Blue"))
-	// Проверяем, существует ли пресет
-	if _, ok := PresetThemes[name]; !ok {
-		return "macOS Blue"
-	}
-	return name
+	return normalizeAccentPreset(strings.TrimSpace(a.myApp.Preferences().String(prefAccentPreset)))
 }
-
-// applyAccentPreset применяет акцентный пресет к ModernTheme
-func (t *ModernTheme) ApplyAccentPreset(name string, isDark bool) {
-	preset, ok := PresetThemes[name]
-	if !ok {
-		return
-	}
-	if isDark {
-		t.darkAccent = preset
-	} else {
-		t.lightAccent = preset
-	}
-}
-
-// lightAccent акцентные цвета для светлой темы
-//nolint:unused // kept as package-level default accessor
-
-// darkAccent акцентные цвета для темной темы
-//nolint:unused // kept as package-level default accessor
