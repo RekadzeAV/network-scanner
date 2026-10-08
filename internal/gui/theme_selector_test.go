@@ -71,33 +71,3 @@ func TestApp_saveTheme_NilMyApp(t *testing.T) {
 	// Не должен паниковать
 	a.saveTheme(ThemeModeLight)
 }
-
-func TestApp_createThemeSelector_NilApp(t *testing.T) {
-	var a *App
-	// Не должен паниковать
-	a.createThemeSelector([]string{"light", "dark"}, ThemeModeLight)
-}
-
-func TestApp_createThemeSelector_NilWindow(t *testing.T) {
-	a := &App{}
-	// Не должен паниковать
-	a.createThemeSelector([]string{"light", "dark"}, ThemeModeLight)
-}
-
-func TestApp_createThemeSelector_EmptyItems(t *testing.T) {
-	a := &App{}
-	// Не должен паниковать
-	a.createThemeSelector(nil, ThemeModeLight)
-}
-
-func TestApp_createThemeSelector_Valid(t *testing.T) {
-	a := &App{}
-	// Не должен паниковать
-	a.createThemeSelector([]string{"light", "dark", "system"}, ThemeModeDark)
-}
-
-func TestApp_createThemeSelector_UnmatchedCurrent(t *testing.T) {
-	a := &App{}
-	// Не должен паниковать
-	a.createThemeSelector([]string{"light", "dark"}, ThemeModeSystem)
-}

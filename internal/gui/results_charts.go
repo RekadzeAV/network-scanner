@@ -29,12 +29,6 @@ func (a *App) currentThemeIsDark() bool {
 	return currentThemeIsDark()
 }
 
-// chipBackground возвращает фон чипов портов из палитры активного варианта
-// темы (elevation 2 — surfaceAlt).
-func (a *App) chipBackground() color.Color {
-	return paletteSurfaceAlt(a.currentThemeIsDark())
-}
-
 // rowBackground возвращает фон строк/карточек таблицы результатов из палитры
 // активного варианта темы (elevation 1 — surface).
 func (a *App) rowBackground() color.Color {
