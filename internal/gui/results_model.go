@@ -9,18 +9,77 @@ import (
 	"network-scanner/internal/scanner"
 )
 
+// Режимы сортировки результатов. Значения совпадают с подписями пунктов
+// селектора (initResultsFilterWidgets): состояние App.resultsSort и настройка
+// prefSortMode хранят именно эти строки, поэтому список опций, whitelist
+// восстановления и сравнение в сортировке не могут разойтись.
+const (
+	resultsSortByIP        = "IP"
+	resultsSortByHostname  = "Hostname"
+	resultsSortByType      = "Тип"
+	resultsSortByOpenPorts = "Открытые порты"
+)
+
+// resultsSortOptions — опции селектора сортировки в порядке отображения.
+var resultsSortOptions = []string{
+	resultsSortByIP, resultsSortByHostname, resultsSortByType, resultsSortByOpenPorts,
+}
+
+// normalizeResultsSortMode приводит значение из виджета или настроек к одному
+// из поддерживаемых режимов. Пустая строка и неизвестное значение дают "" —
+// вызывающий сохраняет текущий режим, а не молча сбрасывает сортировку.
+func normalizeResultsSortMode(value string) string {
+	v := strings.TrimSpace(value)
+	if v == "HostName" { // унаследованное написание из старых настроек
+		return resultsSortByHostname
+	}
+	for _, opt := range resultsSortOptions {
+		if v == opt {
+			return v
+		}
+	}
+	return ""
+}
+
+// resolveResultsSortMode — значение для App.resultsSort: берёт распознанный
+// режим из value, иначе сохраняет распознанное текущее значение, иначе откатывает
+// на сортировку по IP. Обрубок строки из старой настройки или случайный мусор не
+// переводят сортировку в произвольное состояние.
+func resolveResultsSortMode(current, value string) string {
+	if mode := normalizeResultsSortMode(value); mode != "" {
+		return mode
+	}
+	if mode := normalizeResultsSortMode(current); mode != "" {
+		return mode
+	}
+	return resultsSortByIP
+}
+
 func sortedResultsForDisplay(results []scanner.Result) []scanner.Result {
-	return sortedResultsForDisplayWithMode(results, "IP")
+	return sortedResultsForDisplayWithMode(results, resultsSortByIP)
 }
 
 func sortedResultsForDisplayWithMode(results []scanner.Result, mode string) []scanner.Result {
+	mode = normalizeResultsSortMode(mode)
 	out := append([]scanner.Result(nil), results...)
 	sort.SliceStable(out, func(i, j int) bool {
-		if strings.EqualFold(strings.TrimSpace(mode), "HostName") {
+		switch mode {
+		case resultsSortByHostname:
 			hi := strings.ToLower(strings.TrimSpace(out[i].Hostname))
 			hj := strings.ToLower(strings.TrimSpace(out[j].Hostname))
 			if hi != hj {
 				return hi < hj
+			}
+		case resultsSortByType:
+			ti := strings.ToLower(strings.TrimSpace(out[i].DeviceType))
+			tj := strings.ToLower(strings.TrimSpace(out[j].DeviceType))
+			if ti != tj {
+				return ti < tj
+			}
+		case resultsSortByOpenPorts:
+			oi, oj := countOpenPorts(out[i].Ports), countOpenPorts(out[j].Ports)
+			if oi != oj {
+				return oi > oj // больше открытых — выше
 			}
 		}
 		ipI := strings.TrimSpace(out[i].IP)

@@ -63,7 +63,7 @@ func (a *App) updateResultsFiltersVisibility() {
 	if a == nil || a.resultsFiltersAccordion == nil || len(a.resultsFiltersAccordion.Items) == 0 {
 		return
 	}
-	wantOpen := a.resultsSubMode != "Inventory"
+	wantOpen := a.resultsSubMode != resultsSubModeInventory
 	if a.resultsFiltersHidden && !wantOpen {
 		return
 	}

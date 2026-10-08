@@ -25,6 +25,10 @@ func (a *App) ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeo
 		ticker := time.NewTicker(200 * time.Millisecond)
 		defer ticker.Stop()
 
+		// Момент последней публикации частичных результатов (P1-1): троттлим,
+		// чтобы не перерисовывать таблицу на каждое событие прогресса.
+		var lastLive time.Time
+
 		for {
 			select {
 			case <-time.After(timeout):
@@ -56,17 +60,21 @@ func (a *App) ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeo
 				}
 				switch ev.Kind {
 				case scand.EventProgress:
+					published := a.publishLiveResults(runner, lastLive)
+					if published {
+						lastLive = time.Now()
+					}
 					fyne.Do(func() {
 						if a.stageLabel != nil {
 							a.stageLabel.Show()
-							a.stageLabel.SetText(ev.Stage + ": " + ev.Message)
+							a.stageLabel.SetText(fmt.Sprintf("%s: %s", ev.Stage, ev.Message))
 						}
 						if a.progressBar != nil {
 							a.progressBar.Show()
-							a.progressBar.SetValue(ev.Percent * 100)
+							a.progressBar.SetValue(ev.Percent)
 						}
 						if a.statusLabel != nil {
-							a.statusLabel.SetText(ev.Message)
+							a.statusLabel.SetText(scanProgressText(ev, startTime, len(a.scanResults)))
 						}
 					})
 				case scand.EventDone:
@@ -89,8 +97,9 @@ func (a *App) ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeo
 						if a.stopButton != nil {
 							a.stopButton.Disable()
 						}
-						// Обновляем результаты
-						a.scanResults = ev.Results
+						// Обновляем результаты: через setScanResults, чтобы версия
+						// пайплайна и кэш фильтрации были обновлены (P1-1).
+						a.setScanResults(ev.Results)
 						a.renderScanResultsView()
 					})
 					return

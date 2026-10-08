@@ -50,6 +50,9 @@ Thumbs.db
 # пути из DefaultConfig(), поэтому БД создаётся внутри пакета.
 internal/api/inventory.db
 internal/api/nonexistent/
+# То же для GUI: inventoryDBEntry/инвентарный виджет используют относительный
+# путь inventory/network_inventory.db, тесты создают каталог внутри internal/gui.
+internal/gui/inventory/
 
 # Артефакты покрытия/тестов (цикл 2026-09-15: предотвращение повторного накопления
 # в корне и internal/legacy — см. docs/FINAL_PLAN_2026-09-15.md, задача F4/F5)

@@ -17,14 +17,41 @@ import (
 // заглушку тела результатов.
 func (a *App) initResultsStateAndWidgets() {
 	a.resultsMode = "Таблица"
-	a.resultsSubMode = "Devices"
-	a.resultsSort = "IP"
+	a.resultsSubMode = resultsSubModeDevices
+	a.resultsSort = resultsSortByIP
 	a.maxPortChips = 24
 	a.cardsVisibleCount = 200
 	a.showRawBanners = false
 	a.resultsState = resultsStateIdle
 	a.resultsRenderDebounce = resultsRenderDebounceDefault
 	a.resultsBody = container.NewStack(widget.NewLabel("Результаты сканирования появятся здесь после запуска."))
+}
+
+// Подрежимы вкладки «Сканирование»: Devices / Security / Inventory. Значения
+// хранятся в настройках (prefResultsSubMode) и являются опциями радио-переключателя,
+// поэтому список, whitelist восстановления и обработчики Ctrl+4/Ctrl+5 не могут
+// разойтись (по той же схеме, что и режимы сортировки).
+const (
+	resultsSubModeDevices   = "Devices"
+	resultsSubModeSecurity  = "Security"
+	resultsSubModeInventory = "Inventory"
+)
+
+// resultsSubModeOptions — опции переключателя подрежимов в порядке отображения.
+var resultsSubModeOptions = []string{
+	resultsSubModeDevices, resultsSubModeSecurity, resultsSubModeInventory,
+}
+
+// normalizeResultsSubMode приводит значение из виджета или настроек к известному
+// подрежиму; пустое и неизвестное значение даёт "" — вызывающий сохраняет текущий.
+func normalizeResultsSubMode(value string) string {
+	v := strings.TrimSpace(value)
+	for _, opt := range resultsSubModeOptions {
+		if v == opt {
+			return v
+		}
+	}
+	return ""
 }
 
 // initResultsModeAndInventoryWidgets создаёт переключатели режимов отображения
@@ -40,7 +67,7 @@ func (a *App) initResultsModeAndInventoryWidgets() {
 	})
 	a.resultsModeSel.Horizontal = true
 	a.resultsModeSel.SetSelected(a.resultsMode)
-	a.resultsSubModeSel = widget.NewRadioGroup([]string{"Devices", "Security", "Inventory"}, func(value string) {
+	a.resultsSubModeSel = widget.NewRadioGroup(resultsSubModeOptions, func(value string) {
 		if strings.TrimSpace(value) == "" {
 			return
 		}
@@ -54,13 +81,13 @@ func (a *App) initResultsModeAndInventoryWidgets() {
 	a.inventoryAutoSaveCheck = widget.NewCheck("Автосохранять снапшот после успешного сканирования", nil)
 	a.inventoryAutoSaveCheck.SetChecked(true)
 	a.inventoryScanASelect = widget.NewSelect([]string{}, func(string) {
-		if a.resultsSubMode == "Inventory" {
+		if a.resultsSubMode == resultsSubModeInventory {
 			a.renderScanResultsView()
 		}
 	})
 	a.inventoryScanASelect.PlaceHolder = "Snapshot A"
 	a.inventoryScanBSelect = widget.NewSelect([]string{}, func(string) {
-		if a.resultsSubMode == "Inventory" {
+		if a.resultsSubMode == resultsSubModeInventory {
 			a.renderScanResultsView()
 		}
 	})
@@ -69,7 +96,7 @@ func (a *App) initResultsModeAndInventoryWidgets() {
 	a.inventoryStatusLabel.Wrapping = fyne.TextWrapWord
 	a.inventoryRefreshBtn = widget.NewButtonWithIcon("Обновить список снапшотов", iconRefresh(), func() {
 		a.refreshInventorySnapshots()
-		if a.resultsSubMode == "Inventory" {
+		if a.resultsSubMode == resultsSubModeInventory {
 			a.renderScanResultsView()
 		}
 	})
@@ -79,7 +106,8 @@ func (a *App) initResultsModeAndInventoryWidgets() {
 
 // initResultsFilterWidgets создаёт виджеты фильтрации и сортировки результатов.
 func (a *App) initResultsFilterWidgets() {
-	a.resultsSortSel = widget.NewSelect([]string{"IP", "Hostname", "Тип", "Открытые порты"}, func(string) {
+	a.resultsSortSel = widget.NewSelect(resultsSortOptions, func(value string) {
+		a.resultsSort = resolveResultsSortMode(a.resultsSort, value)
 		a.saveResultsViewSettings()
 		a.scheduleResultsRender(false)
 	})

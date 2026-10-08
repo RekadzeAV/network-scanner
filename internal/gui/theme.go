@@ -2,155 +2,220 @@ package gui
 
 import (
 	"image/color"
+	"math"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
 )
 
-// ModernTheme представляет современную тему в стиле macOS Sierra/Windows 11
+// defaultAccentPreset — акцент, применяемый при отсутствии сохранённого
+// значения настройки (тот же список, что и в меню «Акцент»).
+const defaultAccentPreset = "macOS Blue"
+
+// ModernTheme — тема приложения на основе токенов из theme_tokens.go.
+//
+// Вариант темы (светлый/тёмный) задаётся явно (isDark) либо определяется
+// системой (followSystem): в этом случае Fyne передаёт актуальный вариант в
+// Color(), и палитра переключается без пересоздания темы (P0-3).
 type ModernTheme struct {
-	isDark      bool
-	lightAccent AccentColors
-	darkAccent  AccentColors
+	isDark       bool
+	followSystem bool
+	accent       string
 }
 
-// NewModernTheme создает новую тему
+// themePalette — набор семантических цветов одного варианта темы.
+type themePalette struct {
+	bg, surface, surfaceAlt        color.RGBA
+	text, textSecond, textDisabled color.RGBA
+	borderSubtle, borderStrong     color.RGBA
+	selection, scrollBar           color.RGBA
+	shadow                         color.RGBA
+	primary, onPrimary             color.RGBA
+	pressed, hover                 color.RGBA
+	success, successFill           color.RGBA
+	warning, warningFill           color.RGBA
+	danger, dangerFill             color.RGBA
+
+	dark bool // вариант темы — нужен для выбора подложки обычных кнопок
+}
+
+var _ fyne.Theme = (*ModernTheme)(nil)
+
+// NewModernTheme создает новую тему со светлым/тёмным вариантом по умолчанию.
 func NewModernTheme(isDark bool) *ModernTheme {
-	t := &ModernTheme{
-		isDark:      isDark,
-		lightAccent: DefaultAccentColorsLight(),
-		darkAccent:  DefaultAccentColorsDark(),
-	}
-	return t
+	return NewModernThemeAccent(isDark, defaultAccentPreset)
 }
 
-// Color возвращает цвет для указанного имени
-func (t *ModernTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
-	if t.isDark {
-		return t.darkColor(name)
-	}
-	return t.lightColor(name)
+// NewModernThemeAccent — тема с явным вариантом и акцентным пресетом (P0-5).
+// Неизвестное имя пресета приводится к defaultAccentPreset.
+func NewModernThemeAccent(isDark bool, accent string) *ModernTheme {
+	return &ModernTheme{isDark: isDark, accent: normalizeAccentPreset(accent)}
 }
 
-// Variant возвращает вариант темы
-func (t *ModernTheme) Variant() fyne.ThemeVariant {
-	if t.isDark {
-		return theme.VariantDark
+// NewModernThemeForVariant — тема для варианта темы Fyne (P0-3): используется
+// настройками и меню, где значение хранится как fyne.ThemeVariant.
+func NewModernThemeForVariant(variant fyne.ThemeVariant, accent string) *ModernTheme {
+	return NewModernThemeAccent(variant == theme.VariantDark, accent)
+}
+
+// NewSystemTheme — тема, следующая системной настройке светлого/тёмного режима.
+func NewSystemTheme() *ModernTheme {
+	return &ModernTheme{followSystem: true, accent: defaultAccentPreset}
+}
+
+// normalizeAccentPreset приводит произвольное имя к известному пресету.
+func normalizeAccentPreset(name string) string {
+	if _, ok := accentPresets[name]; ok {
+		return name
+	}
+	return defaultAccentPreset
+}
+
+// IsDark сообщает, используется ли тёмный вариант темы.
+func (t *ModernTheme) IsDark() bool { return t.darkFor(0) }
+
+// Accent возвращает имя активного акцентного пресета.
+func (t *ModernTheme) Accent() string { return normalizeAccentPreset(t.accent) }
+
+// settingsThemeVariant — вариант темы, предпочтительный системой/настройками.
+func settingsThemeVariant() fyne.ThemeVariant {
+	if app := fyne.CurrentApp(); app != nil && app.Settings() != nil {
+		return app.Settings().ThemeVariant()
 	}
 	return theme.VariantLight
 }
 
-// lightColor возвращает цвета для светлой темы (macOS Sierra стиль)
-func (t *ModernTheme) lightColor(name fyne.ThemeColorName) color.Color {
+// darkFor сообщает, тёмный ли вариант использует тема. В режиме followSystem
+// запрашиваемый у темы вариант (variant) игнорируется: значение берётся из
+// системной настройки, иначе Fyne передал бы светлый вариант по умолчанию и
+// тёмная палитра никогда бы не активировалась (P0-3).
+func (t *ModernTheme) darkFor(_ fyne.ThemeVariant) bool {
+	if t.followSystem {
+		return settingsThemeVariant() == theme.VariantDark
+	}
+	return t.isDark
+}
+
+// Color возвращает цвет для указанного имени
+func (t *ModernTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+	dark := t.darkFor(variant)
+	p := t.palette(dark)
+	fallback := theme.VariantLight
+	if dark {
+		fallback = theme.VariantDark
+	}
 	switch name {
 	case theme.ColorNameBackground:
-		// Светло-серый фон macOS Sierra
-		return color.RGBA{R: 0xF5, G: 0xF5, B: 0xF7, A: 0xFF}
-	case theme.ColorNameButton:
-		// Синий цвет кнопок macOS Sierra
-		return t.lightAccent.Primary
-	case theme.ColorNameDisabledButton:
-		return color.RGBA{R: 0xC7, G: 0xC7, B: 0xCC, A: 0xFF}
-	case theme.ColorNameDisabled:
-		return color.RGBA{R: 0xC7, G: 0xC7, B: 0xCC, A: 0xFF}
-	case theme.ColorNameError:
-		return color.RGBA{R: 0xFF, G: 0x3B, B: 0x30, A: 0xFF}
-	case theme.ColorNameFocus:
-		// Синий цвет фокуса macOS
-		return t.lightAccent.Primary
+		return p.bg
 	case theme.ColorNameForeground:
-		// Темный текст
-		return color.RGBA{R: 0x00, G: 0x00, B: 0x00, A: 0xFF}
-	case theme.ColorNameHover:
-		// Светло-синий при наведении
-		return t.lightAccent.Hover
-	case theme.ColorNameInputBackground:
-		// Белый фон для полей ввода
-		return color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
-	case theme.ColorNameInputBorder:
-		// Серый бордер для полей ввода
-		return color.RGBA{R: 0xC7, G: 0xC7, B: 0xCC, A: 0xFF}
-	case theme.ColorNameMenuBackground:
-		return color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
-	case theme.ColorNameOverlayBackground:
-		return color.RGBA{R: 0x00, G: 0x00, B: 0x00, A: 0x80}
-	case theme.ColorNamePlaceHolder:
-		return color.RGBA{R: 0x8E, G: 0x8E, B: 0x93, A: 0xFF}
-	case theme.ColorNamePressed:
-		// Темно-синий при нажатии
-		return t.lightAccent.Pressed
-	case theme.ColorNamePrimary:
-		// Основной синий цвет macOS
-		return t.lightAccent.Primary
-	case theme.ColorNameScrollBar:
-		return color.RGBA{R: 0xC7, G: 0xC7, B: 0xCC, A: 0x80}
-	case theme.ColorNameSelection:
-		// Цвет выделения macOS
-		return t.lightAccent.Selection
-	case theme.ColorNameSeparator:
-		return color.RGBA{R: 0xC7, G: 0xC7, B: 0xCC, A: 0xFF}
-	case theme.ColorNameShadow:
-		return color.RGBA{R: 0x00, G: 0x00, B: 0x00, A: 0x20}
+		return p.text
+	case theme.ColorNamePrimary, theme.ColorNameFocus, theme.ColorNameHyperlink:
+		return p.primary
+	case ColorNameOnPrimary:
+		return p.onPrimary
+	case theme.ColorNameButton:
+		// Обычные кнопки — нейтральная поверхность: accent остаётся для
+		// акцентных (HighImportance) кнопок (P0-5: «кнопки не кислотные»).
+		if p.dark {
+			return p.surfaceAlt
+		}
+		return p.surface
+	case theme.ColorNameDisabledButton:
+		return p.surfaceAlt
+	case theme.ColorNameDisabled:
+		return p.textDisabled
+	case theme.ColorNameError:
+		return p.danger
+	case ColorNameErrorFill:
+		return p.dangerFill
 	case theme.ColorNameSuccess:
-		return color.RGBA{R: 0x34, G: 0xC7, B: 0x59, A: 0xFF}
+		return p.success
+	case ColorNameSuccessFill:
+		return p.successFill
 	case theme.ColorNameWarning:
-		return color.RGBA{R: 0xFF, G: 0x95, B: 0x00, A: 0xFF}
+		return p.warning
+	case ColorNameWarningFill:
+		return p.warningFill
+	case theme.ColorNameHover:
+		return p.hover
+	case theme.ColorNameInputBackground:
+		return p.surface
+	case theme.ColorNameInputBorder, ColorNameBorderStrong:
+		return p.borderStrong
+	case theme.ColorNameSeparator:
+		return p.borderSubtle
+	case ColorNameSurfaceAlt:
+		return p.surfaceAlt
+	case theme.ColorNamePlaceHolder:
+		return p.textSecond
+	case theme.ColorNamePressed:
+		return p.pressed
+	case theme.ColorNameSelection:
+		return p.selection
+	case theme.ColorNameScrollBar:
+		return p.scrollBar
+	case theme.ColorNameMenuBackground, theme.ColorNameOverlayBackground:
+		return p.surface
+	case theme.ColorNameShadow:
+		return p.shadow
 	default:
-		return theme.DefaultTheme().Color(name, theme.VariantLight)
+		return theme.DefaultTheme().Color(name, fallback)
 	}
 }
 
-// darkColor возвращает цвета для темной темы (Windows 11 стиль)
-func (t *ModernTheme) darkColor(name fyne.ThemeColorName) color.Color {
-	switch name {
-	case theme.ColorNameBackground:
-		// Темный фон Windows 11
-		return color.RGBA{R: 0x20, G: 0x20, B: 0x20, A: 0xFF}
-	case theme.ColorNameButton:
-		// Синий цвет кнопок Windows 11
-		return t.darkAccent.Primary
-	case theme.ColorNameDisabledButton:
-		return color.RGBA{R: 0x3D, G: 0x3D, B: 0x3D, A: 0xFF}
-	case theme.ColorNameDisabled:
-		return color.RGBA{R: 0x6D, G: 0x6D, B: 0x6D, A: 0xFF}
-	case theme.ColorNameError:
-		return color.RGBA{R: 0xF1, G: 0x70, B: 0x70, A: 0xFF}
-	case theme.ColorNameFocus:
-		return t.darkAccent.Primary
-	case theme.ColorNameForeground:
-		// Светлый текст
-		return color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
-	case theme.ColorNameHover:
-		return t.darkAccent.Hover
-	case theme.ColorNameInputBackground:
-		return color.RGBA{R: 0x1E, G: 0x1E, B: 0x1E, A: 0xFF}
-	case theme.ColorNameInputBorder:
-		return color.RGBA{R: 0x3D, G: 0x3D, B: 0x3D, A: 0xFF}
-	case theme.ColorNameMenuBackground:
-		return color.RGBA{R: 0x2D, G: 0x2D, B: 0x30, A: 0xFF}
-	case theme.ColorNameOverlayBackground:
-		return color.RGBA{R: 0x00, G: 0x00, B: 0x00, A: 0x80}
-	case theme.ColorNamePlaceHolder:
-		return color.RGBA{R: 0x6D, G: 0x6D, B: 0x6D, A: 0xFF}
-	case theme.ColorNamePressed:
-		return t.darkAccent.Pressed
-	case theme.ColorNamePrimary:
-		return t.darkAccent.Primary
-	case theme.ColorNameScrollBar:
-		return color.RGBA{R: 0x3D, G: 0x3D, B: 0x3D, A: 0x80}
-	case theme.ColorNameSelection:
-		return t.darkAccent.Selection
-	case theme.ColorNameSeparator:
-		return color.RGBA{R: 0x3D, G: 0x3D, B: 0x3D, A: 0xFF}
-	case theme.ColorNameShadow:
-		return color.RGBA{R: 0x00, G: 0x00, B: 0x00, A: 0x40}
-	case theme.ColorNameSuccess:
-		return color.RGBA{R: 0x6F, G: 0xCF, B: 0x97, A: 0xFF}
-	case theme.ColorNameWarning:
-		return color.RGBA{R: 0xFF, G: 0xB3, B: 0x66, A: 0xFF}
-	default:
-		return theme.DefaultTheme().Color(name, theme.VariantDark)
+// palette собирает палитру варианта темы с активным акцентным пресетом.
+func (t *ModernTheme) palette(dark bool) themePalette {
+	accent := t.accentVariant(dark)
+	if dark {
+		return themePalette{
+			bg: tokDarkBg, surface: tokDarkSurface, surfaceAlt: tokDarkSurfaceAlt,
+			text: tokDarkText, textSecond: tokDarkTextSecond, textDisabled: tokDarkTextDisabled,
+			borderSubtle: tokDarkBorderSubtle, borderStrong: tokDarkBorderStrong,
+			selection: accent.Selection, scrollBar: tokScrollBarDk,
+			shadow:  tokDarkShadow,
+			primary: accent.Primary, onPrimary: accent.OnPrimary, pressed: accent.Pressed, hover: accent.Hover,
+			success: tokDarkSuccess, successFill: tokDarkSuccessFill,
+			warning: tokDarkWarning, warningFill: tokDarkWarningFill,
+			danger: tokDarkError, dangerFill: tokDarkErrorFill,
+			dark: true,
+		}
 	}
+	return themePalette{
+		bg: tokLightBg, surface: tokLightSurface, surfaceAlt: tokLightSurfaceAlt,
+		text: tokLightText, textSecond: tokLightTextSecond, textDisabled: tokLightTextDisabled,
+		borderSubtle: tokLightBorderSubtle, borderStrong: tokLightBorderStrong,
+		selection: accent.Selection, scrollBar: tokScrollBarLt,
+		shadow:  tokLightShadow,
+		primary: accent.Primary, onPrimary: accent.OnPrimary, pressed: accent.Pressed, hover: accent.Hover,
+		success: tokLightSuccess, successFill: tokLightSuccessFill,
+		warning: tokLightWarning, warningFill: tokLightWarningFill,
+		danger: tokLightError, dangerFill: tokLightErrorFill,
+	}
+}
+
+// accentVariant — набор акцентных цветов пресета для варианта темы.
+func (t *ModernTheme) accentVariant(dark bool) accentVariant {
+	entry, ok := accentPresets[normalizeAccentPreset(t.accent)]
+	if !ok {
+		entry = accentPresets[defaultAccentPreset]
+	}
+	if dark {
+		return entry.Dark
+	}
+	return entry.Light
+}
+
+// SetAccent меняет акцентный пресет темы.
+func (t *ModernTheme) SetAccent(name string) {
+	t.accent = normalizeAccentPreset(name)
+}
+
+// Variant возвращает вариант темы
+func (t *ModernTheme) Variant() fyne.ThemeVariant {
+	if t.IsDark() {
+		return theme.VariantDark
+	}
+	return theme.VariantLight
 }
 
 // Font возвращает шрифт для указанного стиля
@@ -198,3 +263,48 @@ func (t *ModernTheme) Size(name fyne.ThemeSizeName) float32 {
 		return theme.DefaultTheme().Size(name)
 	}
 }
+
+// --- Контраст (WCAG 2.1) -----------------------------------------------------
+
+// ContrastRatio возвращает коэффициент контраста двух цветов по формуле
+// WCAG 2.1 (относительная яркость), от 1.0 до 21.0.
+func ContrastRatio(fg, bg color.Color) float64 {
+	l1 := relativeLuminance(fg)
+	l2 := relativeLuminance(bg)
+	if l1 < l2 {
+		l1, l2 = l2, l1
+	}
+	return (l1 + 0.05) / (l2 + 0.05)
+}
+
+// relativeLuminance — относительная яркость sRGB-цвета (ITU-R BT.709).
+func relativeLuminance(c color.Color) float64 {
+	r, g, b, _ := c.RGBA()
+	return 0.2126*srgbChannel(r) + 0.7152*srgbChannel(g) + 0.0722*srgbChannel(b)
+}
+
+// srgbChannel переводит 16-битную компоненту RGBA в линейную яркость.
+func srgbChannel(v uint32) float64 {
+	s := float64(v) / 0xFFFF
+	if s <= 0.03928 {
+		return s / 12.92
+	}
+	return math.Pow((s+0.055)/1.055, 2.4)
+}
+
+// AutoOnColor подбирает цвет текста (белый/тёмно-синий) с максимальным
+// контрастом на фоне bg — используется для onPrimary над акцентной подложкой.
+// Кандидаты — токены OnPrimary светлой и тёмной палитры.
+func AutoOnColor(bg color.Color) color.RGBA {
+	if ContrastRatio(onColorLight, bg) >= ContrastRatio(onColorDark, bg) {
+		return onColorLight
+	}
+	return onColorDark
+}
+
+var (
+	// onColorLight/onColorDark — кандидаты для текста поверх акцентной подложки.
+	// Совпадают с токенами OnPrimary обеих палитр.
+	onColorLight = tokLightOnPrimary // белый
+	onColorDark  = tokDarkOnPrimary  // тёмно-синий #10233A
+)

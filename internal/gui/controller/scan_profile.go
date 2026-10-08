@@ -2,10 +2,11 @@ package controller
 
 import (
 	"fmt"
-	"image/color"
 	"strconv"
 	"strings"
 	"time"
+
+	"fyne.io/fyne/v2/theme"
 
 	"network-scanner/internal/network"
 )
@@ -95,7 +96,14 @@ func (c *ScanController) ApplyRecommendedProfile(networkStr string) {
 	badgeClass := c.recommendedBadgeClassForHosts(hosts)
 	if c.ui.RecommendedBadge != nil {
 		c.ui.RecommendedBadge.Text = c.recommendedBadgeText(profileName, badgeClass)
-		c.ui.RecommendedBadge.Color = &color.RGBA{R: 55, G: 130, B: 200, A: 255}
+		// Цвет бейджа берётся из активной темы (C-13): жёсткий #3782C8 давал 3.72:1
+		// и не следовал за вариантом темы. Если тема недоступна — оставляем текущий
+		// цвет вместо подстановки «своего» оттенка.
+		if c.app != nil && c.app.Settings() != nil {
+			if th := c.app.Settings().Theme(); th != nil {
+				c.ui.RecommendedBadge.Color = th.Color(theme.ColorNamePrimary, c.app.Settings().ThemeVariant())
+			}
+		}
 		c.ui.RecommendedBadge.Refresh()
 	}
 	c.RefreshPresetUI()

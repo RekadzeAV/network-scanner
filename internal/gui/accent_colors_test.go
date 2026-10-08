@@ -9,7 +9,8 @@ import (
 
 func TestDefaultAccentColorsLight(t *testing.T) {
 	accent := gui.DefaultAccentColorsLight()
-	expected := color.RGBA{R: 0x00, G: 0x7A, B: 0xFF, A: 0xFF}
+	// macOS Blue (defaultAccentPreset) light primary = tokLightPrimary.
+	expected := color.RGBA{R: 0x0A, G: 0x5F, B: 0xCC, A: 0xFF}
 	if accent.Primary != expected {
 		t.Errorf("Primary = %v, want %v", accent.Primary, expected)
 	}
@@ -17,7 +18,8 @@ func TestDefaultAccentColorsLight(t *testing.T) {
 
 func TestDefaultAccentColorsDark(t *testing.T) {
 	accent := gui.DefaultAccentColorsDark()
-	expected := color.RGBA{R: 0x00, G: 0x78, B: 0xD4, A: 0xFF}
+	// macOS Blue (defaultAccentPreset) dark primary = tokDarkPrimary.
+	expected := color.RGBA{R: 0x6B, G: 0xA8, B: 0xFF, A: 0xFF}
 	if accent.Primary != expected {
 		t.Errorf("Primary = %v, want %v", accent.Primary, expected)
 	}

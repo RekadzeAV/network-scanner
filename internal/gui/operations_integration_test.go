@@ -122,16 +122,13 @@ func TestIntegrationOperationsManager_Cancellation(t *testing.T) {
 	select {
 	case <-cancelled:
 	case <-time.After(2 * time.Second):
-		t.Error("expected operation to be cancelled")
+		t.Fatal("expected operation to be cancelled")
 	}
 
-	op, ok := mgr.Get(id)
-	if !ok {
-		t.Fatal("expected operation to exist")
-	}
-	if op.Status != OperationCanceled {
-		t.Errorf("expected status 'canceled', got %q", op.Status)
-	}
+	// close(cancelled) происходит внутри задачи, то есть до finish() менеджера:
+	// однократное чтение статуса ловило "running" в нагруженном прогоне.
+	// Ждём терминальный статус тем же хелпером, что и остальные тесты менеджера.
+	waitOperationStatus(t, mgr, id, OperationCanceled, 2*time.Second)
 }
 
 func TestIntegrationOperationsManager_Subscribers(t *testing.T) {

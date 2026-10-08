@@ -125,7 +125,7 @@ func (a *App) renderTopologyInteractiveMap(topo *topology.Topology) {
 		linkBtn.Move(fyne.NewPos(midX-42, midY-12))
 		linkBtn.Resize(fyne.NewSize(84, 24))
 		if isSelectedLink {
-			highlight := canvas.NewRectangle(color.RGBA{R: 210, G: 230, B: 255, A: 170})
+			highlight := canvas.NewRectangle(tokTopoLinkHighlight)
 			highlight.CornerRadius = 4
 			highlight.Move(fyne.NewPos(midX-45, midY-14))
 			highlight.Resize(fyne.NewSize(90, 28))
@@ -279,35 +279,41 @@ func linkSummary(l topology.Link) string {
 	)
 }
 
+// colorByConfidence — цвет связи по уверенности. Значения берутся из токенов
+// (theme_tokens.go): «Material»-оттенки #34A853/#FBBC04/#EA4335 не проходили
+// WCAG 1.4.11 (жёлтый на белом фоне давал 1.7:1 при норме >=3:1), поэтому
+// используются затемнённые пары токенов.
 func colorByConfidence(c topology.LinkConfidence) color.Color {
 	switch c {
 	case topology.LinkConfidenceHigh:
-		return color.RGBA{R: 52, G: 168, B: 83, A: 255}
+		return tokTopoConfHigh
 	case topology.LinkConfidenceMedium:
-		return color.RGBA{R: 251, G: 188, B: 4, A: 255}
+		return tokTopoConfMedium
 	default:
-		return color.RGBA{R: 234, G: 67, B: 53, A: 255}
+		return tokTopoConfLow
 	}
 }
 
+// colorByDeviceType — заливка узла графа по типу устройства (токены варианта темы).
 func colorByDeviceType(t topology.DeviceType) color.Color {
 	switch t {
 	case topology.DeviceTypeRouter:
-		return color.RGBA{R: 66, G: 133, B: 244, A: 220}
+		return tokTopoNodeRouter
 	case topology.DeviceTypeSwitch:
-		return color.RGBA{R: 52, G: 168, B: 83, A: 220}
+		return tokTopoNodeSwitch
 	case topology.DeviceTypeHost:
-		return color.RGBA{R: 251, G: 188, B: 4, A: 220}
+		return tokTopoNodeHost
 	default:
-		return color.RGBA{R: 120, G: 120, B: 120, A: 220}
+		return tokTopoNodeOther
 	}
 }
 
+// colorByNodeBorder — обводка узла: выбранная выделяется сильнее обычной.
 func colorByNodeBorder(selected bool) color.Color {
 	if selected {
-		return color.RGBA{R: 0, G: 0, B: 0, A: 255}
+		return tokTopoNodeBorderSelect
 	}
-	return color.RGBA{R: 60, G: 60, B: 60, A: 180}
+	return tokTopoNodeBorder
 }
 
 func (a *App) selectHostByTopologyDevice(d *topology.Device) {

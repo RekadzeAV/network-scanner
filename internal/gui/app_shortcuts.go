@@ -14,7 +14,8 @@ import (
 //	Ctrl+S          -> сохранить (диалог с выбором формата)
 //	Ctrl+F          -> фокус результатов фильтра
 //	Ctrl+L          -> фокус поля сети
-//	Ctrl+1..5       -> переключение вкладок: Scan / Topology / Tools / Security / Inventory
+//	Ctrl+1..3       -> переключение вкладок: Scan / Topology / Tools
+//	Ctrl+4/5        -> подрежимы вкладки Scan: Security / Inventory (вкладок под них нет)
 //	Ctrl+Shift+L    -> сброс расоложения (существует отдельно, не дублировать)
 //
 // Остальное:
@@ -41,8 +42,8 @@ var appShortcutSpecs = []shortcutSpec{
 	{displayComb: "Ctrl+1", label: "Вкладка Сканирование (Ctrl+1)", keyName: fyne.Key1, modifier: fyne.KeyModifierControl},
 	{displayComb: "Ctrl+2", label: "Вкладка Топология (Ctrl+2)", keyName: fyne.Key2, modifier: fyne.KeyModifierControl},
 	{displayComb: "Ctrl+3", label: "Вкладка Инструменты (Ctrl+3)", keyName: fyne.Key3, modifier: fyne.KeyModifierControl},
-	{displayComb: "Ctrl+4", label: "Вкладка Безопасность (Ctrl+4)", keyName: fyne.Key4, modifier: fyne.KeyModifierControl},
-	{displayComb: "Ctrl+5", label: "Вкладка Инвентарь (Ctrl+5)", keyName: fyne.Key5, modifier: fyne.KeyModifierControl},
+	{displayComb: "Ctrl+4", label: "Раздел «Безопасность» (Ctrl+4)", keyName: fyne.Key4, modifier: fyne.KeyModifierControl},
+	{displayComb: "Ctrl+5", label: "Раздел «Инвентарь» (Ctrl+5)", keyName: fyne.Key5, modifier: fyne.KeyModifierControl},
 	{displayComb: "F1", label: "Справка (F1)", keyName: fyne.KeyF1, modifier: 0},
 }
 
@@ -91,9 +92,9 @@ func (a *App) shortcutHandlerFor(displayComb string) func() {
 	case "Ctrl+3":
 		return func() { a.selectTabShortcut(2) }
 	case "Ctrl+4":
-		return func() { a.selectTabShortcut(3) }
+		return func() { a.showResultsSectionShortcut(resultsSubModeSecurity) }
 	case "Ctrl+5":
-		return func() { a.selectTabShortcut(4) }
+		return func() { a.showResultsSectionShortcut(resultsSubModeInventory) }
 	case "F1":
 		return a.showShortcutsDialog
 	default:
@@ -137,7 +138,12 @@ func (a *App) focusNetworkEntryShortcut() {
 	a.myWindow.Canvas().Focus(a.networkEntry)
 }
 
-// selectTabShortcut Ctrl+1..5: выбор вкладки.
+// resultsTabScanIndex — индекс вкладки «Сканирование» в mainTabs (порядок
+// задаётся в init_ui.go). Разделы «Безопасность»/«Инвентарь» — подрежимы именно
+// этой вкладки, поэтому Ctrl+4/Ctrl+5 сначала открывают её.
+const resultsTabScanIndex = 0
+
+// selectTabShortcut Ctrl+1..3: выбор вкладки.
 func (a *App) selectTabShortcut(index int) {
 	if a == nil || a.mainTabs == nil {
 		return
@@ -146,6 +152,29 @@ func (a *App) selectTabShortcut(index int) {
 		return
 	}
 	a.mainTabs.SelectIndex(index)
+}
+
+// showResultsSectionShortcut Ctrl+4/Ctrl+5: разделы «Безопасность» и «Инвентарь».
+// Отдельных вкладок под них нет — это подрежимы вкладки «Сканирование» (N-02),
+// поэтому сочетание открывает вкладку сканирования и переключает подрежим тем же
+// путём, что и клик по радио-переключателю: SetSelected вызывает OnChanged,
+// который сохраняет настройку, перестраивает видимость фильтров и рендер.
+func (a *App) showResultsSectionShortcut(subMode string) {
+	if a == nil {
+		return
+	}
+	subMode = normalizeResultsSubMode(subMode)
+	if subMode == "" {
+		return
+	}
+	a.selectTabShortcut(resultsTabScanIndex)
+	if a.resultsSubModeSel == nil {
+		a.resultsSubMode = subMode
+		return
+	}
+	// RadioGroup.SetSelected молчит, если значение уже выбрано: в этом случае
+	// достаточно открытой вкладки — состояние и вывод уже корректны.
+	a.resultsSubModeSel.SetSelected(subMode)
 }
 
 // showAboutDialog показывает диалог «О программе» с версией приложения.
@@ -173,7 +202,8 @@ func (a *App) showShortcutsDialog() {
 		"  Ctrl+S          — сохранить результаты (выбор формата)\n" +
 		"  Ctrl+F          — фокус фильтра результатов\n" +
 		"  Ctrl+L          — фокус поля сети\n" +
-		"  Ctrl+1..5       — переключение вкладок\n" +
+		"  Ctrl+1..3       — вкладки: Сканирование / Топология / Инструменты\n" +
+		"  Ctrl+4/5        — разделы «Безопасность» / «Инвентарь» на вкладке сканирования\n" +
 		"  Ctrl+Shift+L    — сброс расположения UI\n" +
 		"  F1              — это диалог справки"
 	dialog.ShowInformation("Справка по горячим клавишам", help, a.myWindow)

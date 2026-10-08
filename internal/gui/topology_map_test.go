@@ -287,52 +287,56 @@ func TestLinkSummary_PortNames(t *testing.T) {
 	}
 }
 
-func TestColorByConfidence_High(t *testing.T) {
-	c := colorByConfidence(topology.LinkConfidenceHigh).(color.RGBA)
-	if c.R != 52 || c.G != 168 || c.B != 83 {
-		t.Errorf("expected green, got RGB(%d,%d,%d)", c.R, c.G, c.B)
+// TestTopologyMapColorsComeFromTokens — цвета графа обязаны приходить из
+// токенов theme_tokens.go, а не из литералов: §13 запрещает color.RGBA{...}
+// вне токенов, а «Material»-оттенки не проходили WCAG 1.4.11 (контраст >=3:1).
+func TestTopologyMapColorsComeFromTokens(t *testing.T) {
+	tests := []struct {
+		name string
+		got  color.Color
+		want color.RGBA
+	}{
+		{name: "связь high", got: colorByConfidence(topology.LinkConfidenceHigh), want: tokTopoConfHigh},
+		{name: "связь medium", got: colorByConfidence(topology.LinkConfidenceMedium), want: tokTopoConfMedium},
+		{name: "связь low", got: colorByConfidence(topology.LinkConfidenceLow), want: tokTopoConfLow},
+		{name: "узел router", got: colorByDeviceType(topology.DeviceTypeRouter), want: tokTopoNodeRouter},
+		{name: "узел switch", got: colorByDeviceType(topology.DeviceTypeSwitch), want: tokTopoNodeSwitch},
+		{name: "узел host", got: colorByDeviceType(topology.DeviceTypeHost), want: tokTopoNodeHost},
+		{name: "узел без типа", got: colorByDeviceType(topology.DeviceType("unknown")), want: tokTopoNodeOther},
+		{name: "обводка выбранного", got: colorByNodeBorder(true), want: tokTopoNodeBorderSelect},
+		{name: "обводка обычного", got: colorByNodeBorder(false), want: tokTopoNodeBorder},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := tc.got.(color.RGBA)
+			if !ok {
+				t.Fatalf("цвет не color.RGBA: %T", tc.got)
+			}
+			if got != tc.want {
+				t.Fatalf("цвет = %v, ожидали токен %v", got, tc.want)
+			}
+		})
 	}
 }
 
-func TestColorByDeviceType_Router(t *testing.T) {
-	c := colorByDeviceType(topology.DeviceTypeRouter).(color.RGBA)
-	if c.R != 66 || c.G != 133 || c.B != 244 {
-		t.Errorf("expected blue, got RGB(%d,%d,%d)", c.R, c.G, c.B)
+// TestTopologyMapColorsDistinguishable — состояния различимы не только цветом
+// между собой (WCAG 1.4.1 для набора графических состояний).
+func TestTopologyMapColorsDistinguishable(t *testing.T) {
+	conf := []color.RGBA{tokTopoConfHigh, tokTopoConfMedium, tokTopoConfLow}
+	for i := 0; i < len(conf); i++ {
+		for j := i + 1; j < len(conf); j++ {
+			if conf[i] == conf[j] {
+				t.Fatalf("уверенности %d и %d имеют одинаковый цвет %v", i, j, conf[i])
+			}
+		}
 	}
-}
-
-func TestColorByDeviceType_Switch(t *testing.T) {
-	c := colorByDeviceType(topology.DeviceTypeSwitch).(color.RGBA)
-	if c.R != 52 || c.G != 168 || c.B != 83 {
-		t.Errorf("expected green, got RGB(%d,%d,%d)", c.R, c.G, c.B)
-	}
-}
-
-func TestColorByDeviceType_Host(t *testing.T) {
-	c := colorByDeviceType(topology.DeviceTypeHost).(color.RGBA)
-	if c.R != 251 || c.G != 188 || c.B != 4 {
-		t.Errorf("expected yellow, got RGB(%d,%d,%d)", c.R, c.G, c.B)
-	}
-}
-
-func TestColorByDeviceType_Default(t *testing.T) {
-	c := colorByDeviceType(topology.DeviceType("unknown")).(color.RGBA)
-	if c.R != 120 || c.G != 120 || c.B != 120 {
-		t.Errorf("expected gray, got RGB(%d,%d,%d)", c.R, c.G, c.B)
-	}
-}
-
-func TestColorByNodeBorder_Selected(t *testing.T) {
-	c := colorByNodeBorder(true).(color.RGBA)
-	if c.R != 0 || c.G != 0 || c.B != 0 {
-		t.Errorf("expected black border, got RGB(%d,%d,%d)", c.R, c.G, c.B)
-	}
-}
-
-func TestColorByNodeBorder_NotSelected(t *testing.T) {
-	c := colorByNodeBorder(false).(color.RGBA)
-	if c.R != 60 || c.G != 60 || c.B != 60 {
-		t.Errorf("expected gray border, got RGB(%d,%d,%d)", c.R, c.G, c.B)
+	nodes := []color.RGBA{tokTopoNodeRouter, tokTopoNodeSwitch, tokTopoNodeHost, tokTopoNodeOther}
+	for i := 0; i < len(nodes); i++ {
+		for j := i + 1; j < len(nodes); j++ {
+			if nodes[i] == nodes[j] {
+				t.Fatalf("типы узлов %d и %d имеют одинаковый цвет %v", i, j, nodes[i])
+			}
+		}
 	}
 }
 

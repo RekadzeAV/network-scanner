@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"image"
-	"image/color"
 	"image/png"
 	"math"
 	"network-scanner/internal/builder"
@@ -315,14 +314,9 @@ const (
 )
 
 var (
-	piePalette = []color.RGBA{
-		{R: 37, G: 99, B: 235, A: 255},
-		{R: 59, G: 130, B: 246, A: 255},
-		{R: 14, G: 165, B: 233, A: 255},
-		{R: 57, G: 112, B: 168, A: 255},
-		{R: 168, G: 85, B: 247, A: 255},
-		{R: 71, G: 85, B: 105, A: 255},
-	}
+	// piePalette — серии диаграмм; значения — из палитры theme_tokens.go
+	// (check §13: color.RGBA{...} вне токенов запрещён).
+	piePalette = pieSeries
 )
 
 // createAppIcon создает иконку приложения
@@ -332,8 +326,9 @@ func createAppIcon() fyne.Resource {
 	img := image.NewRGBA(image.Rect(0, 0, 64, 64))
 
 	// Рисуем простую иконку: синий фон с белым символом сети
-	bgColor := color.RGBA{R: 0, G: 100, B: 200, A: 255}
-	iconColor := color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	// (значания — из theme_tokens.go: image-байты иконки не темизируются).
+	bgColor := tokAppIconBackground
+	iconColor := tokAppIconForeground
 
 	for y := 0; y < 64; y++ {
 		for x := 0; x < 64; x++ {
@@ -382,11 +377,10 @@ func createAppIcon() fyne.Resource {
 
 // NewApp создает новый экземпляр GUI приложения
 func NewApp() *App {
-	// Явно устанавливаем scale для корректного отображения на Windows
-	// Это исправляет проблему смещения курсора и наложения элементов
-	// ДОЛЖНО быть вызвано ДО создания app.NewWithID
-	os.Setenv("FYNE_SCALE", "1")
-
+	// Масштаб интерфейса не фиксируется: принудительный FYNE_SCALE=1 делал
+	// GUI физически крошечным на 4K/HiDPI (125–250% DPI) и ломал попадание
+	// курсора по мелким контролам (P0-4). Значение остаётся на усмотрение
+	// пользователя: FYNE_SCALE из окружения или масштаб платформы по умолчанию.
 	myApp := app.NewWithID("network-scanner")
 
 	myWindow := myApp.NewWindow("Network Scanner - Сканер локальной сети")

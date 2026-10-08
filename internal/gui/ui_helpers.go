@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"image/color"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
@@ -123,32 +121,34 @@ func (a *App) setupMainMenu() {
 	helpMenu := fyne.NewMenu("Справка", shortcutsItem, aboutItem)
 	viewMenu := fyne.NewMenu("Вид", resetItem)
 
-	themeItems := []string{"Светлая", "Тёмная", "Системная"}
+	// Пункты меню строятся из (режим, подпись): подписи — только для отображения,
+	// внутри — значения ThemeMode (P0-1).
 	themeMenu := fyne.NewMenu("Тема")
-	for _, item := range themeItems {
-		mode := ThemeMode(item)
-		menuItem := fyne.NewMenuItem(item, func() {
+	for _, entry := range themeModeLabels {
+		mode := entry.mode
+		menuItem := fyne.NewMenuItem(entry.caption, func() {
 			a.applyTheme(mode)
 			a.saveTheme(mode)
+			a.applyThemeToUI()
 			if a.statusLabel != nil {
-				a.statusLabel.SetText("Тема изменена: " + item)
+				a.statusLabel.SetText("Тема изменена: " + themeCaption(mode))
 			}
 		})
-		if string(mode) == string(themeMode) {
+		if mode == themeMode {
 			menuItem.Checked = true
 		}
 		themeMenu.Items = append(themeMenu.Items, menuItem)
 	}
 
+	// Порядок пунктов детерминирован срезом accentPresetOrder, а не обходом map (C-11).
 	accentMenu := fyne.NewMenu("Акцент")
 	currentPreset := a.loadAccentPreset()
-	for name := range PresetThemes {
-		menuItem := fyne.NewMenuItem(name, func(n string) func() {
-			return func() {
-				a.applyAccentPreset(n)
-			}
-		}(name))
-		if name == currentPreset {
+	for _, name := range accentPresetOrder {
+		presetName := name
+		menuItem := fyne.NewMenuItem(presetName, func() {
+			a.applyAccentPreset(presetName)
+		})
+		if presetName == currentPreset {
 			menuItem.Checked = true
 		}
 		accentMenu.Items = append(accentMenu.Items, menuItem)
@@ -237,16 +237,16 @@ func (a *App) loadScanSettings() {
 		if badgeClass := strings.TrimSpace(p.String(prefRecommendedBadgeClass)); badgeClass != "" {
 			if profileName, ok := a.recommendedProfileNameForClass(badgeClass); ok {
 				a.recommendedProfileBadge.Text = a.recommendedBadgeText(profileName, badgeClass)
-				a.recommendedProfileBadge.Color = color.RGBA{R: 55, G: 130, B: 200, A: 255}
+				a.recommendedProfileBadge.Color = themeColorPrimary()
 				a.recommendedProfileBadge.Refresh()
 			} else if badgeText := strings.TrimSpace(p.String(prefRecommendedBadge)); badgeText != "" {
 				a.recommendedProfileBadge.Text = badgeText
-				a.recommendedProfileBadge.Color = color.RGBA{R: 55, G: 130, B: 200, A: 255}
+				a.recommendedProfileBadge.Color = themeColorPrimary()
 				a.recommendedProfileBadge.Refresh()
 			}
 		} else if badgeText := strings.TrimSpace(p.String(prefRecommendedBadge)); badgeText != "" {
 			a.recommendedProfileBadge.Text = badgeText
-			a.recommendedProfileBadge.Color = color.RGBA{R: 55, G: 130, B: 200, A: 255}
+			a.recommendedProfileBadge.Color = themeColorPrimary()
 			a.recommendedProfileBadge.Refresh()
 		}
 	}
@@ -255,8 +255,8 @@ func (a *App) loadScanSettings() {
 		a.resultsMode = viewMode
 		a.resultsModeSel.SetSelected(viewMode)
 	}
-	subMode := strings.TrimSpace(p.String(prefResultsSubMode))
-	if subMode == "Devices" || subMode == "Security" || subMode == "Inventory" {
+	// Whitelist подрежимов — общий с переключателем (resultsSubModeOptions).
+	if subMode := normalizeResultsSubMode(p.String(prefResultsSubMode)); subMode != "" {
 		a.resultsSubMode = subMode
 		if a.resultsSubModeSel != nil {
 			a.resultsSubModeSel.SetSelected(subMode)
@@ -269,10 +269,13 @@ func (a *App) loadScanSettings() {
 		autoSave := strings.TrimSpace(p.String(prefInventoryAutoSave))
 		a.inventoryAutoSaveCheck.SetChecked(autoSave == "" || strings.EqualFold(autoSave, "true"))
 	}
-	sortMode := strings.TrimSpace(p.String(prefSortMode))
-	if sortMode == "IP" || sortMode == "HostName" {
-		a.resultsSort = sortMode
-		a.resultsSortSel.SetSelected(sortMode)
+	// Whitelist режимов сортировки — общий с селектором (resultsSortOptions),
+	// поэтому сохранённый выбор гарантированно восстанавливается.
+	if mode := normalizeResultsSortMode(p.String(prefSortMode)); mode != "" {
+		a.resultsSort = mode
+		if a.resultsSortSel != nil {
+			a.resultsSortSel.SetSelected(mode)
+		}
 	}
 	if v, err := strconv.Atoi(strings.TrimSpace(p.String(prefChipLimit))); err == nil && v > 0 {
 		a.maxPortChips = v
