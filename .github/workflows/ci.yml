@@ -79,6 +79,27 @@ jobs:
       - name: Run govulncheck
         run: govulncheck ./...
 
+  gosec:
+    name: gosec (static security)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      # gosec ставится из github.com/securego/gosec/cmd/gosec и НЕ добавляется
+      # в go.mod проекта (та же политика, что у govulncheck). Настройки —
+      # в .golangci.yml (исключение G304) продублированы через -exclude.
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+      - name: Run gosec
+        run: gosec -exclude-dir=vendor -exclude=G304 ./...
+
   race:
     name: Race detector (M2 gate)
     runs-on: ubuntu-latest

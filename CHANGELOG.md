@@ -7,6 +7,21 @@
 
 ## [Unreleased]
 
+### 2026-10-10: Этап 0 — governance (ветки, шаблоны, безопасность)
+
+- **SECURITY.md:** политика поддерживаемых версий, канал Private Vulnerability
+  Reporting, сроки реакции, scope, best practices для пользователей; ссылка из README.
+- **Шаблоны GitHub:** `.github/ISSUE_TEMPLATE/{bug_report,feature_request}.md`,
+  `.github/PULL_REQUEST_TEMPLATE.md` (тест-план, rollback notes, Conventional Commits).
+- **CI `branch-name.yml`:** job `Branch name check` — ветки должны быть
+  `<type>/<name>` (feature|fix|chore|docs|security|release), прямые коммиты в
+  `main`/`develop`/`master` блокируются.
+- **CI `gosec`:** отдельный job в `ci.yml` (`gosec@latest`, `-exclude=G304` —
+  то же исключение, что в `.golangci.yml`); утилита не попадает в go.mod.
+- **docs/dev/RULESETS.md:** параметры GitHub Rulesets (защита `main`, паттерн
+  имён веток, иммутабельность тегов `v*`) + примеры через `gh api`;
+  CONTRIBUTING дополнен секцией branch naming, BRANCH_PURPOSE — ссылкой.
+
 ### 2026-10-05: GUI-аудит (P0) — единый слой темизации, WCAG AA, HiDPI, сортировка результатов
 
 Правки по мотивам `docs/GUI_DESIGN_RECOMMENDATIONS.md`; статус-реестр вынесен в

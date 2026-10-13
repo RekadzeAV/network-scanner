@@ -1,0 +1,41 @@
+name: Branch name check
+
+# Быстрая проверка имени ветки на PR/push: ветки должны соответствовать модели
+# из docs/dev/BRANCH_PURPOSE.md. Ruleset на GitHub даёт ту же проверку на
+# стороне сервера, но этот job ловит ошибку ещё до merge.
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches:
+      - 'feature/**'
+      - 'fix/**'
+      - 'chore/**'
+      - 'docs/**'
+      - 'security/**'
+      - 'release/**'
+
+permissions:
+  contents: read
+
+jobs:
+  branch-name:
+    name: Branch name check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate branch name
+        run: |
+          BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          echo "Checking branch: $BRANCH"
+          if [[ "$BRANCH" =~ ^(main|develop|master)$ ]]; then
+            echo "::error::Прямые коммиты в $BRANCH запрещены — используйте feature/* ветку и PR"
+            exit 1
+          fi
+          if ! [[ "$BRANCH" =~ ^(feature|fix|chore|docs|security|release)/[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Недопустимое имя ветки '$BRANCH'. Ожидается <type>/<name>, где type ∈ {feature, fix, chore, docs, security, release}"
+            exit 1
+          fi
+          echo "OK: $BRANCH"

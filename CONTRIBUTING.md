@@ -70,6 +70,14 @@ Every PR must:
    - smoke checks from `scripts/`
 4. Update documentation when behavior/API changes.
 
+### Branch naming (enforced by CI)
+
+Branch names must match `<type>/<name>`, where `type` ∈
+`feature | fix | chore | docs | security | release`
+(проверяется job'ом `Branch name check`, `.github/workflows/branch-name.yml`,
+и Ruleset'ом — см. [docs/dev/RULESETS.md](docs/dev/RULESETS.md)).
+Прямые коммиты в `main`/`develop`/`master` блокируются.
+
 ## Naming and style
 
 - Keep package names short and lowercase.

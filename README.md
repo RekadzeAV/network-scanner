@@ -833,6 +833,10 @@ make p3-close-all
 - Все операции пишутся в `--remote-exec-audit-log` (JSONL).
 - CLI/audit маскируют типовые секреты (`password/token/secret/api-key`) в сообщениях и выводе.
 
+### Security
+
+- Помощь по безопасности: [SECURITY.md](SECURITY.md) — **не публикуйте уязвимости в issue**.
+
 ## 📝 Лицензия
 
 Этот проект распространяется под лицензией MIT. См. файл [LICENSE](LICENSE) для подробностей.
