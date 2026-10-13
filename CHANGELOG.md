@@ -7,6 +7,15 @@
 
 ## [Unreleased]
 
+### 2026-10-10: Этап 2 — релиз на GoReleaser
+
+- **`.goreleaser.yaml`:** CLI network-scanner под linux/windows/darwin
+  (amd64+arm64, darwin/amd64 исключён как в прежнем release.yml),
+  `CGO_ENABLED=0`, ldflags `-X main.Version/.GitCommit/.BuildTime`,
+  архивы tar.gz/zip + sha256-checksums; конфиг проверен `goreleaser check`.
+- **`release.yml`:** ручная сборка/bash-релиз заменены `goreleaser-action@v6`
+  (`release --clean`, `fetch-depth: 0`); smoke-тесты `-short` сохранены.
+
 ### 2026-10-10: Этап 0 — governance (ветки, шаблоны, безопасность)
 
 - **SECURITY.md:** политика поддерживаемых версий, канал Private Vulnerability

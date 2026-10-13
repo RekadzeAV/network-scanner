@@ -1,0 +1,68 @@
+# GoReleaser-конфиг для CLI network-scanner (Этап 2).
+#
+# Имена артефактов сохранены совместимыми с прежним release.yml:
+#   network-scanner-<goos>-<goarch>[.exe]
+# GUI намеренно не входит: он требует cgo (Fyne), а релизные артефакты CLI
+# собираются с CGO_ENABLED=0. Сборка GUI покрыта CI-job'ом `build`.
+version: 2
+
+project_name: network-scanner
+
+before:
+  hooks:
+    - go mod tidy -diff
+
+builds:
+  - id: cli
+    main: ./cmd/network-scanner
+    binary: network-scanner
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: darwin
+        goarch: amd64
+    ldflags:
+      - -s -w
+      - -X main.Version={{ .Version }}
+      - -X main.GitCommit={{ .ShortCommit }}
+      - -X main.BuildTime={{ .Date }}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "^Merge pull request"
+      - "^Merge branch"
+
+release:
+  draft: false
+  prerelease: auto
