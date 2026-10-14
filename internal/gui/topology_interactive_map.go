@@ -33,7 +33,17 @@ func (a *App) renderTopologyInteractiveMap(topo *topology.Topology) {
 	}
 	if topo == nil || len(topo.Devices) == 0 {
 		a.topologyGraphBox.Objects = []fyne.CanvasObject{
-			widget.NewLabel("Нет данных для интерактивной карты"),
+			buildResultsEmptyState(
+				"Нет данных топологии",
+				"Сначала выполните сканирование, затем нажмите «Построить топологию».",
+				iconTopology(),
+				"Построить топологию",
+				func() {
+					if a.topoCtrl != nil {
+						a.topoCtrl.BuildTopology(a.scanResults, a.myWindow)
+					}
+				},
+			),
 		}
 		a.topologyGraphBox.Refresh()
 		a.topologyGraphStatus.SetText("Интерактивная карта: нет устройств")
@@ -112,6 +122,24 @@ func (a *App) renderTopologyInteractiveMap(topo *topology.Topology) {
 		isSelectedLink := strings.TrimSpace(a.topologyViewState.selectedLinkKey) == strings.TrimSpace(linkKey)
 		midX := (p1.X + p2.X) / 2
 		midY := (p1.Y + p2.Y) / 2
+
+		// H-02: невидимый hit-area прямоугольник 12px ширины вдоль связи
+		// для более удобного попадания курсором (WCAG 2.5.8 minimum target).
+		hitPos, hitSize := linkHitAreaSize(p1, p2, 12)
+		hitRect := newLinkHitArea(p1, p2, 12, func() {
+			a.topologyViewState.selectedLinkKey = linkKey
+			a.topologyViewState.selectedNodeKey = sourceKey
+			a.topologyGraphStatus.SetText(fmt.Sprintf("Связь: %s", linkSummary(l)))
+			a.topologyGraphStatus.Refresh()
+			if l.Source != nil {
+				a.selectHostByTopologyDevice(l.Source)
+			}
+			a.renderTopologyInteractiveMap(topo)
+		})
+		hitRect.Move(hitPos)
+		hitRect.Resize(hitSize)
+		objects = append(objects, hitRect)
+
 		linkBtn := widget.NewButton(linkBadge(l), func() {
 			a.topologyViewState.selectedLinkKey = linkKey
 			a.topologyViewState.selectedNodeKey = sourceKey
@@ -141,23 +169,26 @@ func (a *App) renderTopologyInteractiveMap(topo *topology.Topology) {
 		}
 		p := nodePos[key]
 		nodeColor := colorByDeviceType(dev.Type)
-		circle := canvas.NewCircle(nodeColor)
-		circle.StrokeColor = colorByNodeBorder(key == a.topologyViewState.selectedNodeKey)
-		circle.StrokeWidth = 2
-		circle.Resize(fyne.NewSize(20, 20))
-		circle.Move(fyne.NewPos(p.X-10, p.Y-10))
-		objects = append(objects, circle)
+		isSelected := key == a.topologyViewState.selectedNodeKey
+
+		nodeKey := key
+		nodeDev := dev
+		onTap := func() {
+			a.topologyViewState.selectedNodeKey = nodeKey
+			a.topologyGraphStatus.SetText(fmt.Sprintf("Выбран узел: %s", topoDisplayName(nodeDev)))
+			a.topologyGraphStatus.Refresh()
+			a.selectHostByTopologyDevice(nodeDev)
+			a.renderTopologyInteractiveMap(topo)
+		}
+
+		tn := newTappableNode(nodeColor, colorByNodeBorder(isSelected), 2, 10, 14, onTap)
+		tn.Move(fyne.NewPos(p.X-14, p.Y-14))
+		objects = append(objects, tn)
 
 		display := truncateString(topoDisplayName(dev), 24)
-		btn := widget.NewButton(display, func() {
-			a.topologyViewState.selectedNodeKey = key
-			a.topologyGraphStatus.SetText(fmt.Sprintf("Выбран узел: %s", topoDisplayName(dev)))
-			a.topologyGraphStatus.Refresh()
-			a.selectHostByTopologyDevice(dev)
-			a.renderTopologyInteractiveMap(topo)
-		})
+		btn := widget.NewButton(display, onTap)
 		btn.Resize(fyne.NewSize(190, 32))
-		btn.Move(fyne.NewPos(p.X-95, p.Y+12))
+		btn.Move(fyne.NewPos(p.X-95, p.Y+16))
 		objects = append(objects, btn)
 	}
 
