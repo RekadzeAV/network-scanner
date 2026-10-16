@@ -105,6 +105,21 @@ func RunScan(cfg builder.Config, args ...string) error {
 		}
 	}
 
+	// Валидация legacy-флагов перед автоопределением сети и
+	// созданием контейнера/сервиса (чтобы «жадные» значения не ушли в сканер).
+	if err := validateScanCIDR(networkCIDR); err != nil {
+		return err
+	}
+	if err := validateScanPortRange(portRange); err != nil {
+		return err
+	}
+	if err := validateScanTimeoutSeconds("--timeout", timeout); err != nil {
+		return err
+	}
+	if err := validateScanThreads("--threads", threads); err != nil {
+		return err
+	}
+
 	// Автоопределение сети или чтение из файла
 	var targets []string
 	var err error
