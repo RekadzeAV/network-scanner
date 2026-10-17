@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/png"
 	"math"
 	"sort"
@@ -71,14 +72,11 @@ func (a *App) buildPieChart(title string, data map[string]int) fyne.CanvasObject
 		}
 	}
 
-	img := image.NewRGBA(image.Rect(0, 0, 260, 260))
-	// Фон диаграммы берётся из палитры активного варианта темы.
+	// P-02: draw.Draw с uniform цветом вместо вложенного цикла (67600 → 1 вызов).
+	const pieSize = 260
+	img := image.NewRGBA(image.Rect(0, 0, pieSize, pieSize))
 	pieBg := paletteSurface(a.currentThemeIsDark())
-	for y := 0; y < 260; y++ {
-		for x := 0; x < 260; x++ {
-			img.Set(x, y, pieBg)
-		}
-	}
+	draw.Draw(img, img.Bounds(), &image.Uniform{C: pieBg}, image.Point{}, draw.Src)
 
 	total := 0
 	type statItem struct {
@@ -100,26 +98,43 @@ func (a *App) buildPieChart(title string, data map[string]int) fyne.CanvasObject
 		return items[i].key < items[j].key
 	})
 	if total > 0 {
-		start := -math.Pi / 2
-		cx, cy, radius := 130.0, 130.0, 96.0
+		// P-02: один проход по пикселям вместо O(N·260²) вложенных циклов.
+		// Для каждого пикселя вычисляем угол и выбираем сектор через бинарный поиск.
+		cx, cy, radius := float64(pieSize)/2, float64(pieSize)/2, float64(pieSize)*0.37
+		radius2 := radius * radius
+		// Границы секторов (кумулятивные доли).
+		bounds := make([]float64, len(items))
+		cum := 0.0
 		for i, item := range items {
-			portion := float64(item.value) / float64(total)
-			end := start + portion*2*math.Pi
-			for y := 0; y < 260; y++ {
-				for x := 0; x < 260; x++ {
-					dx := float64(x) - cx
-					dy := float64(y) - cy
-					distance := math.Sqrt(dx*dx + dy*dy)
-					if distance > radius {
-						continue
-					}
-					angle := math.Atan2(dy, dx)
-					if angleInSector(angle, start, end) {
-						img.Set(x, y, piePalette[i%len(piePalette)])
+			cum += float64(item.value) / float64(total)
+			bounds[i] = cum
+		}
+		for y := 0; y < pieSize; y++ {
+			for x := 0; x < pieSize; x++ {
+				dx := float64(x) - cx
+				dy := float64(y) - cy
+				if dx*dx+dy*dy > radius2 {
+					continue
+				}
+				// Нормализуем угол в [0, 2π).
+				angle := math.Atan2(dy, dx) + math.Pi/2
+				if angle < 0 {
+					angle += 2 * math.Pi
+				}
+				// Доля окружности (0..1).
+				frac := angle / (2 * math.Pi)
+				// Бинарный поиск сектора.
+				lo, hi := 0, len(bounds)-1
+				for lo < hi {
+					mid := (lo + hi) / 2
+					if frac >= bounds[mid] {
+						lo = mid + 1
+					} else {
+						hi = mid
 					}
 				}
+				img.Set(x, y, piePalette[lo%len(piePalette)])
 			}
-			start = end
 		}
 	}
 

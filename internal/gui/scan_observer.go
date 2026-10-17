@@ -36,9 +36,7 @@ func (a *App) ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeo
 					if a.statusLabel != nil {
 						a.statusLabel.SetText("Таймаут сканирования")
 					}
-					if a.resultsStateLabel != nil {
-						a.resultsStateLabel.SetText(resultsStateTimeout)
-					}
+					a.setResultsState(resultsStateTimeout, -1)
 					if a.stageLabel != nil {
 						a.stageLabel.Hide()
 					}
@@ -82,9 +80,7 @@ func (a *App) ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeo
 						if a.statusLabel != nil {
 							a.statusLabel.SetText(fmt.Sprintf("Сканирование завершено за %v. Найдено устройств: %d", time.Since(startTime), len(ev.Results)))
 						}
-						if a.resultsStateLabel != nil {
-							a.resultsStateLabel.SetText(resultsStateDone)
-						}
+						a.setResultsState(resultsStateDone, len(ev.Results))
 						if a.stageLabel != nil {
 							a.stageLabel.Hide()
 						}

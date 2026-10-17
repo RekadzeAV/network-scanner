@@ -76,9 +76,9 @@ func (a *App) refreshAutoProfileStateLabel() {
 	a.autoProfileStateText.Refresh()
 }
 
-// buildToolCard создаёт визуальную карточку-секцию для панели инструментов:
-// заголовок с иконкой, разделитель и содержимое. Упрощает восприятие панели,
-// группируя параметры по категориям.
+// buildToolCard создаёт визуальную карточку-секцию для панели инструментов.
+// P2-1: настоящий компонент карточки с фоном surface, рамкой border-subtle,
+// отступом из токенов, заголовком с иконкой.
 func (a *App) buildToolCard(title string, icon fyne.Resource, content fyne.CanvasObject) fyne.CanvasObject {
 	header := container.NewHBox(
 		widget.NewLabelWithStyle(title, fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
@@ -86,12 +86,8 @@ func (a *App) buildToolCard(title string, icon fyne.Resource, content fyne.Canva
 	if icon != nil {
 		header = container.NewHBox(widget.NewIcon(icon), header.Objects[0])
 	}
-	return container.NewVBox(
-		header,
-		widget.NewSeparator(),
-		content,
-		widget.NewSeparator(),
-	)
+	card := widget.NewCard("", "", container.NewVBox(header, content))
+	return card
 }
 
 // setupMainMenu создаёт главное меню приложения.
@@ -101,11 +97,20 @@ func (a *App) setupMainMenu() {
 	}
 	themeMode := a.loadTheme()
 	a.applyTheme(themeMode)
+	// T-02: применяем сохранённую плотность к активной теме.
+	if d := a.loadDensity(); d != DensityComfortable {
+		if mt := a.currentModernTheme(); mt != nil {
+			mt.SetDensity(d)
+			a.myApp.Settings().SetTheme(mt)
+		}
+	}
 	// Перерисовка под активный вариант темы (светлый/тёмный) — background
 	// чипов/строк/диаграмм задаются в коде рендера, а не через тему Fyne.
 	a.scheduleResultsRender(true)
 
-	resetItem := fyne.NewMenuItem("Сбросить расположение панелей (Ctrl+Shift+L)", func() {
+	// N-04: лексика пункта меню совпадает с кнопкой тулбара («Сброс панелей»),
+	// чтобы одно и то же действие не называлось по-разному в двух местах.
+	resetItem := fyne.NewMenuItem("Сброс панелей (Ctrl+Shift+L)", func() {
 		a.settingsMgr.ResetUIPanelLayoutWithFeedback(a.scanTabMainSplit, a.topologyMainSplit, a.toolsTabMainSplit, a.myWindow)
 	})
 	resetItem.Icon = iconRestore()
@@ -121,8 +126,25 @@ func (a *App) setupMainMenu() {
 	helpMenu := fyne.NewMenu("Справка", shortcutsItem, aboutItem)
 	viewMenu := fyne.NewMenu("Вид", resetItem)
 
+	// T-02: переключатель плотности в меню «Вид».
+	currentDensity := DensityComfortable
+	if mt := a.currentModernTheme(); mt != nil {
+		currentDensity = mt.CurrentDensity()
+	}
+	densityCompactItem := fyne.NewMenuItem("Компактная компоновка", func() {
+		a.applyDensity(DensityCompact)
+	})
+	densityCompactItem.Icon = iconSettings()
+	densityCompactItem.Checked = currentDensity == DensityCompact
+	densityComfortableItem := fyne.NewMenuItem("Обычная компоновка", func() {
+		a.applyDensity(DensityComfortable)
+	})
+	densityComfortableItem.Icon = iconSettings()
+	densityComfortableItem.Checked = currentDensity == DensityComfortable
+	viewMenu.Items = append(viewMenu.Items, densityCompactItem, densityComfortableItem)
+
 	// Пункты меню строятся из (режим, подпись): подписи — только для отображения,
-	// внутри — значения ThemeMode (P0-1).
+	// внутри — значения ThemeMode (P0-1). C-15: иконки заданы для всех пунктов.
 	themeMenu := fyne.NewMenu("Тема")
 	for _, entry := range themeModeLabels {
 		mode := entry.mode
@@ -134,6 +156,7 @@ func (a *App) setupMainMenu() {
 				a.statusLabel.SetText("Тема изменена: " + themeCaption(mode))
 			}
 		})
+		menuItem.Icon = iconPalette()
 		if mode == themeMode {
 			menuItem.Checked = true
 		}
@@ -141,6 +164,7 @@ func (a *App) setupMainMenu() {
 	}
 
 	// Порядок пунктов детерминирован срезом accentPresetOrder, а не обходом map (C-11).
+	// C-15: иконка для каждого пункта акцента.
 	accentMenu := fyne.NewMenu("Акцент")
 	currentPreset := a.loadAccentPreset()
 	for _, name := range accentPresetOrder {
@@ -148,6 +172,7 @@ func (a *App) setupMainMenu() {
 		menuItem := fyne.NewMenuItem(presetName, func() {
 			a.applyAccentPreset(presetName)
 		})
+		menuItem.Icon = iconAccent()
 		if presetName == currentPreset {
 			menuItem.Checked = true
 		}
@@ -277,6 +302,8 @@ func (a *App) loadScanSettings() {
 			a.resultsSortSel.SetSelected(mode)
 		}
 	}
+	// R-03: направление сортировки; по умолчанию (нет настройки) — возрастание.
+	a.resultsSortDesc = strings.EqualFold(strings.TrimSpace(p.String(prefSortAsc)), "false")
 	if v, err := strconv.Atoi(strings.TrimSpace(p.String(prefChipLimit))); err == nil && v > 0 {
 		a.maxPortChips = v
 		if a.chipLimitSel != nil {

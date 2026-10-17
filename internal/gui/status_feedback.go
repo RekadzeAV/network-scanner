@@ -26,11 +26,22 @@ func (a *App) setStatus(text string) {
 // setStatusToast показывает временное уведомление в статус-баре: сообщение
 // отображается с маркером "✓ ", через 4 секунды статус возвращается к дефолту.
 func (a *App) setStatusToast(text string) {
+	a.setStatusToastWithMarker("✓ ", text)
+}
+
+// setStatusErrorToast показывает временную ошибку в статус-баре с маркером "✗ ".
+// Через statusToastDuration статус возвращается к дефолту (S-04).
+func (a *App) setStatusErrorToast(text string) {
+	a.setStatusToastWithMarker("✗ ", text)
+}
+
+// setStatusToastWithMarker — общий механизм тоста с произвольным маркером.
+func (a *App) setStatusToastWithMarker(marker, text string) {
 	if a == nil || a.statusLabel == nil {
 		return
 	}
 	a.cancelStatusToast()
-	a.statusLabel.SetText("✓ " + text)
+	a.statusLabel.SetText(marker + text)
 	a.statusToastTimerMu.Lock()
 	a.statusToastTimer = time.AfterFunc(statusToastDuration, func() {
 		fyne.Do(func() {

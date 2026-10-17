@@ -33,7 +33,7 @@ func (a *App) filteredSortedResults() []scanner.Result {
 		a.onlyWithOpenPorts,
 	)
 	out := a.applyAdvancedFilters(base)
-	sorted := sortedResultsForDisplayWithMode(out, a.resultsSort)
+	sorted := sortedResultsForDisplayWithModeDir(out, a.resultsSort, a.resultsSortDesc)
 	a.resultsPipelineCacheMu.Lock()
 	a.resultsPipelineCacheKey = cacheKey
 	a.resultsPipelineCacheData = sorted
@@ -67,6 +67,7 @@ func (a *App) buildResultsPipelineCacheKey() string {
 		strconv.FormatUint(a.scanResultsVersion, 10),
 		strings.TrimSpace(a.resultsFilterQuery),
 		strings.TrimSpace(a.resultsSort),
+		strconv.FormatBool(a.resultsSortDesc),
 		strings.TrimSpace(a.resultsPortStateMode),
 		strconv.FormatBool(a.onlyWithOpenPorts),
 	}

@@ -49,6 +49,8 @@ func (a *App) setScanResults(results []scanner.Result) {
 	a.scanResults = results
 	a.scanResultsVersion++
 	a.invalidateResultsPipelineCache()
+	// P-03: инвалидация кэша ячеек при смене данных (не при смене сортировки).
+	a.resultsCellCache.invalidate()
 }
 
 // snapshotScannerResults копирует срез сканера вместе со слайсами портов:

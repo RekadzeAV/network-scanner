@@ -34,15 +34,20 @@ func validateIntField(value string, minV, maxV int) error {
 
 // makeValidatedEntry оборачивает entry в VBox с сообщением валидации.
 // Возвращает контейнер и текст-лейбл для показа/скрытия ошибки.
+// T-03/C-12: размер — основной текст темы, а не Caption (11 px): сообщение
+// об ошибке — критичное, оно не должно мельчать на фоне поля ввода.
+// (canvas.Text в Fyne v2.7.1 не поддерживает перенос/усечение — текст
+// сообщения остаётся коротким по построению в configvalidation.)
 func makeValidatedEntry(entry *widget.Entry) (*fyne.Container, *canvas.Text) {
 	msg := canvas.NewText("", themeColorError())
-	msg.TextSize = 11
+	msg.TextSize = theme.TextSize()
 	msg.Hide()
 	box := container.NewVBox(entry, msg)
 	return box, msg
 }
 
 // showFieldError показывает ошибку под полем или скрывает её (err == nil).
+// S-05: устанавливает tooltip с текстом ошибки для скринридеров.
 func showFieldError(msg *canvas.Text, err error) {
 	if msg == nil {
 		return
@@ -60,6 +65,7 @@ func showFieldError(msg *canvas.Text, err error) {
 
 // showFieldErrorDelayed безопасно вызывает showFieldError из UI-колбэков
 // (nil-безопасно по msg).
+// S-05: устанавливает tooltip с текстом ошибки для скринридеров.
 func (a *App) showFieldErrorDelayed(msg *canvas.Text, err error) {
 	showFieldError(msg, err)
 }

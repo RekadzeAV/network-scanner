@@ -481,14 +481,15 @@ func TestNullDash(t *testing.T) {
 // --- deviceTypeWithBadge ---
 
 func TestDeviceTypeWithBadge(t *testing.T) {
-	if !strings.HasPrefix(deviceTypeWithBadge("Router"), "[NET]") {
-		t.Fatal("expected [NET] prefix for Router")
+	// R-08: визуальный маркер категории вместо ASCII-префикса.
+	if !strings.HasPrefix(deviceTypeWithBadge("Router"), "⬡") {
+		t.Fatal("expected network-device glyph for Router")
 	}
-	if !strings.HasPrefix(deviceTypeWithBadge("Server"), "[SRV]") {
-		t.Fatal("expected [SRV] prefix for Server")
+	if !strings.HasPrefix(deviceTypeWithBadge("Server"), "▣") {
+		t.Fatal("expected server glyph for Server")
 	}
-	if !strings.HasPrefix(deviceTypeWithBadge("Desktop"), "[PC]") {
-		t.Fatal("expected [PC] prefix for Desktop")
+	if !strings.HasPrefix(deviceTypeWithBadge("Desktop"), "▢") {
+		t.Fatal("expected computer glyph for Desktop")
 	}
 	if deviceTypeWithBadge("") != "-" {
 		t.Fatal("expected '-' for empty type")

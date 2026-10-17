@@ -15,6 +15,7 @@ const (
 	ThemeModeDark   ThemeMode = "dark"
 	ThemeModeSystem ThemeMode = "system"
 	prefThemeMode             = "gui.theme.mode"
+	prefDensity               = "gui.theme.density"
 )
 
 // themeModeLabels — подписи пунктов меню «Тема» и соответствующие им режимы.
@@ -158,4 +159,57 @@ func currentThemeIsDark() bool {
 		return app.Settings().ThemeVariant() == theme.VariantDark
 	}
 	return false
+}
+
+// currentModernTheme возвращает активную ModernTheme из настроек Fyne.
+func (a *App) currentModernTheme() *ModernTheme {
+	if a == nil || a.myApp == nil || a.myApp.Settings() == nil {
+		return nil
+	}
+	if mt, ok := a.myApp.Settings().Theme().(*ModernTheme); ok {
+		return mt
+	}
+	return nil
+}
+
+// applyDensity меняет плотность интерфейса (T-02).
+// Обновляет тему, инвалидирует кэши и перерисовывает UI.
+func (a *App) applyDensity(d Density) {
+	if a == nil || a.myApp == nil || a.myApp.Settings() == nil {
+		return
+	}
+	mt := a.currentModernTheme()
+	if mt == nil {
+		return
+	}
+	mt.SetDensity(d)
+	// Сохраняем в preferences.
+	a.myApp.Preferences().SetString(prefDensity, d.String())
+	// Применяем тему заново, чтобы Fyne перечитал размеры.
+	a.myApp.Settings().SetTheme(mt)
+	// Инвалидируем кэши, зависящие от размеров.
+	if a.resultsCellCache != nil {
+		a.resultsCellCache.invalidate()
+	}
+	if a.pieChartCache != nil {
+		a.pieChartCache = make(map[string]fyne.Resource)
+	}
+	// Перерисовываем UI.
+	a.applyThemeToUI()
+	a.scheduleResultsRender(true)
+	if a.statusLabel != nil {
+		a.setStatusToast("Плотность: " + d.String())
+	}
+}
+
+// loadDensity читает плотность из preferences.
+func (a *App) loadDensity() Density {
+	if a == nil || a.myApp == nil {
+		return DensityComfortable
+	}
+	v := strings.TrimSpace(a.myApp.Preferences().String(prefDensity))
+	if v == DensityCompact.String() {
+		return DensityCompact
+	}
+	return DensityComfortable
 }

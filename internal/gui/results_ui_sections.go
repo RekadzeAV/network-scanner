@@ -19,6 +19,7 @@ func (a *App) initResultsStateAndWidgets() {
 	a.resultsMode = "Таблица"
 	a.resultsSubMode = resultsSubModeDevices
 	a.resultsSort = resultsSortByIP
+	a.resultsSortDesc = false
 	a.maxPortChips = 24
 	a.cardsVisibleCount = 200
 	a.showRawBanners = false
@@ -27,15 +28,24 @@ func (a *App) initResultsStateAndWidgets() {
 	a.resultsBody = container.NewStack(widget.NewLabel("Результаты сканирования появятся здесь после запуска."))
 }
 
-// Подрежимы вкладки «Сканирование»: Devices / Security / Inventory. Значения
-// хранятся в настройках (prefResultsSubMode) и являются опциями радио-переключателя,
-// поэтому список, whitelist восстановления и обработчики Ctrl+4/Ctrl+5 не могут
-// разойтись (по той же схеме, что и режимы сортировки).
+// Подрежимы вкладки «Сканирование»: Устройства / Безопасность / Инвентарь.
+// Значения хранятся в настройках (prefResultsSubMode) и являются опциями
+// радио-переключателя, поэтому список, whitelist восстановления и обработчики
+// Ctrl+4/Ctrl+5 не могут разойтись (по той же схеме, что и режимы сортировки).
+// P2-7: подписи на русском; старые английские значения принимаются через
+// normalizeResultsSubMode для совместимости с существующими preferences.
 const (
-	resultsSubModeDevices   = "Devices"
-	resultsSubModeSecurity  = "Security"
-	resultsSubModeInventory = "Inventory"
+	resultsSubModeDevices   = "Устройства"
+	resultsSubModeSecurity  = "Безопасность"
+	resultsSubModeInventory = "Инвентарь"
 )
+
+// legacySubModeLabels — старые английские подписи для миграции preferences.
+var legacySubModeLabels = map[string]string{
+	"Devices":   resultsSubModeDevices,
+	"Security":  resultsSubModeSecurity,
+	"Inventory": resultsSubModeInventory,
+}
 
 // resultsSubModeOptions — опции переключателя подрежимов в порядке отображения.
 var resultsSubModeOptions = []string{
@@ -44,12 +54,16 @@ var resultsSubModeOptions = []string{
 
 // normalizeResultsSubMode приводит значение из виджета или настроек к известному
 // подрежиму; пустое и неизвестное значение даёт "" — вызывающий сохраняет текущий.
+// P2-7: поддерживает старые английские значения для миграции preferences.
 func normalizeResultsSubMode(value string) string {
 	v := strings.TrimSpace(value)
 	for _, opt := range resultsSubModeOptions {
 		if v == opt {
 			return v
 		}
+	}
+	if mapped, ok := legacySubModeLabels[v]; ok {
+		return mapped
 	}
 	return ""
 }
@@ -85,14 +99,14 @@ func (a *App) initResultsModeAndInventoryWidgets() {
 			a.renderScanResultsView()
 		}
 	})
-	a.inventoryScanASelect.PlaceHolder = "Snapshot A"
+	a.inventoryScanASelect.PlaceHolder = "Снимок A"
 	a.inventoryScanBSelect = widget.NewSelect([]string{}, func(string) {
 		if a.resultsSubMode == resultsSubModeInventory {
 			a.renderScanResultsView()
 		}
 	})
-	a.inventoryScanBSelect.PlaceHolder = "Snapshot B"
-	a.inventoryStatusLabel = widget.NewLabel("Инвентаризация: выберите режим Inventory")
+	a.inventoryScanBSelect.PlaceHolder = "Снимок B"
+	a.inventoryStatusLabel = widget.NewLabel("Инвентаризация: выберите режим «Инвентарь»")
 	a.inventoryStatusLabel.Wrapping = fyne.TextWrapWord
 	a.inventoryRefreshBtn = widget.NewButtonWithIcon("Обновить список снапшотов", iconRefresh(), func() {
 		a.refreshInventorySnapshots()
@@ -107,13 +121,19 @@ func (a *App) initResultsModeAndInventoryWidgets() {
 // initResultsFilterWidgets создаёт виджеты фильтрации и сортировки результатов.
 func (a *App) initResultsFilterWidgets() {
 	a.resultsSortSel = widget.NewSelect(resultsSortOptions, func(value string) {
+		prev := normalizeResultsSortMode(a.resultsSort)
 		a.resultsSort = resolveResultsSortMode(a.resultsSort, value)
+		// Смена режима через селектор сбрасывает направление на возрастание
+		// (R-03); повторный выбор того же режима направление сохраняет.
+		if normalizeResultsSortMode(a.resultsSort) != prev {
+			a.resultsSortDesc = false
+		}
 		a.saveResultsViewSettings()
 		a.scheduleResultsRender(false)
 	})
 	a.resultsSortSel.SetSelected(a.resultsSort)
 	a.resultsFilterEnt = widget.NewEntry()
-	a.resultsFilterEnt.SetPlaceHolder("Фильтр: HostName/IP/MAC/тип")
+	a.resultsFilterEnt.SetPlaceHolder("Фильтр: Имя/IP/MAC/тип")
 	a.resultsFilterEnt.OnChanged = func(value string) {
 		a.resultsFilterQuery = strings.TrimSpace(value)
 		a.saveResultsViewSettings()
@@ -161,6 +181,9 @@ func (a *App) initResultsFilterWidgets() {
 func (a *App) initResultsPresetWidgets() {
 	a.filtersInfoLabel = widget.NewLabel("Активных фильтров: 0")
 	a.filtersInfoLabel.Truncation = fyne.TextTruncateClip
+	// R-09: счётчик строк «Показано X из Y» в шапке области результатов.
+	a.resultsCountLabel = widget.NewLabel("Строк: 0")
+	a.resultsCountLabel.TextStyle = fyne.TextStyle{Bold: true}
 	a.resultsPerfLabel = widget.NewLabel("Рендер: n/a")
 	a.resultsPerfLabel.Truncation = fyne.TextTruncateClip
 	a.filterPresetSel = widget.NewSelect([]string{"1", "2", "3"}, nil)
@@ -173,10 +196,21 @@ func (a *App) initResultsPresetWidgets() {
 	})
 	a.quickTypeChecks = map[string]*widget.Check{}
 	typeKeys := []string{"Network Device", "Computer", "Server", "Unknown"}
+	// N-09: внутренние ключи типов — английские (совпадают с DeviceType из
+	// сканера), подписи чекбоксов — русские.
+	typeLabels := map[string]string{
+		"Network Device": "Сетевое устройство",
+		"Computer":       "Компьютер",
+		"Server":         "Сервер",
+		"Unknown":        "Неизвестно",
+	}
 	a.quickTypeCheckRow = make([]fyne.CanvasObject, 0, len(typeKeys)+2)
 	a.quickTypeCheckRow = append(a.quickTypeCheckRow, widget.NewLabel("Быстрые фильтры:"))
 	for _, key := range typeKeys {
 		label := key
+		if l, ok := typeLabels[key]; ok {
+			label = l
+		}
 		ch := widget.NewCheck(label, func(_ bool) {
 			a.saveResultsViewSettings()
 			a.scheduleResultsRender(false)
@@ -243,6 +277,8 @@ func (a *App) buildResultsLayout() *fyne.Container {
 
 	resultsLabel := widget.NewLabel("Результаты сканирования:")
 	resultsLabel.TextStyle = fyne.TextStyle{Bold: true}
+	// R-09: заголовок области результатов со счётчиком строк.
+	resultsHeaderRow := container.NewBorder(nil, nil, resultsLabel, a.resultsCountLabel, nil)
 	separator := widget.NewSeparator()
 
 	a.resultsDiagnosticsGrid = container.NewGridWithColumns(3, a.diagnosticsLabel, a.copyDiagnosticsBtn, a.saveDiagnosticsBtn)
@@ -267,6 +303,11 @@ func (a *App) buildResultsLayout() *fyne.Container {
 		a.applyFilterPresetBtn,
 	)
 
+	// N-01: переключатель подрежимов — в заголовке результатов (над сворачиваемыми
+	// фильтрами), чтобы в режиме Inventory (фильтры скрыты) оставался виден.
+	resultsSubModeRow := container.NewBorder(nil, nil,
+		widget.NewLabel("Вид:"), nil, a.resultsSubModeSel)
+
 	// Секция фильтров (Accordion, R2): режим отображения, сортировка, CIDR/
 	// состояние портов, пресеты, быстрые фильтры, настройки Inventory.
 	// Внутри «Фильтры и режимы отображения» остаётся быстрый текстовый фильтр
@@ -277,7 +318,7 @@ func (a *App) buildResultsLayout() *fyne.Container {
 		a.resultsCidrGrid,
 		a.resultsPresetGrid,
 		container.NewHBox(a.quickTypeCheckRow...),
-		container.NewGridWithColumns(2, widget.NewLabel("Inventory DB:"), a.inventoryDBEntry),
+		container.NewGridWithColumns(2, widget.NewLabel("БД Inventory:"), a.inventoryDBEntry),
 		container.NewGridWithColumns(2, a.inventoryAutoSaveCheck, a.inventoryRefreshBtn),
 	)
 	a.resultsFiltersAccordion = widget.NewAccordion(
@@ -291,11 +332,12 @@ func (a *App) buildResultsLayout() *fyne.Container {
 	resultsContainer := container.NewBorder(
 		container.NewVBox(
 			separator,
-			resultsLabel,
+			resultsHeaderRow,
+			// N-01: переключатель «Вид» — сразу под заголовком, виден и в Inventory.
+			resultsSubModeRow,
 			a.resultsStateLabel,
 			a.autoProfileHeaderLabel,
 			a.resultsDiagnosticsGrid,
-			container.NewGridWithColumns(2, widget.NewLabel("Подрежим:"), a.resultsSubModeSel),
 			a.resultsFiltersAccordion,
 			container.NewBorder(
 				nil, nil,

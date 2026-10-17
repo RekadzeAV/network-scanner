@@ -51,7 +51,8 @@ func (c *ResultsController) LoadSettings() {
 		}
 	}
 	subMode := p.String("scan.results_submode")
-	if subMode == "Devices" || subMode == "Security" || subMode == "Inventory" {
+	if subMode == "Devices" || subMode == "Security" || subMode == "Inventory" ||
+		subMode == "Устройства" || subMode == "Безопасность" || subMode == "Инвентарь" {
 		if c.ui.ResultsSubModeSel != nil {
 			c.ui.ResultsSubModeSel.SetSelected(subMode)
 		}

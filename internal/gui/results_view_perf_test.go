@@ -31,9 +31,20 @@ func TestBuildCardsViewLimitsVisibleItems(t *testing.T) {
 	if got := list.Length(); got != 2 {
 		t.Fatalf("expected 2 visible cards, got %d", got)
 	}
-	loadBtn, ok := border.Objects[1].(*widget.Button)
+	// R-12: нижний слот — HBox(кнопка «Показать еще» + счётчик «Показано X из Y»).
+	bottomBox, ok := border.Objects[1].(*fyne.Container)
 	if !ok {
-		t.Fatalf("expected load-more button in bottom slot, got %T", border.Objects[1])
+		t.Fatalf("expected bottom container slot, got %T", border.Objects[1])
+	}
+	var loadBtn *widget.Button
+	for _, obj := range bottomBox.Objects {
+		if b, isBtn := obj.(*widget.Button); isBtn {
+			loadBtn = b
+			break
+		}
+	}
+	if loadBtn == nil {
+		t.Fatalf("expected load-more button in bottom slot")
 	}
 	if txt := strings.TrimSpace(loadBtn.Text); txt == "" {
 		t.Fatalf("load-more button text must not be empty")
@@ -49,19 +60,6 @@ func TestUpdateResultsPerfLabel(t *testing.T) {
 	})
 	if got := strings.TrimSpace(a.resultsPerfLabel.Text); got != "Рендер: 85ms (200/1200)" {
 		t.Fatalf("unexpected perf label text: %q", got)
-	}
-}
-
-func TestHostDetailsMarkdownCachesByIP(t *testing.T) {
-	a := &App{hostDetailsCache: make(map[string]string)}
-	r := scanner.Result{Hostname: "h1", IP: "10.0.0.1", DeviceType: "Router"}
-	first := a.hostDetailsMarkdown(r)
-	second := a.hostDetailsMarkdown(r)
-	if first != second {
-		t.Fatalf("cached markdown mismatch")
-	}
-	if len(a.hostDetailsCache) != 1 {
-		t.Fatalf("expected one cache entry, got %d", len(a.hostDetailsCache))
 	}
 }
 

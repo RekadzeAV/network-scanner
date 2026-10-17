@@ -3,6 +3,8 @@ package gui
 import (
 	"testing"
 	"time"
+
+	"fyne.io/fyne/v2/widget"
 )
 
 // --- Test initScanUI ---
@@ -59,8 +61,9 @@ func TestInitScanUI(t *testing.T) {
 		t.Error("saveButton should not be nil")
 	}
 
+	// statusLabel создаётся глобально в initUI (P1-5), инициализируем здесь.
 	if app.statusLabel == nil {
-		t.Error("statusLabel should not be nil")
+		app.statusLabel = widget.NewLabel("")
 	}
 
 	if app.progressBar == nil {
@@ -199,8 +202,8 @@ func TestResultsModeDefaults(t *testing.T) {
 		t.Errorf("resultsMode = %v, want Таблица", app.resultsMode)
 	}
 
-	if app.resultsSubMode != "Devices" {
-		t.Errorf("resultsSubMode = %v, want Devices", app.resultsSubMode)
+	if app.resultsSubMode != resultsSubModeDevices {
+		t.Errorf("resultsSubMode = %v, want %v", app.resultsSubMode, resultsSubModeDevices)
 	}
 
 	if app.resultsSort != "IP" {

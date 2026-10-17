@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,19 +30,38 @@ func (a *App) renderScanResultsView() {
 
 	switch a.resultsState {
 	case resultsStateIdle:
+		a.updateResultsCountLabel(0, 0)
 		a.resultsBody.Objects = []fyne.CanvasObject{
-			container.NewCenter(widget.NewLabel("Результаты сканирования появятся здесь после запуска.")),
+			buildResultsEmptyState(
+				"Ожидание сканирования",
+				"Результаты появятся здесь после запуска сканирования.",
+				iconScan(),
+				"",
+				nil,
+			),
 		}
 		a.resultsBody.Refresh()
 		a.clearResultsMainSplitRef()
 		return
 	case resultsStateScanning:
-		a.resultsBody.Objects = []fyne.CanvasObject{
-			container.NewCenter(widget.NewLabel("Сканирование...")),
+		// R-04/P1-1: live-результаты. Пока не найден ни один хост — показываем
+		// заглушку ожидания; с первым найденным устройством область результатов
+		// занимает обычная таблица/карточки, которые обновляются по ходу скана.
+		if len(a.scanResults) == 0 {
+			a.updateResultsCountLabel(0, 0)
+			a.resultsBody.Objects = []fyne.CanvasObject{
+				buildResultsEmptyState(
+					"Сканирование выполняется",
+					"Устройства появятся здесь по мере ответа сети.",
+					iconScan(),
+					"",
+					nil,
+				),
+			}
+			a.resultsBody.Refresh()
+			a.clearResultsMainSplitRef()
+			return
 		}
-		a.resultsBody.Refresh()
-		a.clearResultsMainSplitRef()
-		return
 	}
 
 	filtered := a.filteredSortedResults()
@@ -49,36 +69,59 @@ func (a *App) renderScanResultsView() {
 		FilteredCount: len(filtered),
 		VisibleCount:  len(filtered),
 	}
+	// R-09: счётчик строк в шапке — сколько показано из отфильтрованного.
+	a.updateResultsCountLabel(len(filtered), len(filtered))
 	if len(a.scanResults) == 0 {
+		a.updateResultsCountLabel(0, 0)
 		msg := "Результаты не найдены."
+		icon := iconInfo()
 		switch a.resultsState {
 		case resultsStateStopped:
 			msg = "Сканирование остановлено. Результаты могут быть неполными."
+			icon = iconCancel()
 		case resultsStateTimeout:
 			msg = "Сканирование прервано по таймауту."
+			icon = iconSecurity()
 		}
-		a.resultsBody.Objects = []fyne.CanvasObject{container.NewCenter(widget.NewLabel(msg))}
+		a.resultsBody.Objects = []fyne.CanvasObject{
+			buildResultsEmptyState("Нет данных", msg, icon, "Повторить", func() {
+				if a.scanCtrl != nil {
+					a.scanCtrl.StartScan(a.scanResults)
+				}
+			}),
+		}
 		a.resultsBody.Refresh()
 		a.clearResultsMainSplitRef()
 		return
 	}
 
 	if len(filtered) == 0 {
+		a.updateResultsCountLabel(0, 0)
 		a.resultsBody.Objects = []fyne.CanvasObject{
-			container.NewCenter(widget.NewLabel("Нет устройств, подходящих под текущие фильтры.")),
+			buildResultsEmptyState(
+				"Ничего не найдено",
+				"Нет устройств, подходящих под текущие фильтры.",
+				iconSearch(),
+				"Сбросить фильтры",
+				func() {
+					if a.resetFiltersBtn != nil {
+						a.resetFiltersBtn.OnTapped()
+					}
+				},
+			),
 		}
 		a.resultsBody.Refresh()
 		a.clearResultsMainSplitRef()
 		return
 	}
 
-	if strings.EqualFold(strings.TrimSpace(a.resultsSubMode), "Security") {
+	if a.resultsSubMode == resultsSubModeSecurity {
 		a.resultsBody.Objects = []fyne.CanvasObject{a.buildSecurityDashboardView(filtered)}
 		a.resultsBody.Refresh()
 		a.clearResultsMainSplitRef()
 		return
 	}
-	if strings.EqualFold(strings.TrimSpace(a.resultsSubMode), "Inventory") {
+	if a.resultsSubMode == resultsSubModeInventory {
 		a.resultsBody.Objects = []fyne.CanvasObject{a.buildInventoryDashboardView()}
 		a.resultsBody.Refresh()
 		a.clearResultsMainSplitRef()
@@ -126,84 +169,91 @@ func (a *App) renderScanResultsView() {
 func (a *App) buildHostDetailsDrawer(data []scanner.Result) fyne.CanvasObject {
 	r, ok := a.selectedHostFromData(data)
 	if !ok {
-		return widget.NewCard("Host Details", "", widget.NewLabel("Нет данных для отображения деталей."))
+		return widget.NewCard("Детали хоста", "", widget.NewLabel("Нет данных для отображения деталей."))
 	}
-	markdown := a.hostDetailsMarkdown(r)
-	details := widget.NewRichTextFromMarkdown(markdown)
-	details.Wrapping = fyne.TextWrapWord
+	details := a.buildHostDetailsSections(r)
 	cols := 2
 	if a.currentLayoutProfile() == "compact" {
 		cols = 1
 	}
 	actions := a.buildHostQuickActions(r, cols)
-	a.prefetchHostDetailsNearby(data, strings.TrimSpace(r.IP))
-	return widget.NewCard("Host Details Drawer", "Выбранный хост и быстрые действия", container.NewVBox(details, actions))
+	return widget.NewCard("Детали хоста", "Выбранный хост и быстрые действия", container.NewVBox(details, actions))
 }
 
-func (a *App) hostDetailsMarkdown(r scanner.Result) string {
+// buildHostDetailsSections группирует детали хоста по секциям (P2-8).
+func (a *App) buildHostDetailsSections(r scanner.Result) fyne.CanvasObject {
 	ip := strings.TrimSpace(r.IP)
 	if ip == "" {
-		return "### Host Details\n\n- Нет данных"
+		return widget.NewLabel("Нет данных")
 	}
-	a.hostDetailsCacheMu.RLock()
-	if v, ok := a.hostDetailsCache[ip]; ok {
-		a.hostDetailsCacheMu.RUnlock()
-		return v
-	}
-	a.hostDetailsCacheMu.RUnlock()
-	md := fmt.Sprintf(
-		"### Host Details\n\n- Host: `%s`\n- IP: `%s`\n- MAC: `%s`\n- Type: `%s`\n- Vendor: `%s`\n- OS: `%s`\n- SNMP: `%t`\n- Open ports: `%d`",
-		nullDash(r.Hostname),
-		nullDash(r.IP),
-		nullDash(r.MAC),
-		nullDash(r.DeviceType),
-		nullDash(r.DeviceVendor),
-		osGuessLine(r),
-		r.SNMPEnabled,
-		countOpenPorts(r.Ports),
+
+	// Секция «Идентификация»
+	ident := container.NewVBox(
+		widget.NewLabelWithStyle("Идентификация", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		a.buildDetailRow("Имя хоста", nullDash(r.Hostname)),
+		a.buildDetailRow("Тип", nullDash(r.DeviceType)),
+		a.buildDetailRow("Производитель", nullDash(r.DeviceVendor)),
 	)
-	a.hostDetailsCacheMu.Lock()
-	if a.hostDetailsCache == nil {
-		a.hostDetailsCache = make(map[string]string)
+
+	// Секция «Сеть»
+	net := container.NewVBox(
+		widget.NewLabelWithStyle("Сеть", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		a.buildDetailRow("IP", nullDash(r.IP)),
+		a.buildDetailRow("MAC", nullDash(r.MAC)),
+		a.buildDetailRow("ОС (оценка)", osGuessLine(r)),
+		a.buildDetailRow("SNMP", boolLabel(r.SNMPEnabled)),
+	)
+
+	// Секция «Порты»
+	openCount := countOpenPorts(r.Ports)
+	ports := container.NewVBox(
+		widget.NewLabelWithStyle("Порты", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		a.buildDetailRow("Открытых", strconv.Itoa(openCount)),
+	)
+	if chips := a.buildPortChips(r); chips != nil {
+		ports.Add(chips)
 	}
-	a.hostDetailsCache[ip] = md
-	a.hostDetailsCacheMu.Unlock()
-	return md
+
+	return container.NewVBox(
+		container.NewPadded(ident),
+		widget.NewSeparator(),
+		container.NewPadded(net),
+		widget.NewSeparator(),
+		container.NewPadded(ports),
+	)
 }
 
-func (a *App) primeHostDetailsCache(r scanner.Result) {
-	_ = a.hostDetailsMarkdown(r)
+// buildDetailRow формирует строку «метка: значение» с кнопкой копирования.
+func (a *App) buildDetailRow(label, value string) fyne.CanvasObject {
+	lbl := widget.NewLabel(label + ":")
+	lbl.Truncation = fyne.TextTruncateEllipsis
+	val := widget.NewLabel(value)
+	val.Truncation = fyne.TextTruncateEllipsis
+	val.Importance = widget.HighImportance
+	copyBtn := widget.NewButtonWithIcon("", iconCopy(), func() {
+		if a.myApp != nil {
+			a.myApp.Clipboard().SetContent(value)
+		}
+	})
+	copyBtn.Importance = widget.LowImportance
+	return container.NewBorder(nil, nil, lbl, copyBtn, val)
 }
 
-func (a *App) prefetchHostDetailsNearby(data []scanner.Result, selectedIP string) {
-	if len(data) == 0 || strings.TrimSpace(selectedIP) == "" {
-		return
+// boolLabel возвращает локализованное булево значение.
+func boolLabel(v bool) string {
+	if v {
+		return "да"
 	}
-	idx := -1
-	for i, r := range data {
-		if strings.TrimSpace(r.IP) == selectedIP {
-			idx = i
-			break
-		}
-	}
-	if idx < 0 {
-		return
-	}
-	start := idx - 3
-	if start < 0 {
-		start = 0
-	}
-	end := idx + 3
-	if end >= len(data) {
-		end = len(data) - 1
-	}
-	snapshot := append([]scanner.Result(nil), data[start:end+1]...)
-	go func(items []scanner.Result) {
-		for _, item := range items {
-			a.primeHostDetailsCache(item)
-		}
-	}(snapshot)
+	return "нет"
 }
+
+// Индексы вкладок mainTabs (N-06: именованные константы вместо жёстких чисел).
+// Порядок задаётся в init_ui.go: mainTabs = AppTabs("Сканирование", "Топология", "Инструменты").
+const (
+	tabIndexScan     = 0 // resultsTabScanIndex (app_shortcuts.go)
+	tabIndexTopology = 1 // topologyTabContent
+	tabIndexTools    = 2 // toolsTabContent
+)
 
 func (a *App) buildHostQuickActions(r scanner.Result, cols int) *fyne.Container {
 	if cols <= 0 {
@@ -214,35 +264,35 @@ func (a *App) buildHostQuickActions(r scanner.Result, cols int) *fyne.Container 
 			if a.toolsHostEntry != nil {
 				a.toolsHostEntry.SetText(strings.TrimSpace(r.IP))
 			}
-			a.mainTabs.SelectIndex(2)
+			a.mainTabs.SelectIndex(tabIndexTools)
 			a.runPingTool()
 		}),
 		widget.NewButtonWithIcon("Traceroute", iconRoute(), func() {
 			if a.toolsHostEntry != nil {
 				a.toolsHostEntry.SetText(strings.TrimSpace(r.IP))
 			}
-			a.mainTabs.SelectIndex(2)
+			a.mainTabs.SelectIndex(tabIndexTools)
 			a.runTracerouteTool()
 		}),
 		widget.NewButtonWithIcon("DNS", iconSearch(), func() {
 			if a.toolsHostEntry != nil {
 				a.toolsHostEntry.SetText(strings.TrimSpace(r.IP))
 			}
-			a.mainTabs.SelectIndex(2)
+			a.mainTabs.SelectIndex(tabIndexTools)
 			a.runDNSTool()
 		}),
 		widget.NewButtonWithIcon("Whois", iconAccount(), func() {
 			if a.toolsHostEntry != nil {
 				a.toolsHostEntry.SetText(strings.TrimSpace(r.IP))
 			}
-			a.mainTabs.SelectIndex(2)
+			a.mainTabs.SelectIndex(tabIndexTools)
 			a.toolsCtrl.RunWhoisTool()
 		}),
 		widget.NewButtonWithIcon("Wake-on-LAN", iconScan(), func() {
 			if a.toolsWOLMacEntry != nil {
 				a.toolsWOLMacEntry.SetText(strings.TrimSpace(r.MAC))
 			}
-			a.mainTabs.SelectIndex(2)
+			a.mainTabs.SelectIndex(tabIndexTools)
 		}),
 	)
 }

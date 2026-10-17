@@ -85,47 +85,6 @@ func TestSelectedHostFromData_SelectedNotFound(t *testing.T) {
 	}
 }
 
-func TestPrimeHostDetailsCache_EmptyApp(t *testing.T) {
-	a := &App{}
-	// Не должен паниковать
-	a.primeHostDetailsCache(scanner.Result{IP: "192.168.1.1"})
-}
-
-func TestPrimeHostDetailsCache_CreatesCache(t *testing.T) {
-	a := &App{}
-	a.primeHostDetailsCache(scanner.Result{IP: "192.168.1.1", Hostname: "h1"})
-	a.hostDetailsCacheMu.RLock()
-	count := len(a.hostDetailsCache)
-	a.hostDetailsCacheMu.RUnlock()
-	if count != 1 {
-		t.Errorf("expected 1 cache entry, got %d", count)
-	}
-}
-
-func TestPrefetchHostDetailsNearby_EmptyData(t *testing.T) {
-	a := &App{}
-	// Не должен паниковать
-	a.prefetchHostDetailsNearby(nil, "")
-}
-
-func TestPrefetchHostDetailsNearby_NoSelected(t *testing.T) {
-	a := &App{}
-	data := []scanner.Result{{IP: "192.168.1.1"}}
-	// Не должен паниковать
-	a.prefetchHostDetailsNearby(data, "")
-}
-
-func TestPrefetchHostDetailsNearby_WithSelected(t *testing.T) {
-	a := &App{}
-	data := []scanner.Result{
-		{IP: "192.168.1.1"},
-		{IP: "192.168.1.2"},
-		{IP: "192.168.1.3"},
-	}
-	a.prefetchHostDetailsNearby(data, "192.168.1.2")
-	// Не должен паниковать (асинхронный prefetch)
-}
-
 func TestBuildPortChips_NoOpenPorts(t *testing.T) {
 	a := &App{}
 	r := scanner.Result{IP: "192.168.1.1", Ports: []scanner.PortInfo{{State: "closed"}}}

@@ -133,92 +133,92 @@ func TestOsGuessLine_WithOSOnly(t *testing.T) {
 
 func TestDeviceTypeWithBadge_Router(t *testing.T) {
 	result := deviceTypeWithBadge("Router")
-	if result != "[NET] Router" {
-		t.Errorf("expected '[NET] Router', got %q", result)
+	if result != "⬡ Router" {
+		t.Errorf("expected '⬡ Router', got %q", result)
 	}
 }
 
 func TestDeviceTypeWithBadge_Switch(t *testing.T) {
 	result := deviceTypeWithBadge("Switch")
-	if result != "[NET] Switch" {
-		t.Errorf("expected '[NET] Switch', got %q", result)
+	if result != "⬡ Switch" {
+		t.Errorf("expected '⬡ Switch', got %q", result)
 	}
 }
 
 func TestDeviceTypeWithBadge_AccessPoint(t *testing.T) {
 	result := deviceTypeWithBadge("Access Point")
-	if result != "[AP] Access Point" {
-		t.Errorf("expected '[AP] Access Point', got %q", result)
+	if result != "◎ Access Point" {
+		t.Errorf("expected '◎ Access Point', got %q", result)
 	}
 }
 
 func TestDeviceTypeWithBadge_Printer(t *testing.T) {
 	result := deviceTypeWithBadge("Printer")
-	if result != "[PRN] Printer" {
-		t.Errorf("expected '[PRN] Printer', got %q", result)
+	if result != "⎙ Printer" {
+		t.Errorf("expected '⎙ Printer', got %q", result)
 	}
 }
 
 func TestDeviceTypeWithBadge_Camera(t *testing.T) {
 	result := deviceTypeWithBadge("Camera")
-	if result != "[CAM] Camera" {
-		t.Errorf("expected '[CAM] Camera', got %q", result)
+	if result != "◉ Camera" {
+		t.Errorf("expected '◉ Camera', got %q", result)
 	}
 }
 
 func TestDeviceTypeWithBadge_NAS(t *testing.T) {
 	result := deviceTypeWithBadge("NAS")
-	if result != "[NAS] NAS" {
-		t.Errorf("expected '[NAS] NAS', got %q", result)
+	if result != "▤ NAS" {
+		t.Errorf("expected '▤ NAS', got %q", result)
 	}
 }
 
 func TestDeviceTypeWithBadge_IoT(t *testing.T) {
 	result := deviceTypeWithBadge("IoT Device")
-	if result != "[IOT] IoT Device" {
-		t.Errorf("expected '[IOT] IoT Device', got %q", result)
+	if result != "◈ IoT Device" {
+		t.Errorf("expected '◈ IoT Device', got %q", result)
 	}
 }
 
 func TestDeviceTypeWithBadge_Desktop(t *testing.T) {
 	result := deviceTypeWithBadge("Desktop")
-	if result != "[PC] Desktop" {
-		t.Errorf("expected '[PC] Desktop', got %q", result)
+	if result != "▢ Desktop" {
+		t.Errorf("expected '▢ Desktop', got %q", result)
 	}
 }
 
 func TestDeviceTypeWithBadge_Laptop(t *testing.T) {
 	result := deviceTypeWithBadge("Laptop")
-	if result != "[PC] Laptop" {
-		t.Errorf("expected '[PC] Laptop', got %q", result)
+	if result != "▢ Laptop" {
+		t.Errorf("expected '▢ Laptop', got %q", result)
 	}
 }
 
 func TestDeviceTypeWithBadge_Server(t *testing.T) {
 	result := deviceTypeWithBadge("Server")
-	if result != "[SRV] Server" {
-		t.Errorf("expected '[SRV] Server', got %q", result)
+	if result != "▣ Server" {
+		t.Errorf("expected '▣ Server', got %q", result)
 	}
 }
 
 func TestDeviceTypeWithBadge_Phone(t *testing.T) {
 	result := deviceTypeWithBadge("Phone")
-	if result != "[MOB] Phone" {
-		t.Errorf("expected '[MOB] Phone', got %q", result)
+	if result != "▮ Phone" {
+		t.Errorf("expected '▮ Phone', got %q", result)
 	}
 }
 
 func TestDeviceTypeWithBadge_Tablet(t *testing.T) {
 	result := deviceTypeWithBadge("Tablet")
-	if result != "[MOB] Tablet" {
-		t.Errorf("expected '[MOB] Tablet', got %q", result)
+	if result != "▮ Tablet" {
+		t.Errorf("expected '▮ Tablet', got %q", result)
 	}
 }
 
 func TestDeviceTypeWithBadge_UnknownExtended(t *testing.T) {
 	result := deviceTypeWithBadge("Unknown Device")
-	if result != "[UNK] Unknown Device" {
-		t.Errorf("expected '[UNK] Unknown Device', got %q", result)
+	if result != "◌ Unknown Device" {
+		t.Errorf("expected '◌ Unknown Device', got %q", result)
 	}
 }
 
@@ -231,8 +231,8 @@ func TestDeviceTypeWithBadge_EmptyExtended(t *testing.T) {
 
 func TestDeviceTypeWithBadge_MixedCase(t *testing.T) {
 	result := deviceTypeWithBadge("ROUTER")
-	if result != "[NET] ROUTER" {
-		t.Errorf("expected '[NET] ROUTER', got %q", result)
+	if result != "⬡ ROUTER" {
+		t.Errorf("expected '⬡ ROUTER', got %q", result)
 	}
 }
 

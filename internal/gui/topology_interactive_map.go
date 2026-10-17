@@ -344,6 +344,10 @@ func colorByNodeBorder(selected bool) color.Color {
 	return tokTopoNodeBorder
 }
 
+// selectHostByTopologyDevice выделяет хост из карты топологии.
+// H-09: выбор не должен быть «молчаливым» — даём обратную связь в глобальном
+// статус-баре (он виден на всех вкладках), поскольку детали хоста показываются
+// на вкладке «Сканирование».
 func (a *App) selectHostByTopologyDevice(d *topology.Device) {
 	if a == nil || d == nil {
 		return
@@ -354,6 +358,7 @@ func (a *App) selectHostByTopologyDevice(d *topology.Device) {
 	}
 	a.selectedHostIP = ip
 	a.renderScanResultsView()
+	a.setStatusToast("Хост " + ip + " выбран на карте — детали в разделе «Детали хоста»")
 }
 
 // topoDisplayName и topoPortName — вспомогательные функции для отображения

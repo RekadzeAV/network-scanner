@@ -22,3 +22,22 @@ func (a *App) updateResultsPerfLabel(stats resultsRenderStats) {
 	}
 	a.resultsPerfLabel.SetText(fmt.Sprintf("Рендер: %dms (%d/%d)", stats.Duration.Milliseconds(), stats.VisibleCount, stats.FilteredCount))
 }
+
+// updateResultsCountLabel обновляет счётчик строк в шапке области результатов
+// (R-09): «Строк: показано X из Y», где Y — всего после фильтрации.
+func (a *App) updateResultsCountLabel(visible, total int) {
+	if a == nil || a.resultsCountLabel == nil {
+		return
+	}
+	if visible < 0 {
+		visible = 0
+	}
+	if total < 0 {
+		total = 0
+	}
+	if visible == total {
+		a.resultsCountLabel.SetText(fmt.Sprintf("Строк: %d", total))
+		return
+	}
+	a.resultsCountLabel.SetText(fmt.Sprintf("Строк: показано %d из %d", visible, total))
+}

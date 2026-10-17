@@ -17,9 +17,10 @@ type mockScanActions struct{}
 func (m *mockScanActions) ApplyScanRunStart(autoProfileNote string) {}
 func (m *mockScanActions) ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeout time.Duration) {
 }
-func (m *mockScanActions) RenderScanResultsView()             {}
-func (m *mockScanActions) ConfirmLargeScanBypass() bool       { return false }
-func (m *mockScanActions) SetConfirmLargeScanBypass(val bool) {}
+func (m *mockScanActions) RenderScanResultsView()                  {}
+func (m *mockScanActions) SetResultsState(state string, found int) {}
+func (m *mockScanActions) ConfirmLargeScanBypass() bool            { return false }
+func (m *mockScanActions) SetConfirmLargeScanBypass(val bool)      {}
 
 func TestScanController_ApplyPreset(t *testing.T) {
 	os.Setenv("FYNE_SCALE", "1")

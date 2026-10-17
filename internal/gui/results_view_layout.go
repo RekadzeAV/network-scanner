@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"time"
@@ -177,10 +178,14 @@ func (a *App) applyAdaptiveToolsScrollMinSizes(profile string, mul float32) {
 	}
 }
 
+// applyResponsiveLayout перестраивает адаптивные параметры макета.
+// S-06: рендер результатов вызывается только если профиль реально изменился,
+// что устраняет видимое «мигание» при перетаскивании окна внутри одного профиля.
 func (a *App) applyResponsiveLayout(profile string) {
 	if a == nil {
 		return
 	}
+	prev := a.layoutProfile
 	a.layoutProfile = profile
 	mul := a.currentLayoutAdaptiveMultiplier()
 	switch profile {
@@ -208,7 +213,8 @@ func (a *App) applyResponsiveLayout(profile string) {
 			a.resultsScroll.SetMinSize(fyne.NewSize(0, a.adaptivePanelMinHeight(48, mul, 0.34, 32)))
 		}
 		if a.topologyControlsScroll != nil {
-			a.topologyControlsScroll.SetMinSize(fyne.NewSize(0, a.adaptivePanelMinHeight(150, mul, 0.32, 100)))
+			// N-05: панель в правой колонке (HSplit) — ограничиваем ширину.
+			a.topologyControlsScroll.SetMinSize(fyne.NewSize(220, 0))
 		}
 		if a.topologyScroll != nil {
 			a.topologyScroll.SetMinSize(fyne.NewSize(0, a.adaptivePanelMinHeight(200, mul, 0.42, 120)))
@@ -248,7 +254,8 @@ func (a *App) applyResponsiveLayout(profile string) {
 			a.resultsScroll.SetMinSize(fyne.NewSize(0, a.adaptivePanelMinHeight(70, mul, 0.34, 44)))
 		}
 		if a.topologyControlsScroll != nil {
-			a.topologyControlsScroll.SetMinSize(fyne.NewSize(0, a.adaptivePanelMinHeight(220, mul, 0.34, 140)))
+			// N-05: панель в правой колонке (HSplit) — ограничиваем ширину.
+			a.topologyControlsScroll.SetMinSize(fyne.NewSize(320, 0))
 		}
 		if a.topologyScroll != nil {
 			a.topologyScroll.SetMinSize(fyne.NewSize(0, a.adaptivePanelMinHeight(350, mul, 0.48, 180)))
@@ -288,7 +295,8 @@ func (a *App) applyResponsiveLayout(profile string) {
 			a.resultsScroll.SetMinSize(fyne.NewSize(0, a.adaptivePanelMinHeight(float32(75*0.775), mul, 0.34, 40)))
 		}
 		if a.topologyControlsScroll != nil {
-			a.topologyControlsScroll.SetMinSize(fyne.NewSize(0, a.adaptivePanelMinHeight(200, mul, 0.32, 120)))
+			// N-05: панель в правой колонке (HSplit) — ограничиваем ширину.
+			a.topologyControlsScroll.SetMinSize(fyne.NewSize(280, 0))
 		}
 		if a.topologyScroll != nil {
 			a.topologyScroll.SetMinSize(fyne.NewSize(0, a.adaptivePanelMinHeight(300, mul, 0.45, 160)))
@@ -309,8 +317,17 @@ func (a *App) applyResponsiveLayout(profile string) {
 	a.clampScanTabMainSplitOffset()
 	a.clampTopologyMainSplitOffset()
 	a.clampToolsTabMainSplitOffset()
-	if a.resultsBody != nil {
-		a.renderScanResultsView()
+	// S-06: рендер только при реальной смене профиля — устраняет «мигание»
+	// при перетаскивании окна в пределах одного профиля.
+	// P-04: через scheduleResultsRender(true), а не прямой renderScanResultsView —
+	// это исключает двойной пересбор при resize (дебаунс + profile change).
+	if a.resultsBody != nil && prev != profile {
+		a.scheduleResultsRender(true)
+	}
+	// P1-5: обновляем статус-бар профиля.
+	if a.layoutStatusLabel != nil {
+		a.layoutStatusLabel.SetText(fmt.Sprintf("Профиль: %s · %dx%d · масштаб %.0f%%",
+			profile, int(a.lastCanvasSize.Width), int(a.lastCanvasSize.Height), a.lastCanvasScale*100))
 	}
 }
 
@@ -319,7 +336,10 @@ func (a *App) startResultsLayoutWatcher() {
 		return
 	}
 	go func() {
-		ticker := time.NewTicker(300 * time.Millisecond)
+		// P-01: Fyne v2.7.1 не имеет события ресайза окна; polling — единственный
+		// способ. Интервал 500 мс снижает нагрузку vs 300 мс, порог sizeStep=48
+		// минимизирует ложные срабатывания.
+		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
 		var (
 			lastProfile      string

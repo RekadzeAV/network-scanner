@@ -8,6 +8,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -84,7 +85,7 @@ func (a *App) initScanUI() {
 	a.autoProfileCheck.SetChecked(true)
 	a.autoProfileInfoBtn = widget.NewButtonWithIcon("Почему изменены параметры?", iconInfo(), nil)
 	a.autoProfileStateText = canvas.NewText("", themeColorSuccess())
-	a.autoProfileStateText.TextSize = 13
+	a.autoProfileStateText.TextSize = theme.TextSize()
 	a.autoProfileHint = widget.NewLabel(fmt.Sprintf(
 		"Для больших подсетей автопрофиль ограничивает нагрузку: от ~%d хостов снижает threads/диапазон портов (пороги: %d/%d/%d хостов).",
 		autoProfileHostWarn,
@@ -105,7 +106,7 @@ func (a *App) initScanUI() {
 	a.recommendedProfileBtn = widget.NewButtonWithIcon("Рекомендуемые настройки", iconConfirm(), nil)
 	a.recommendedProfileInfoBtn = widget.NewButtonWithIcon("Почему?", iconHelp(), nil)
 	a.recommendedProfileBadge = canvas.NewText("Профиль: не выбран", themeColorDisabled())
-	a.recommendedProfileBadge.TextSize = 12
+	a.recommendedProfileBadge.TextSize = theme.CaptionTextSize()
 
 	// Кнопка сканирования
 	a.scanButton = widget.NewButtonWithIcon("Запустить сканирование", iconScan(), nil)
@@ -133,10 +134,9 @@ func (a *App) initScanUI() {
 	a.savePerfBtn = widget.NewButtonWithIcon("Сохранить отчёт", iconSave(), nil)
 	a.savePerfBtn.Disable()
 
-	// Статус
-	a.statusLabel = widget.NewLabel("Готов к сканированию")
-	a.statusLabel.Wrapping = fyne.TextWrapWord
-	a.resultsStateLabel = widget.NewLabel("Результаты еще не получены")
+	// Статус-бар создаётся глобально в initUI (P1-5), здесь — только локальные лейблы.
+	// Подпись состояния — из единого источника переводов (N-09).
+	a.resultsStateLabel = widget.NewLabel(resultsStateCaption(resultsStateIdle))
 	a.resultsStateLabel.Wrapping = fyne.TextWrapWord
 	a.autoProfileHeaderLabel = widget.NewLabel("")
 	a.autoProfileHeaderLabel.Wrapping = fyne.TextWrapWord
@@ -186,7 +186,6 @@ func (a *App) buildScanControlsContainer() *container.Scroll {
 			a.portDynamicBtn,
 		),
 		container.NewGridWithColumns(3, a.scanButton, a.stopButton, a.saveButton),
-		a.statusLabel,
 		a.stageLabel,
 		a.progressBar,
 	)

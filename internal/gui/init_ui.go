@@ -89,16 +89,14 @@ func (a *App) initUI() {
 		a.topologyStatus,
 	)
 	a.topologyControlsScroll = container.NewVScroll(topologyControls)
-	a.topologyControlsScroll.SetMinSize(fyne.NewSize(0, 160))
+	// N-05: панель управления — в правой колонке, а не над картой: карта
+	// получает всю высоту вкладки (критерий аудита: карта ≥50% высоты).
+	a.topologyControlsScroll.SetMinSize(fyne.NewSize(280, 0))
 	a.topologyMainSplit = container.NewVSplit(a.topologyGraphScroll, a.topologyScroll)
 	a.topologyMainSplit.Offset = 0.55
-	topologyTabContent := container.NewBorder(
-		a.topologyControlsScroll,
-		nil,
-		nil,
-		nil,
-		a.topologyMainSplit,
-	)
+	a.topologyControlsSplit = container.NewHSplit(a.topologyMainSplit, a.topologyControlsScroll)
+	a.topologyControlsSplit.Offset = 0.72
+	topologyTabContent := a.topologyControlsSplit
 	a.toolsHostEntry = widget.NewEntry()
 	a.toolsHostEntry.SetPlaceHolder("Хост или IP")
 	a.toolsPingCountEnt = widget.NewEntry()
@@ -259,9 +257,8 @@ func (a *App) initUI() {
 		}
 	}
 
-	// Тулбар с основными действиями (иконки + подписи — всегда видимый текст)
-	a.mainToolbar = container.NewHBox(
-		widget.NewSeparator(),
+	// P2-2: группировки Scan / Output / View.
+	scanGroup := container.NewHBox(
 		widget.NewButtonWithIcon("Сканирование", iconScan(), func() {
 			if a.scanCtrl != nil {
 				a.scanCtrl.StartScan(a.scanResults)
@@ -272,7 +269,8 @@ func (a *App) initUI() {
 				a.scanCtrl.StopScan()
 			}
 		}),
-		widget.NewSeparator(),
+	)
+	outputGroup := container.NewHBox(
 		widget.NewButtonWithIcon("Сохранить", iconSave(), func() {
 			a.saveResults()
 		}),
@@ -281,19 +279,33 @@ func (a *App) initUI() {
 				a.topoCtrl.BuildTopology(a.scanResults, a.myWindow)
 			}
 		}),
-		widget.NewSeparator(),
-		widget.NewButtonWithIcon("Сброс UI", iconRestore(), func() {
+	)
+	viewGroup := container.NewHBox(
+		widget.NewButtonWithIcon("Сброс панелей", iconRestore(), func() {
 			if a.settingsMgr != nil {
 				a.settingsMgr.ResetUIPanelLayoutWithFeedback(a.scanTabMainSplit, a.topologyMainSplit, a.toolsTabMainSplit, a.myWindow)
 			}
 		}),
 	)
+	a.mainToolbar = container.NewHBox(
+		scanGroup,
+		widget.NewSeparator(),
+		outputGroup,
+		widget.NewSeparator(),
+		viewGroup,
+	)
 	a.mainToolbar.Show()
 
-	// Обёртка: тулбар + табы
+	// P1-5: глобальный статус-бар внизу окна (виден на всех вкладках).
+	a.statusLabel = widget.NewLabel(statusDefaultText)
+	a.layoutStatusLabel = widget.NewLabel("")
+	a.layoutStatusLabel.Truncation = fyne.TextTruncateClip
+	statusBar := container.NewBorder(nil, nil, a.statusLabel, a.layoutStatusLabel, nil)
+
+	// Обёртка: тулбар + табы + статус-бар
 	mainContent := container.NewBorder(
 		a.mainToolbar, // top
-		nil,           // bottom
+		statusBar,     // bottom
 		nil,           // leading
 		nil,           // trailing
 		a.mainTabs,    // center

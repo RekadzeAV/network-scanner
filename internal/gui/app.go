@@ -65,6 +65,7 @@ type App struct {
 	portRegisteredBtn           *widget.Button
 	portDynamicBtn              *widget.Button
 	statusLabel                 *widget.Label
+	layoutStatusLabel           *widget.Label
 	resultsStateLabel           *widget.Label
 	autoProfileHeaderLabel      *widget.Label
 	diagnosticsLabel            *widget.Label
@@ -91,6 +92,8 @@ type App struct {
 	inventoryStatusLabel        *widget.Label
 	inventorySnapshots          []inventory.Snapshot
 	resultsSort                 string
+	resultsSortDesc             bool
+	resultsCountLabel           *widget.Label
 	resultsSortSel              *widget.Select
 	resultsFilterEnt            *widget.Entry
 	resultsFilterQuery          string
@@ -147,6 +150,9 @@ type App struct {
 	topologyGraphBox            *fyne.Container
 	topologyGraphScroll         *container.Scroll
 	topologyMainSplit           *container.Split
+	// topologyControlsSplit — HSplit «карта+текст | панель управления» (N-05):
+	// панель SNMP/карты в правой колонке, карта получает всю высоту вкладки.
+	topologyControlsSplit       *container.Split
 	topologySplitInitialized    bool
 	topologySplitPersistPrimed  bool
 	lastPersistedTopologySplit  float64
@@ -209,6 +215,7 @@ type App struct {
 	lastCanvasScale             float32
 	layoutProfile               string
 	pieChartCache               map[string]fyne.Resource
+	resultsCellCache            *tableCellCache
 	resultsRenderDebounce       time.Duration
 	resultsRenderTimerMu        sync.Mutex
 	resultsRenderTimer          *time.Timer
@@ -216,8 +223,6 @@ type App struct {
 	lastRenderStats             resultsRenderStats
 	analyticsCacheKey           string
 	analyticsCacheView          fyne.CanvasObject
-	hostDetailsCacheMu          sync.RWMutex
-	hostDetailsCache            map[string]string
 	scanResultsVersion          uint64
 	resultsPipelineCacheMu      sync.RWMutex
 	resultsPipelineCacheKey     string
@@ -265,6 +270,7 @@ const (
 	prefViewMode                = "scan.results_view_mode"
 	prefResultsSubMode          = "scan.results_submode"
 	prefSortMode                = "scan.results_sort_mode"
+	prefSortAsc                 = "scan.results_sort_asc"
 	prefChipLimit               = "scan.results_chip_limit"
 	prefShowRawBanners          = "scan.results_show_raw_banners"
 	prefFilterQuery             = "scan.results_filter_query"
@@ -413,12 +419,11 @@ func NewApp() *App {
 	myWindow.SetFixedSize(false) // Позволяем изменять размер, но в пределах экрана
 
 	app := &App{
-		myApp:            myApp,
-		myWindow:         myWindow,
-		layoutProfile:    "normal",
-		pieChartCache:    make(map[string]fyne.Resource),
-		hostDetailsCache: make(map[string]string),
-		operations:       NewOperationsManager(),
+		myApp:         myApp,
+		myWindow:      myWindow,
+		layoutProfile: "normal",
+		pieChartCache: make(map[string]fyne.Resource),
+		operations:    NewOperationsManager(),
 	}
 
 	// Инициализация сервисов через DI контейнер
@@ -574,9 +579,13 @@ func (a *App) Run() {
 	a.myWindow.ShowAndRun()
 }
 
-// ScanActions реализует интерфейс для контроллера сканирования
+// ApplyScanRunStart подготавливает UI к запуску сканирования: переводит область
+// результатов в состояние «сканирование» (R-04) и сбрасывает предыдущие данные,
+// чтобы live-вывод не смешивался с результатами прошлого прохода.
 func (a *App) ApplyScanRunStart(autoProfileNote string) {
-	// Реализация остается в App для доступа к internal state
+	a.setResultsState(resultsStateScanning, -1)
+	a.setScanResults(nil)
+	a.selectedHostIP = ""
 }
 
 func (a *App) RenderScanResultsView() {

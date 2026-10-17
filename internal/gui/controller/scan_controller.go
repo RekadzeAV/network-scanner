@@ -20,9 +20,14 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// Состояния области результатов. Значения совпадают с константами пакета gui
+// (resultsStateIdle/Scanning/Done/Stopped/Timeout): пакет controller не может
+// импортировать gui (циклическая зависимость), поэтому значения дублируются,
+// а человекочитаемый текст подписи формирует сторона gui.
 const (
 	largeSubnetWarnHostGUI = 512
 	maxScanThreadsGUI      = 512
+	resultsStateScanning   = "scanning"
 	resultsStateStopped    = "stopped"
 )
 
@@ -72,6 +77,7 @@ type ScanActions interface {
 	ApplyScanRunStart(autoProfileNote string)
 	ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeout time.Duration)
 	RenderScanResultsView()
+	SetResultsState(state string, found int)
 	ConfirmLargeScanBypass() bool
 	SetConfirmLargeScanBypass(val bool)
 }
@@ -178,6 +184,20 @@ func (c *ScanController) SaveSettings() {
 	}
 }
 
+// setResultsState сообщает переход состояния результатов в App (N-09).
+// Если actions не подключён (тесты/частичная инициализация), деградируем до
+// прямой записи в подпись.
+func (c *ScanController) setResultsState(state string) {
+	if c.actions != nil {
+		c.actions.SetResultsState(state, -1)
+		return
+	}
+	if c.ui != nil && c.ui.ResultsStateLabel != nil {
+		c.ui.ResultsStateLabel.SetText(state)
+		c.ui.ResultsStateLabel.Refresh()
+	}
+}
+
 // StartScan запускает сканирование сети
 func (c *ScanController) StartScan(results []scanner.Result) {
 	logger.LogDebug("[StartScan] Начало, results len=%d", len(results))
@@ -225,9 +245,29 @@ func (c *ScanController) StartScan(results []scanner.Result) {
 		return
 	}
 	if hosts, err := network.EstimateHostCount(networkStr); err == nil && hosts >= largeSubnetWarnHostGUI && !c.actions.ConfirmLargeScanBypass() {
+		// S-03: диалог подтверждения показывает не только число хостов, но и
+		// оценку времени по текущим параметрам (порты/потоки/таймаут).
+		threadsText := ""
+		if c.ui.ThreadsEntry != nil {
+			threadsText = strings.TrimSpace(c.ui.ThreadsEntry.Text)
+		}
+		portRangeText := ""
+		if c.ui.PortRangeEntry != nil {
+			portRangeText = strings.TrimSpace(c.ui.PortRangeEntry.Text)
+		}
+		timeoutText := ""
+		if c.ui.TimeoutEntry != nil {
+			timeoutText = strings.TrimSpace(c.ui.TimeoutEntry.Text)
+		}
+		scanTCP := true
+		if c.ui.ScanTCPPortsCheck != nil {
+			scanTCP = c.ui.ScanTCPPortsCheck.Checked
+		}
+		scanUDP := c.ui.ScanUDPCheck != nil && c.ui.ScanUDPCheck.Checked
+		eta := estimateScanUITimeout(networkStr, portRangeText, timeoutText, threadsText, scanTCP, scanUDP)
 		dialog.NewConfirm(
 			"Предупреждение о крупной подсети",
-			fmt.Sprintf("Подсеть %s содержит примерно %d хостов.\nСканирование может занять продолжительное время и повлиять на отзывчивость интерфейса.\n\nПродолжить?", networkStr, hosts),
+			fmt.Sprintf("Подсеть %s содержит примерно %d хостов.\nОриентировочная длительность: до %s.\nСканирование может занять продолжительное время и повлиять на отзывчивость интерфейса.\n\nПродолжить?", networkStr, hosts, formatDurationMMSS(eta)),
 			func(ok bool) {
 				if !ok {
 					c.ui.StatusLabel.SetText("Сканирование отменено пользователем")
@@ -322,7 +362,7 @@ func (c *ScanController) StartScan(results []scanner.Result) {
 	logger.LogDebug("[StartScan] Запуск runner.Start")
 	if err := runner.Start(workerCfg); err != nil {
 		c.ui.StatusLabel.SetText("Не удалось запустить сканирование: " + err.Error())
-		c.ui.ResultsStateLabel.SetText(resultsStateStopped)
+		c.setResultsState(resultsStateStopped)
 		c.ui.StageLabel.Hide()
 		c.ui.ProgressBar.Hide()
 		c.ui.ScanButton.Enable()
@@ -352,7 +392,7 @@ func (c *ScanController) StopScan() {
 		c.runner.Stop()
 	}
 	c.ui.StatusLabel.SetText("Сканирование остановлено пользователем")
-	c.ui.ResultsStateLabel.SetText(resultsStateStopped)
+	c.setResultsState(resultsStateStopped)
 	c.ui.StageLabel.Hide()
 	c.ui.ProgressBar.Hide()
 	c.ui.ScanButton.Enable()

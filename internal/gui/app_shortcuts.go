@@ -21,9 +21,9 @@ import (
 // Остальное:
 //	F1              -> диалог справки
 //
-// Ctrl+Shift+I (импорт) и Ctrl+Shift+R (сброс настроек) НЕ зарегистрированы —
-// они только в планах (D-05: раньше комментарий заявлял их существующими,
-// диалог F1 их не показывал).
+// Ctrl+Shift+D -> подраздел «Устройства» (вкладка «Сканирование»)
+// Ctrl+Shift+I -> подраздел «Инвентарь» (вкладка «Сканирование»)
+// Ctrl+Shift+R -> подраздел «Безопасность» (вкладка «Сканирование»)
 
 // shortcutSpec описывает одну комбинацию клавиш для регистрации.
 type shortcutSpec struct {
@@ -46,6 +46,9 @@ var appShortcutSpecs = []shortcutSpec{
 	{displayComb: "Ctrl+3", label: "Вкладка Инструменты (Ctrl+3)", keyName: fyne.Key3, modifier: fyne.KeyModifierControl},
 	{displayComb: "Ctrl+4", label: "Раздел «Безопасность» (Ctrl+4)", keyName: fyne.Key4, modifier: fyne.KeyModifierControl},
 	{displayComb: "Ctrl+5", label: "Раздел «Инвентарь» (Ctrl+5)", keyName: fyne.Key5, modifier: fyne.KeyModifierControl},
+	{displayComb: "Ctrl+Shift+D", label: "Раздел «Устройства» (Ctrl+Shift+D)", keyName: fyne.KeyD, modifier: fyne.KeyModifierShift | fyne.KeyModifierControl},
+	{displayComb: "Ctrl+Shift+I", label: "Раздел «Инвентарь» (Ctrl+Shift+I)", keyName: fyne.KeyI, modifier: fyne.KeyModifierShift | fyne.KeyModifierControl},
+	{displayComb: "Ctrl+Shift+R", label: "Раздел «Безопасность» (Ctrl+Shift+R)", keyName: fyne.KeyR, modifier: fyne.KeyModifierShift | fyne.KeyModifierControl},
 	{displayComb: "F1", label: "Справка (F1)", keyName: fyne.KeyF1, modifier: 0},
 }
 
@@ -67,10 +70,6 @@ func (a *App) setupAppShortcuts() {
 			Modifier: spec.modifier,
 		}, func(shortcut fyne.Shortcut) { handler() })
 	}
-
-	// Явных Ctrl+Shift+I / Ctrl+Shift+R пока нет — они появятся в следующих
-	// спринтах. Не дублируем, чтобы избежать пересечений с заявленным
-	// «третьим вариантом» (только icon-only tooltip и hotkeys уже собраны).
 }
 
 // shortcutHandlerFor возвращает обработчик для комбинации клавиш по строковому
@@ -88,15 +87,21 @@ func (a *App) shortcutHandlerFor(displayComb string) func() {
 	case "Ctrl+L":
 		return a.focusNetworkEntryShortcut
 	case "Ctrl+1":
-		return func() { a.selectTabShortcut(0) }
+		return func() { a.selectTabShortcut(tabIndexScan) }
 	case "Ctrl+2":
-		return func() { a.selectTabShortcut(1) }
+		return func() { a.selectTabShortcut(tabIndexTopology) }
 	case "Ctrl+3":
-		return func() { a.selectTabShortcut(2) }
+		return func() { a.selectTabShortcut(tabIndexTools) }
 	case "Ctrl+4":
 		return func() { a.showResultsSectionShortcut(resultsSubModeSecurity) }
 	case "Ctrl+5":
 		return func() { a.showResultsSectionShortcut(resultsSubModeInventory) }
+	case "Ctrl+Shift+D":
+		return func() { a.showResultsSectionShortcut(resultsSubModeDevices) }
+	case "Ctrl+Shift+I":
+		return func() { a.showResultsSectionShortcut(resultsSubModeInventory) }
+	case "Ctrl+Shift+R":
+		return func() { a.showResultsSectionShortcut(resultsSubModeSecurity) }
 	case "F1":
 		return a.showShortcutsDialog
 	default:
@@ -205,7 +210,9 @@ func (a *App) showShortcutsDialog() {
 		"  Ctrl+F          — фокус фильтра результатов\n" +
 		"  Ctrl+L          — фокус поля сети\n" +
 		"  Ctrl+1..3       — вкладки: Сканирование / Топология / Инструменты\n" +
-		"  Ctrl+4/5        — разделы «Безопасность» / «Инвентарь» на вкладке сканирования\n" +
+		"  Ctrl+Shift+D    — раздел «Устройства»\n" +
+		"  Ctrl+Shift+R    — раздел «Безопасность»\n" +
+		"  Ctrl+Shift+I    — раздел «Инвентарь»\n" +
 		"  Ctrl+Shift+L    — сброс расположения UI\n" +
 		"  F1              — это диалог справки"
 	dialog.ShowInformation("Справка по горячим клавишам", help, a.myWindow)

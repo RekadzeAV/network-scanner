@@ -21,6 +21,7 @@ type ModernTheme struct {
 	isDark       bool
 	followSystem bool
 	accent       string
+	density      Density
 }
 
 // themePalette — набор семантических цветов одного варианта темы.
@@ -210,14 +211,6 @@ func (t *ModernTheme) SetAccent(name string) {
 	t.accent = normalizeAccentPreset(name)
 }
 
-// Variant возвращает вариант темы
-func (t *ModernTheme) Variant() fyne.ThemeVariant {
-	if t.IsDark() {
-		return theme.VariantDark
-	}
-	return theme.VariantLight
-}
-
 // Font возвращает шрифт для указанного стиля
 func (t *ModernTheme) Font(style fyne.TextStyle) fyne.Resource {
 	return theme.DefaultTheme().Font(style)
@@ -228,12 +221,36 @@ func (t *ModernTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
 	return theme.DefaultTheme().Icon(name)
 }
 
-// Size возвращает размер для указанного имени
+// Density — уровень плотности интерфейса (T-02).
+type Density int
+
+const (
+	DensityComfortable Density = iota // стандартная
+	DensityCompact                    // компактная
+)
+
+// String возвращает человекочитаемое имя плотности.
+func (d Density) String() string {
+	if d == DensityCompact {
+		return "compact"
+	}
+	return "comfortable"
+}
+
+// Size возвращает размер для указанного имени.
+// T-02: значения масштабируются по плотности (compact ~ 0.85×, comfortable 1.0×).
 func (t *ModernTheme) Size(name fyne.ThemeSizeName) float32 {
+	compact := t.density == DensityCompact
 	switch name {
 	case theme.SizeNamePadding:
+		if compact {
+			return 8
+		}
 		return 12
 	case theme.SizeNameScrollBar:
+		if compact {
+			return 12
+		}
 		return 16
 	case theme.SizeNameScrollBarSmall:
 		return 3
@@ -246,22 +263,53 @@ func (t *ModernTheme) Size(name fyne.ThemeSizeName) float32 {
 	case theme.SizeNameSelectionRadius:
 		return 8
 	case theme.SizeNameInlineIcon:
+		if compact {
+			return 16
+		}
 		return 20
 	case theme.SizeNameInnerPadding:
+		if compact {
+			return 4
+		}
 		return 8
 	case theme.SizeNameLineSpacing:
+		if compact {
+			return 2
+		}
 		return 4
 	case theme.SizeNameText:
+		if compact {
+			return 12
+		}
 		return 14
 	case theme.SizeNameHeadingText:
+		if compact {
+			return 20
+		}
 		return 24
 	case theme.SizeNameSubHeadingText:
+		if compact {
+			return 15
+		}
 		return 18
 	case theme.SizeNameCaptionText:
+		if compact {
+			return 10
+		}
 		return 11
 	default:
 		return theme.DefaultTheme().Size(name)
 	}
+}
+
+// SetDensity меняет плотность интерфейса и обновляет тему.
+func (t *ModernTheme) SetDensity(d Density) {
+	t.density = d
+}
+
+// CurrentDensity возвращает текущую плотность (T-02).
+func (t *ModernTheme) CurrentDensity() Density {
+	return t.density
 }
 
 // --- Контраст (WCAG 2.1) -----------------------------------------------------

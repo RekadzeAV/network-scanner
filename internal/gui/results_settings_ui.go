@@ -26,6 +26,11 @@ func (a *App) saveResultsViewSettings() {
 	p.SetString(prefViewMode, strings.TrimSpace(a.resultsMode))
 	p.SetString(prefResultsSubMode, strings.TrimSpace(a.resultsSubMode))
 	p.SetString(prefSortMode, strings.TrimSpace(a.resultsSort))
+	if a.resultsSortDesc {
+		p.SetString(prefSortAsc, "false")
+	} else {
+		p.SetString(prefSortAsc, "true")
+	}
 	p.SetString(prefChipLimit, strconv.Itoa(a.maxPortChips))
 	if a.showRawBanners {
 		p.SetString(prefShowRawBanners, "true")

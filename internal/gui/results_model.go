@@ -25,6 +25,56 @@ var resultsSortOptions = []string{
 	resultsSortByIP, resultsSortByHostname, resultsSortByType, resultsSortByOpenPorts,
 }
 
+// resultsTableSortColumns сопоставляет индекс колонки таблицы режиму сортировки
+// (R-03: клик по заголовку сортирует по этой колонке). Колонки без режима
+// (MAC, Производитель, ОС, SNMP) в карте отсутствуют — их заголовок неактивен.
+var resultsTableSortColumns = map[int]string{
+	0: resultsSortByHostname,
+	1: resultsSortByIP,
+	3: resultsSortByType,
+	7: resultsSortByOpenPorts,
+}
+
+// sortIndicatorForColumn возвращает «▲»/«▼» для колонки, если она сейчас
+// определяет сортировку, иначе пустую строку (R-03).
+func (a *App) sortIndicatorForColumn(col int) string {
+	if a == nil {
+		return ""
+	}
+	mode, ok := resultsTableSortColumns[col]
+	if !ok || mode != normalizeResultsSortMode(a.resultsSort) {
+		return ""
+	}
+	if a.resultsSortDesc {
+		return "▼"
+	}
+	return "▲"
+}
+
+// toggleSortByColumn переключает сортировку по колонке таблицы (R-03):
+// первое нажатие — сортировка по этой колонке по возрастанию, повторное —
+// инверсия направления; смена колонки сбрасывает направление на возрастание.
+func (a *App) toggleSortByColumn(col int) {
+	if a == nil {
+		return
+	}
+	mode, ok := resultsTableSortColumns[col]
+	if !ok {
+		return
+	}
+	if normalizeResultsSortMode(a.resultsSort) == mode {
+		a.resultsSortDesc = !a.resultsSortDesc
+	} else {
+		a.resultsSort = mode
+		a.resultsSortDesc = false
+	}
+	if a.resultsSortSel != nil {
+		a.resultsSortSel.SetSelected(mode)
+	}
+	a.saveResultsViewSettings()
+	a.scheduleResultsRender(true)
+}
+
 // normalizeResultsSortMode приводит значение из виджета или настроек к одному
 // из поддерживаемых режимов. Пустая строка и неизвестное значение дают "" —
 // вызывающий сохраняет текущий режим, а не молча сбрасывает сортировку.
@@ -59,7 +109,40 @@ func sortedResultsForDisplay(results []scanner.Result) []scanner.Result {
 	return sortedResultsForDisplayWithMode(results, resultsSortByIP)
 }
 
+// compareResultIPs сравнивает IP-адреса двух результатов: -1, 0 или 1.
+// Числовое сравнение для корректных адресов, строковое — для остального.
+func compareResultIPs(a, b scanner.Result) int {
+	ipA := strings.TrimSpace(a.IP)
+	ipB := strings.TrimSpace(b.IP)
+	addrA, errA := netip.ParseAddr(ipA)
+	addrB, errB := netip.ParseAddr(ipB)
+	if errA == nil && errB == nil {
+		switch {
+		case addrA.Less(addrB):
+			return -1
+		case addrB.Less(addrA):
+			return 1
+		default:
+			return 0
+		}
+	}
+	switch {
+	case ipA < ipB:
+		return -1
+	case ipA > ipB:
+		return 1
+	default:
+		return 0
+	}
+}
+
 func sortedResultsForDisplayWithMode(results []scanner.Result, mode string) []scanner.Result {
+	return sortedResultsForDisplayWithModeDir(results, mode, false)
+}
+
+// sortedResultsForDisplayWithModeDir сортирует результаты по режиму и направлению
+// (R-03: desc == false — по возрастанию/А-Я/больше открытых снизу).
+func sortedResultsForDisplayWithModeDir(results []scanner.Result, mode string, desc bool) []scanner.Result {
 	mode = normalizeResultsSortMode(mode)
 	out := append([]scanner.Result(nil), results...)
 	sort.SliceStable(out, func(i, j int) bool {
@@ -68,30 +151,41 @@ func sortedResultsForDisplayWithMode(results []scanner.Result, mode string) []sc
 			hi := strings.ToLower(strings.TrimSpace(out[i].Hostname))
 			hj := strings.ToLower(strings.TrimSpace(out[j].Hostname))
 			if hi != hj {
+				if desc {
+					return hi > hj
+				}
 				return hi < hj
+			}
+		case resultsSortByIP:
+			if cmp := compareResultIPs(out[i], out[j]); cmp != 0 {
+				if desc {
+					return cmp > 0
+				}
+				return cmp < 0
 			}
 		case resultsSortByType:
 			ti := strings.ToLower(strings.TrimSpace(out[i].DeviceType))
 			tj := strings.ToLower(strings.TrimSpace(out[j].DeviceType))
 			if ti != tj {
+				if desc {
+					return ti > tj
+				}
 				return ti < tj
 			}
 		case resultsSortByOpenPorts:
 			oi, oj := countOpenPorts(out[i].Ports), countOpenPorts(out[j].Ports)
 			if oi != oj {
-				return oi > oj // больше открытых — выше
+				// По умолчанию больше открытых — выше; desc инвертирует.
+				if desc {
+					return oi < oj
+				}
+				return oi > oj
 			}
 		}
-		ipI := strings.TrimSpace(out[i].IP)
-		ipJ := strings.TrimSpace(out[j].IP)
-		addrI, errI := netip.ParseAddr(ipI)
-		addrJ, errJ := netip.ParseAddr(ipJ)
-		if errI == nil && errJ == nil {
-			if addrI != addrJ {
-				return addrI.Less(addrJ)
-			}
-		} else if ipI != ipJ {
-			return ipI < ipJ
+		// Стабильный tie-break по IP всегда по возрастанию, чтобы порядок
+		// при равных ключах не «прыгал» при смене направления.
+		if cmp := compareResultIPs(out[i], out[j]); cmp != 0 {
+			return cmp < 0
 		}
 		return strings.TrimSpace(out[i].Hostname) < strings.TrimSpace(out[j].Hostname)
 	})

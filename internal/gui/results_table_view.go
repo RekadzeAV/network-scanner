@@ -14,14 +14,17 @@ import (
 )
 
 // tableCellCache кэширует содержимое ячеек таблицы для избежания повторных вычислений.
+// P-03: ключ не содержит Row — при смене сортировки порядок строк меняется,
+// а содержимое ячейки для (IP, колонка) остаётся прежним, поэтому кэш попадает.
+// Кэш живёт в App и инвалидируется при смене версии данных (setScanResults).
 type tableCellCache struct {
 	cache map[TableCellCacheKey]string
 	mu    sync.RWMutex
 }
 
 // TableCellCacheKey уникальный ключ для кэширования ячейки.
+// P-03: Row исключён из ключа — кэш устойчив к пересортировке.
 type TableCellCacheKey struct {
-	Row int
 	Col int
 	IP  string
 }
@@ -50,14 +53,37 @@ func (c *tableCellCache) getOrCreate(key TableCellCacheKey, fn func() string) st
 	return v
 }
 
+// invalidate сбрасывает весь кэш (вызывается при изменении данных результатов).
+func (c *tableCellCache) invalidate() {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	c.cache = make(map[TableCellCacheKey]string)
+	c.mu.Unlock()
+}
+
+// cellCache возвращает общий кэш ячеек приложения (ленивая инициализация).
+func (a *App) cellCache() *tableCellCache {
+	if a.resultsCellCache == nil {
+		a.resultsCellCache = newTableCellCache()
+	}
+	return a.resultsCellCache
+}
+
 // buildTableView создаёт таблицу результатов сканирования.
+//
+// R-01: заголовок — встроенная строка таблицы (ShowHeaderRow + StickyRowCount),
+// которая не скроллится вместе с данными.
+// R-03: заголовок — кнопки; клик сортирует по колонке, индикатор ▲/▼ показывает
+// текущий режим и направление.
 func (a *App) buildTableView(data []scanner.Result) fyne.CanvasObject {
-	rows := len(data) + 1
+	rows := len(data)
 	cols := 8
 	headers := a.resultsTableHeaders()
 
-	// Создаём кэш для ячеек
-	cellCache := newTableCellCache()
+	// P-03: общий кэш приложения устойчив к пересортировке.
+	cellCache := a.cellCache()
 
 	t := widget.NewTable(
 		func() (int, int) { return rows, cols },
@@ -69,18 +95,20 @@ func (a *App) buildTableView(data []scanner.Result) fyne.CanvasObject {
 			if l == nil {
 				return
 			}
-			l.TextStyle = fyne.TextStyle{}
-			if id.Row == 0 {
-				l.TextStyle = fyne.TextStyle{Bold: true}
-				if id.Col < len(headers) {
-					l.SetText(headers[id.Col])
-				}
+			if id.Row < 0 || id.Row >= len(data) {
 				return
 			}
-			r := data[id.Row-1]
+			r := data[id.Row]
 
-			// Используем кэш для вычислений
-			cellKey := TableCellCacheKey{Row: id.Row, Col: id.Col, IP: r.IP}
+			// T-04: моноширинный шрифт для технических полей (IP, MAC).
+			ts := fyne.TextStyle{}
+			if id.Col == 1 || id.Col == 2 {
+				ts.Monospace = true
+			}
+
+			// P-03: ключ без Row — кэш попадает при смене сортировки.
+			cellKey := TableCellCacheKey{Col: id.Col, IP: r.IP}
+			l.TextStyle = ts
 			l.SetText(cellCache.getOrCreate(cellKey, func() string {
 				switch id.Col {
 				case 0:
@@ -108,15 +136,50 @@ func (a *App) buildTableView(data []scanner.Result) fyne.CanvasObject {
 			}))
 		},
 	)
+
+	// R-01: встроенный заголовок, закреплённый над данными.
+	t.ShowHeaderRow = true
+	t.StickyRowCount = 0
+	// R-03: заголовок — кнопка; клик сортирует, индикатор ▲/▼ показывает режим.
+	t.CreateHeader = func() fyne.CanvasObject {
+		btn := widget.NewButton("", nil)
+		btn.Importance = widget.LowImportance
+		btn.Alignment = widget.ButtonAlignLeading
+		return btn
+	}
+	t.UpdateHeader = func(id widget.TableCellID, obj fyne.CanvasObject) {
+		btn, _ := obj.(*widget.Button)
+		if btn == nil {
+			return
+		}
+		col := id.Col
+		if col < 0 || col >= len(headers) {
+			return
+		}
+		label := headers[col]
+		if _, sortable := resultsTableSortColumns[col]; sortable {
+			if arrow := a.sortIndicatorForColumn(col); arrow != "" {
+				label += " " + arrow
+			}
+			col := col
+			btn.OnTapped = func() { a.toggleSortByColumn(col) }
+			btn.Enable()
+		} else {
+			// Несортируемые колонки: заголовок — обычная подпись без действия.
+			btn.OnTapped = nil
+		}
+		btn.SetText(label)
+	}
+
 	widths := a.resultsTableColumnWidths()
 	for col, width := range widths {
 		t.SetColumnWidth(col, width)
 	}
 	t.OnSelected = func(id widget.TableCellID) {
-		if id.Row <= 0 || id.Row-1 >= len(data) {
+		if id.Row < 0 || id.Row >= len(data) {
 			return
 		}
-		a.selectHostForDetails(data[id.Row-1])
+		a.selectHostForDetails(data[id.Row])
 	}
 	return t
 }
@@ -137,9 +200,9 @@ func (a *App) resultsTableColumnWidths() []float32 {
 // resultsTableHeaders возвращает заголовки колонок таблицы.
 func (a *App) resultsTableHeaders() []string {
 	if a.currentLayoutProfile() == "compact" {
-		return []string{"Host", "IP", "MAC", "Тип", "Вендор", "OS", "SNMP", "Порты"}
+		return []string{"Имя", "IP", "MAC", "Тип", "Вендор", "ОС", "SNMP", "Порты"}
 	}
-	return []string{"Host", "IP", "MAC", "Тип", "Производитель", "ОС (оценка)", "SNMP", "Порты (открытые)"}
+	return []string{"Имя хоста", "IP", "MAC", "Тип", "Производитель", "ОС (оценка)", "SNMP", "Порты (открытые)"}
 }
 
 // buildCardsView создаёт карточки результатов сканирования.
@@ -181,6 +244,9 @@ func (a *App) buildCardsView(data []scanner.Result) fyne.CanvasObject {
 	}
 	a.lastRenderStats.VisibleCount = visible
 	viewData := data[:visible]
+
+	// R-09/R-12: счётчик строк отражает реально показанное число карточек.
+	a.updateResultsCountLabel(visible, len(data))
 
 	// Кэшируем template для карточек
 	templateCache := newCardsTemplateCache()
@@ -267,7 +333,9 @@ func (a *App) buildCardsView(data []scanner.Result) fyne.CanvasObject {
 			a.cardsVisibleCount += step
 			a.scheduleResultsRender(true)
 		})
-		return container.NewBorder(nil, loadMore, nil, nil, list)
+		// R-12: явное уведомление, что показано не всё.
+		counter := widget.NewLabel(fmt.Sprintf("Показано %d из %d", visible, len(data)))
+		return container.NewBorder(nil, container.NewHBox(loadMore, counter), nil, nil, list)
 	}
 	return list
 }
@@ -278,7 +346,6 @@ func (a *App) selectHostForDetails(r scanner.Result) {
 	if ip == "" {
 		return
 	}
-	a.primeHostDetailsCache(r)
 	a.selectedHostIP = ip
 	a.renderScanResultsView()
 }
