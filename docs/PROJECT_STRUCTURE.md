@@ -1,6 +1,6 @@
 # Структура проекта Network Scanner
 
-**Версия:** 2.3.0  
+**Версия:** 2.4.0  
 **Дата обновления:** 2026-09-15
 
 ## Текущая структура (актуальная)
@@ -107,7 +107,8 @@ network-scanner/
 ## Связанные документы
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Архитектура проекта
-- [ROADMAP.md](ROADMAP.md) - Roadmap и план реализации v2.3
+- [ROADMAP.md](ROADMAP.md) - Roadmap и план реализации v2.4
+- [UX_AUDIT.md](UX_AUDIT.md) - Реестр статуса UX-аудита GUI
 - [USER_GUIDE.md](USER_GUIDE.md) - Руководство пользователя
 - [TECHNICAL.md](TECHNICAL.md) - Техническая документация
 
