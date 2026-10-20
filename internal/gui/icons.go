@@ -66,6 +66,9 @@ func iconConfirm() fyne.Resource { return theme.ConfirmIcon() }
 // iconAdd — «показать ещё».
 func iconAdd() fyne.Resource { return theme.ContentAddIcon() }
 
+// iconRemove — «уменьшить/убрать».
+func iconRemove() fyne.Resource { return theme.ContentRemoveIcon() }
+
 // iconInspect — инспекция (аудит портов, открыть детали).
 func iconInspect() fyne.Resource { return theme.VisibilityIcon() }
 

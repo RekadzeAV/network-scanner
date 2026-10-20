@@ -33,6 +33,7 @@ func (a *App) ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeo
 			select {
 			case <-time.After(timeout):
 				fyne.Do(func() {
+					a.setScanProgress("")
 					if a.statusLabel != nil {
 						a.statusLabel.SetText("Таймаут сканирования")
 					}
@@ -71,12 +72,12 @@ func (a *App) ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeo
 							a.progressBar.Show()
 							a.progressBar.SetValue(ev.Percent)
 						}
-						if a.statusLabel != nil {
-							a.statusLabel.SetText(scanProgressText(ev, startTime, len(a.scanResults)))
-						}
+						// N-07: прогресс N/M и ETA — в центральный блок статус-бара.
+						a.setScanProgress(scanProgressCompact(ev, startTime))
 					})
 				case scand.EventDone:
 					fyne.Do(func() {
+						a.setScanProgress("")
 						if a.statusLabel != nil {
 							a.statusLabel.SetText(fmt.Sprintf("Сканирование завершено за %v. Найдено устройств: %d", time.Since(startTime), len(ev.Results)))
 						}
@@ -101,6 +102,7 @@ func (a *App) ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeo
 					return
 				case scand.EventError:
 					fyne.Do(func() {
+						a.setScanProgress("")
 						if a.statusLabel != nil {
 							a.statusLabel.SetText("Ошибка сканирования: " + ev.Message)
 						}
@@ -123,6 +125,7 @@ func (a *App) ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeo
 					return
 				case scand.EventStopped:
 					fyne.Do(func() {
+						a.setScanProgress("")
 						if a.statusLabel != nil {
 							a.statusLabel.SetText(ev.Message)
 						}

@@ -158,8 +158,8 @@ func (a *App) initScanUI() {
 }
 
 // buildScanControlsContainer создаёт контейнер с настройками сканирования.
-// Панель сгруппирована: «Основное» (сеть/порты/запуск) всегда видимо,
-// остальные параметры — в сворачиваемых секциях (widget.Accordion).
+// P2-11: вместо accordion — кнопка «Настройки сканирования», открывающая диалог.
+// Панель содержит только основное: сеть, порты, запуск.
 func (a *App) buildScanControlsContainer() *container.Scroll {
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -171,7 +171,7 @@ func (a *App) buildScanControlsContainer() *container.Scroll {
 		"Динамические/частные (Dynamic/Private) 49152–65535 — эфемерные и частные порты.")
 	portClassHint.Wrapping = fyne.TextWrapWord
 
-	// --- Секция «Основное»: всегда видима ---
+	// --- Панель: только основное ---
 	mainSection := container.NewVBox(
 		widget.NewLabel("Сеть (CIDR, например 192.168.1.0/24):"),
 		a.networkEntryBox,
@@ -190,43 +190,12 @@ func (a *App) buildScanControlsContainer() *container.Scroll {
 		a.progressBar,
 	)
 
-	// --- Секция «Пресеты и профиль» ---
-	profilesSection := container.NewVBox(
-		widget.NewLabel("Пресет:"),
-		container.NewGridWithColumns(3, a.presetQuickBtn, a.presetBalBtn, a.presetDeepBtn),
-		container.NewGridWithColumns(2, a.recommendedProfileBtn, a.recommendedProfileInfoBtn),
-		a.recommendedProfileBadge,
-		container.NewGridWithColumns(2, a.autoProfileCheck, a.autoProfileInfoBtn),
-		a.autoProfileStateText,
-		a.autoProfileHint,
-	)
-
-	// --- Секция «Производительность и опции» ---
-	optionsSection := container.NewVBox(
-		container.NewGridWithColumns(2,
-			widget.NewLabel("Таймаут (сек):"), a.timeoutEntryBox,
-			widget.NewLabel("Потоки:"), a.threadsEntryBox,
-		),
-		a.scanUDPCheck,
-		a.scanBannersCheck,
-		a.scanOSActiveCheck,
-		container.NewGridWithColumns(2, a.scanVerboseLogsCheck, a.scanVerboseInfoBtn),
-	)
-
-	a.scanAdvancedAccordion = widget.NewAccordion(
-		widget.NewAccordionItem("Пресеты и профиль сканирования", profilesSection),
-		widget.NewAccordionItem("Производительность и опции", optionsSection),
-	)
-	// По умолчанию все секции свёрнуты — видна только «Основное».
-	for i := range a.scanAdvancedAccordion.Items {
-		a.scanAdvancedAccordion.Items[i].Open = false
-	}
-	a.scanAdvancedAccordion.MultiOpen = true
-	a.scanAdvancedOpen = false
+	// Кнопка настроек (P2-11): вместо accordion
+	settingsBtn := a.buildSettingsButton()
 
 	scanControlsContainer := container.NewVBox(
 		mainSection,
-		a.scanAdvancedAccordion,
+		settingsBtn,
 	)
 
 	return container.NewVScroll(scanControlsContainer)

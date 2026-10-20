@@ -195,7 +195,7 @@ func (a *App) setupEventHandlers() {
 	}
 	if a.topologyResetMapBtn != nil {
 		a.topologyResetMapBtn.OnTapped = func() {
-			a.topologyViewState = topologyMapState{}
+			a.resetTopologyView()
 			if a.topologySearchEntry != nil {
 				a.topologySearchEntry.SetText("")
 			}
@@ -205,8 +205,19 @@ func (a *App) setupEventHandlers() {
 			if a.topologyConfidenceFilterSel != nil {
 				a.topologyConfidenceFilterSel.SetSelected("all")
 			}
-			a.renderTopologyInteractiveMap(a.lastTopology)
 		}
+	}
+	// H-07: обработчики viewport'а — колесо мыши = зум, drag = панорама.
+	if a.topologyViewport != nil {
+		a.topologyViewport.SetHandlers(
+			func(direction float32) {
+				a.zoomTopologyBy(direction)
+			},
+			func(dx, dy float32) {
+				a.panTopologyBy(dx, dy)
+			},
+			nil,
+		)
 	}
 	if a.toolsHostEntry != nil {
 		a.toolsHostEntry.OnChanged = func(_ string) {

@@ -70,14 +70,18 @@ func (a *App) showFieldErrorDelayed(msg *canvas.Text, err error) {
 	showFieldError(msg, err)
 }
 
-// themeColorError возвращает цвет ошибки из активной темы. Fallback — токен
-// ошибки светлого варианта (6.54:1 на surface), а не отдельный «свой» красный:
-// иначе подпись расходится с палитрой (C-12).
+// themeColorError возвращает цвет ошибки из токенов темы (C-12).
+// Гарантирует WCAG AA ≥4.5:1: tokLightError = 6.54:1 на surface,
+// tokDarkError = 7.19:1 на bg. Прямое чтение токенов вместо
+// th.Color(theme.ColorNameError) — защищает от дефолтного цвета
+// Fyne (#C82828, 3.26:1), который не проходит WCAG AA.
 func themeColorError() color.Color {
 	if a := fyne.CurrentApp(); a != nil && a.Settings() != nil {
-		if th := a.Settings().Theme(); th != nil {
-			return th.Color(theme.ColorNameError, a.Settings().ThemeVariant())
+		v := a.Settings().ThemeVariant()
+		if v == theme.VariantDark {
+			return tokDarkError
 		}
+		return tokLightError
 	}
 	return tokLightError
 }

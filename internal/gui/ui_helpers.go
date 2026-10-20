@@ -280,6 +280,8 @@ func (a *App) loadScanSettings() {
 		a.resultsMode = viewMode
 		a.resultsModeSel.SetSelected(viewMode)
 	}
+	// P2-12: загрузка видимых колонок таблицы.
+	a.loadVisibleCols()
 	// Whitelist подрежимов — общий с переключателем (resultsSubModeOptions).
 	if subMode := normalizeResultsSubMode(p.String(prefResultsSubMode)); subMode != "" {
 		a.resultsSubMode = subMode

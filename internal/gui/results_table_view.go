@@ -77,10 +77,11 @@ func (a *App) cellCache() *tableCellCache {
 // которая не скроллится вместе с данными.
 // R-03: заголовок — кнопки; клик сортирует по колонке, индикатор ▲/▼ показывает
 // текущий режим и направление.
+// P2-12: учитывает видимые колонки из a.resultsVisibleCols.
 func (a *App) buildTableView(data []scanner.Result) fyne.CanvasObject {
 	rows := len(data)
-	cols := 8
-	headers := a.resultsTableHeaders()
+	cols := a.visibleColCount()
+	headers := a.resultsTableHeadersFiltered()
 
 	// P-03: общий кэш приложения устойчив к пересортировке.
 	cellCache := a.cellCache()
@@ -100,17 +101,22 @@ func (a *App) buildTableView(data []scanner.Result) fyne.CanvasObject {
 			}
 			r := data[id.Row]
 
-			// T-04: моноширинный шрифт для технических полей (IP, MAC).
+			// P2-12: отображаем только видимые колонки.
+			if id.Col < 0 || id.Col >= cols {
+				return
+			}
+			visibleIdx := id.Col
 			ts := fyne.TextStyle{}
-			if id.Col == 1 || id.Col == 2 {
+			// T-04: моноширинный шрифт для технических полей (IP, MAC).
+			if visibleIdx == 1 || visibleIdx == 2 {
 				ts.Monospace = true
 			}
 
 			// P-03: ключ без Row — кэш попадает при смене сортировки.
-			cellKey := TableCellCacheKey{Col: id.Col, IP: r.IP}
+			cellKey := TableCellCacheKey{Col: visibleIdx, IP: r.IP}
 			l.TextStyle = ts
 			l.SetText(cellCache.getOrCreate(cellKey, func() string {
-				switch id.Col {
+				switch visibleIdx {
 				case 0:
 					return nullDash(r.Hostname)
 				case 1:
@@ -171,7 +177,7 @@ func (a *App) buildTableView(data []scanner.Result) fyne.CanvasObject {
 		btn.SetText(label)
 	}
 
-	widths := a.resultsTableColumnWidths()
+	widths := a.resultsTableColumnWidthsFiltered()
 	for col, width := range widths {
 		t.SetColumnWidth(col, width)
 	}

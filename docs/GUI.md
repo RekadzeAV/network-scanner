@@ -26,6 +26,8 @@ internal/gui/
 ├── results_charts.go         # Аналитика и pie-диаграммы (кэш, инвалидация при смене темы)
 ├── results_model.go          # Модель отображения/сортировки результатов (R-02)
 ├── results_table_view.go     # Табличное представление результатов
+├── results_columns.go        # Настраиваемые видимые колонки (P2-12)
+├── settings_dialog.go        # Диалог настроек сканирования (P2-11)
 ├── results_ui_sections.go    # Секции UI результатов (фильтры, режимы, настройки)
 ├── results_analytics_view.go # Явная аналитика в пайплайне рендера результатов
 ├── results_filters_ui.go     # Панель фильтров результатов
@@ -33,6 +35,8 @@ internal/gui/
 ├── results_formatter.go      # Форматирование полей результатов (device type, OS guess)
 ├── topology_interactive_map.go # Интерактивная карта топологии (узлы/связи/click-through)
 ├── topology_tappable_node.go # Кастомные виджеты: кликабельные узлы и hit-area связей (H-01, H-02)
+├── topology_layout.go        # Слоистая раскладка карты: ярусы core→dist→host, hit-зоны (H-08)
+├── topology_viewport.go      # Слой ввода: зум колесом, панорама drag'ом (H-07)
 ├── operations.go             # Runtime операций (queued/running/success/failed/canceled)
 ├── operations_ui.go          # UI Operations Center
 ├── security_view.go          # Security Dashboard (audit + risk signatures)
@@ -233,6 +237,18 @@ GUI использует единую систему темизации на о�
 - узлы по типу: `tokTopoNodeRouter`, `tokTopoNodeSwitch`, `tokTopoNodeHost`, `tokTopoNodeOther`;
 - связи по уверенности: `tokTopoConfHigh`, `tokTopoConfMedium`, `tokTopoConfLow`;
 - обводка выбранного узла: `tokTopoNodeBorderSelect` (контраст AA в обоих вариантах).
+
+**Зум и панорама** (H-07): `topologyViewport` — слой ввода поверх холста карты.
+- Колесо мыши → зум ±1.2×, диапазон 35%–300%;
+- Drag → панорама с ограничением ±60% размера мира;
+- Кнопки «+ / − / Сброс» в карточке «Интерактивная карта»;
+- Scroll-контейнер с динамическим `SetMinSize(worldSize)` — скроллбары появляются при зуме >100%;
+- Hit-зоны узлов/связей масштабируются с zoom (минимум WCAG 2.5.8: 14 px / 12 px).
+
+**Слоистая раскладка** (H-08): три яруса сверху вниз вместо радиального круга.
+- Ярус `core` (router) → `dist` (switch) → `host` (остальное);
+- Строки внутри яруса центрируются, пустые строки не рисуются;
+- `topologyComputeLayout` — детерминированный порядок узлов (сортировка по ключу).
 
 ### Адаптивность интерфейса (окно/полный экран)
 

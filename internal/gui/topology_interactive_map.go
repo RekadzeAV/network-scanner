@@ -3,7 +3,6 @@ package gui
 import (
 	"fmt"
 	"image/color"
-	"math"
 	"sort"
 	"strings"
 
@@ -14,12 +13,27 @@ import (
 	"network-scanner/internal/topology"
 )
 
+// topologyMapState — состояние интерактивной карты.
+// H-07: zoom/panX/panY участвуют в расчёте раскладки (а не в пост-трансформации
+// уже созданных объектов), поэтому повторные перерисовки не накапливают ошибку.
+// Пустое (нулевое) zoom трактуется как масштаб по умолчанию.
 type topologyMapState struct {
 	selectedNodeKey string
 	selectedLinkKey string
 	query           string
 	typeFilter      string
 	confFilter      string
+	zoom            float32
+	panX            float32
+	panY            float32
+}
+
+// effectiveZoom возвращает масштаб с учётом «пустого» состояния.
+func (s topologyMapState) effectiveZoom() float32 {
+	if s.zoom == 0 {
+		return topoZoomDefault
+	}
+	return clampTopologyZoom(s.zoom)
 }
 
 const (
@@ -72,21 +86,16 @@ func (a *App) renderTopologyInteractiveMap(topo *topology.Topology) {
 		return
 	}
 
-	width := float32(math.Max(1200, float64(280+len(keys)*95)))
-	height := float32(math.Max(780, float64(520+len(keys)*34)))
-	cx := width / 2
-	cy := height / 2
-	radius := float32(math.Min(float64(width), float64(height)) * 0.35)
-	if radius < 200 {
-		radius = 200
-	}
+	// H-08: слоистая раскладка (ядро → коммутаторы → хосты) вместо одного круга.
+	// H-07: базовые позиции масштабируются zoom и смещаются pan перед отрисовкой.
+	basePos, baseW, baseH := topologyComputeLayout(keys, topo)
+	zoom := a.topologyViewState.effectiveZoom()
+	width := baseW * zoom
+	height := baseH * zoom
 
-	nodePos := make(map[string]fyne.Position, len(keys))
-	for i, key := range keys {
-		angle := (2 * math.Pi * float64(i)) / float64(len(keys))
-		x := cx + radius*float32(math.Cos(angle))
-		y := cy + radius*float32(math.Sin(angle))
-		nodePos[key] = fyne.NewPos(x, y)
+	nodePos := make(map[string]fyne.Position, len(basePos))
+	for k, p := range basePos {
+		nodePos[k] = topologyApplyView(p, baseW, baseH, zoom, a.topologyViewState.panX, a.topologyViewState.panY)
 	}
 
 	objects := make([]fyne.CanvasObject, 0, len(keys)*2+len(topo.Links)*2+2)
@@ -113,7 +122,7 @@ func (a *App) renderTopologyInteractiveMap(topo *topology.Topology) {
 		}
 		renderedLinks++
 		line := canvas.NewLine(colorByConfidence(l.Confidence))
-		line.StrokeWidth = 2
+		line.StrokeWidth = topoLinkStroke(zoom)
 		line.Position1 = p1
 		line.Position2 = p2
 		objects = append(objects, line)
@@ -123,40 +132,29 @@ func (a *App) renderTopologyInteractiveMap(topo *topology.Topology) {
 		midX := (p1.X + p2.X) / 2
 		midY := (p1.Y + p2.Y) / 2
 
-		// H-02: невидимый hit-area прямоугольник 12px ширины вдоль связи
-		// для более удобного попадания курсором (WCAG 2.5.8 minimum target).
-		hitPos, hitSize := linkHitAreaSize(p1, p2, 12)
-		hitRect := newLinkHitArea(p1, p2, 12, func() {
-			a.topologyViewState.selectedLinkKey = linkKey
-			a.topologyViewState.selectedNodeKey = sourceKey
-			a.topologyGraphStatus.SetText(fmt.Sprintf("Связь: %s", linkSummary(l)))
-			a.topologyGraphStatus.Refresh()
-			if l.Source != nil {
-				a.selectHostByTopologyDevice(l.Source)
-			}
-			a.renderTopologyInteractiveMap(topo)
+		// H-02: невидимый hit-area вдоль связи. Ширина не уменьшается при
+		// отдалении карты — минимум WCAG 2.5.8 (H-05).
+		hitW := topoLinkHitWidth(zoom)
+		hitPos, hitSize := linkHitAreaSize(p1, p2, hitW)
+		hitRect := newLinkHitArea(p1, p2, hitW, func() {
+			a.selectTopologyLink(topo, l, linkKey, sourceKey)
 		})
 		hitRect.Move(hitPos)
 		hitRect.Resize(hitSize)
 		objects = append(objects, hitRect)
 
 		linkBtn := widget.NewButton(linkBadge(l), func() {
-			a.topologyViewState.selectedLinkKey = linkKey
-			a.topologyViewState.selectedNodeKey = sourceKey
-			a.topologyGraphStatus.SetText(fmt.Sprintf("Связь: %s", linkSummary(l)))
-			a.topologyGraphStatus.Refresh()
-			if l.Source != nil {
-				a.selectHostByTopologyDevice(l.Source)
-			}
-			a.renderTopologyInteractiveMap(topo)
+			a.selectTopologyLink(topo, l, linkKey, sourceKey)
 		})
-		linkBtn.Move(fyne.NewPos(midX-42, midY-12))
-		linkBtn.Resize(fyne.NewSize(84, 24))
+		badgeW := float32(84) * zoom
+		badgeH := float32(24) * zoom
+		linkBtn.Move(fyne.NewPos(midX-badgeW/2, midY-badgeH/2))
+		linkBtn.Resize(fyne.NewSize(badgeW, badgeH))
 		if isSelectedLink {
 			highlight := canvas.NewRectangle(tokTopoLinkHighlight)
 			highlight.CornerRadius = 4
-			highlight.Move(fyne.NewPos(midX-45, midY-14))
-			highlight.Resize(fyne.NewSize(90, 28))
+			highlight.Move(fyne.NewPos(midX-badgeW/2-3*zoom, midY-badgeH/2-3*zoom))
+			highlight.Resize(fyne.NewSize(badgeW+6*zoom, badgeH+6*zoom))
 			objects = append(objects, highlight)
 		}
 		objects = append(objects, linkBtn)
@@ -181,20 +179,23 @@ func (a *App) renderTopologyInteractiveMap(topo *topology.Topology) {
 			a.renderTopologyInteractiveMap(topo)
 		}
 
-		tn := newTappableNode(nodeColor, colorByNodeBorder(isSelected), 2, 10, 14, onTap)
-		tn.Move(fyne.NewPos(p.X-14, p.Y-14))
+		tn := newTappableNode(nodeColor, colorByNodeBorder(isSelected), 2, 10*zoom, topoHitNodeRadius(zoom), onTap)
+		hit := topoHitNodeRadius(zoom)
+		tn.Move(fyne.NewPos(p.X-hit, p.Y-hit))
 		objects = append(objects, tn)
 
 		display := truncateString(topoDisplayName(dev), 24)
 		btn := widget.NewButton(display, onTap)
-		btn.Resize(fyne.NewSize(190, 32))
-		btn.Move(fyne.NewPos(p.X-95, p.Y+16))
+		labelW := float32(190) * zoom
+		labelH := float32(32) * zoom
+		btn.Resize(fyne.NewSize(labelW, labelH))
+		btn.Move(fyne.NewPos(p.X-labelW/2, p.Y+hit))
 		objects = append(objects, btn)
 	}
 
-	legend := widget.NewLabel("Легенда: router/switch/host; связи high/medium/low")
+	legend := widget.NewLabel("Легенда: router/switch/host; связи high/medium/low. Колесо мыши — масштаб, перетаскивание — панорама")
 	legend.Move(fyne.NewPos(16, 12))
-	legend.Resize(fyne.NewSize(480, 20))
+	legend.Resize(fyne.NewSize(720, 20))
 	objects = append(objects, legend)
 	if nodesTrimmed || linksSkippedByLimit > 0 {
 		warn := widget.NewLabel(fmt.Sprintf("Режим упрощения: показано узлов %d/%d, связей %d (+%d скрыто)",
@@ -205,12 +206,19 @@ func (a *App) renderTopologyInteractiveMap(topo *topology.Topology) {
 	}
 
 	a.topologyGraphBox.Objects = objects
-	a.topologyGraphBox.Resize(fyne.NewSize(width, height))
+
+	// H-07: размер мира (worldSize) задаётся через viewport, а не через
+	// Resize на graphBox — scroll container использует MinSize viewport'а
+	// для расчёта скролл-баров.
+	if a.topologyViewport != nil {
+		a.topologyViewport.SetWorldSize(fyne.NewSize(width, height))
+	}
 	a.topologyGraphBox.Refresh()
 	if a.topologyGraphScroll != nil {
+		a.topologyGraphScroll.SetMinSize(fyne.NewSize(width, height))
 		a.topologyGraphScroll.Refresh()
 	}
-	status := fmt.Sprintf("Интерактивная карта: узлов %d, связей %d", len(keys), renderedLinks)
+	status := fmt.Sprintf("Интерактивная карта: узлов %d, связей %d, масштаб %d%%", len(keys), renderedLinks, int(zoom*100+0.5))
 	if nodesTrimmed || linksSkippedByLimit > 0 {
 		status = fmt.Sprintf("%s (упрощенный режим для больших графов)", status)
 	}
@@ -342,6 +350,91 @@ func colorByNodeBorder(selected bool) color.Color {
 		return tokTopoNodeBorderSelect
 	}
 	return tokTopoNodeBorder
+}
+
+// selectTopologyLink выделяет связь карты и показывает её сводку (общий код
+// для клика по hit-зоне и по бейджу-кнопке).
+func (a *App) selectTopologyLink(topo *topology.Topology, l topology.Link, linkKey, sourceKey string) {
+	if a == nil {
+		return
+	}
+	a.topologyViewState.selectedLinkKey = linkKey
+	a.topologyViewState.selectedNodeKey = sourceKey
+	if a.topologyGraphStatus != nil {
+		a.topologyGraphStatus.SetText(fmt.Sprintf("Связь: %s", linkSummary(l)))
+		a.topologyGraphStatus.Refresh()
+	}
+	if l.Source != nil {
+		a.selectHostByTopologyDevice(l.Source)
+	}
+	a.renderTopologyInteractiveMap(topo)
+}
+
+// setTopologyZoom применяет масштаб к карте и перерисовывает её (H-07).
+// Возвращает фактический масштаб с учётом ограничения.
+func (a *App) setTopologyZoom(zoom float32) float32 {
+	if a == nil {
+		return topoZoomDefault
+	}
+	z := clampTopologyZoom(zoom)
+	a.topologyViewState.zoom = z
+	if a.lastTopology != nil {
+		a.renderTopologyInteractiveMap(a.lastTopology)
+	}
+	return z
+}
+
+// zoomTopologyBy шагает масштаб на topoZoomStep в указанном направлении (H-07).
+func (a *App) zoomTopologyBy(direction float32) {
+	if a == nil {
+		return
+	}
+	a.setTopologyZoom(topologyZoomBy(a.topologyViewState.effectiveZoom(), direction))
+}
+
+// panTopologyBy смещает карту (панорама) с ограничением по размеру мира (H-07).
+func (a *App) panTopologyBy(dx, dy float32) {
+	if a == nil || a.lastTopology == nil {
+		return
+	}
+	_, baseW, baseH := topologyComputeLayout(topologyVisibleKeys(a.lastTopology, a.topologyViewState), a.lastTopology)
+	a.topologyViewState.panX = clampTopologyPan(a.topologyViewState.panX+dx, baseW)
+	a.topologyViewState.panY = clampTopologyPan(a.topologyViewState.panY+dy, baseH)
+	a.renderTopologyInteractiveMap(a.lastTopology)
+}
+
+// resetTopologyView сбрасывает зум и панораму карты (H-07).
+func (a *App) resetTopologyView() {
+	if a == nil {
+		return
+	}
+	a.topologyViewState.zoom = topoZoomDefault
+	a.topologyViewState.panX = 0
+	a.topologyViewState.panY = 0
+	if a.topologyGraphScroll != nil {
+		a.topologyGraphScroll.ScrollToOffset(fyne.Position{})
+	}
+	if a.lastTopology != nil {
+		a.renderTopologyInteractiveMap(a.lastTopology)
+	}
+}
+
+// topologyVisibleKeys — ключи узлов, проходящие текущие фильтры (в том же
+// порядке, что и при отрисовке). Используется для ограничения панорамы.
+func topologyVisibleKeys(topo *topology.Topology, st topologyMapState) []string {
+	if topo == nil {
+		return nil
+	}
+	keys := make([]string, 0, len(topo.Devices))
+	for k := range topo.Devices {
+		if !matchTopologyNodeFilter(topo.Devices[k], st.query, st.typeFilter) {
+			continue
+		}
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	keys, _ = limitTopologyKeys(keys, topologyMapMaxNodes)
+	return keys
 }
 
 // selectHostByTopologyDevice выделяет хост из карты топологии.

@@ -50,6 +50,7 @@ var appShortcutSpecs = []shortcutSpec{
 	{displayComb: "Ctrl+Shift+I", label: "Раздел «Инвентарь» (Ctrl+Shift+I)", keyName: fyne.KeyI, modifier: fyne.KeyModifierShift | fyne.KeyModifierControl},
 	{displayComb: "Ctrl+Shift+R", label: "Раздел «Безопасность» (Ctrl+Shift+R)", keyName: fyne.KeyR, modifier: fyne.KeyModifierShift | fyne.KeyModifierControl},
 	{displayComb: "F1", label: "Справка (F1)", keyName: fyne.KeyF1, modifier: 0},
+	{displayComb: "Ctrl+,", label: "Настройки сканирования (Ctrl+,)", keyName: fyne.KeyComma, modifier: fyne.KeyModifierControl},
 }
 
 // setupAppShortcuts регистрирует глобальные горячие клавиши приложения.
@@ -104,6 +105,8 @@ func (a *App) shortcutHandlerFor(displayComb string) func() {
 		return func() { a.showResultsSectionShortcut(resultsSubModeSecurity) }
 	case "F1":
 		return a.showShortcutsDialog
+	case "Ctrl+,":
+		return a.showScanSettingsDialog
 	default:
 		return nil
 	}

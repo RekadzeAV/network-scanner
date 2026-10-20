@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -185,5 +186,56 @@ func TestScanProgressText_NoTechnicalValues(t *testing.T) {
 		if text == bad {
 			t.Errorf("progress text = %q — technical value", text)
 		}
+	}
+}
+
+// --- tests: scanProgressCompact (N-07) ---
+
+func TestScanProgressCompact_Format(t *testing.T) {
+	ev := scand.Event{
+		Kind:    scand.EventProgress,
+		Total:   254,
+		Current: 37,
+		Percent: 0.146,
+	}
+	start := time.Now().Add(-10 * time.Second)
+	text := scanProgressCompact(ev, start)
+
+	// Должно содержать "37/254" и "14%" (процент округляется вниз)
+	if !strings.Contains(text, "37/254") {
+		t.Errorf("expected '37/254' in compact text, got %q", text)
+	}
+	if !strings.Contains(text, "14%") {
+		t.Errorf("expected '14%%' in compact text, got %q", text)
+	}
+	// Не должно содержать "Сканирование…", "найдено" — это не compact формат
+	if strings.Contains(text, "Сканирование") {
+		t.Errorf("compact text should not contain 'Сканирование', got %q", text)
+	}
+	if strings.Contains(text, "найдено") {
+		t.Errorf("compact text should not contain 'найдено', got %q", text)
+	}
+}
+
+func TestScanProgressCompact_EmptyWhenNoProgress(t *testing.T) {
+	// Когда Current=0, Total=0 — пустая строка
+	ev := scand.Event{Kind: scand.EventProgress}
+	text := scanProgressCompact(ev, time.Time{})
+	if text != "" {
+		t.Errorf("expected empty string when no progress, got %q", text)
+	}
+}
+
+func TestScanProgressCompact_IncludesETAWhenAvailable(t *testing.T) {
+	ev := scand.Event{
+		Kind:    scand.EventProgress,
+		Total:   100,
+		Current: 50,
+	}
+	start := time.Now().Add(-20 * time.Second)
+	text := scanProgressCompact(ev, start)
+	// При Current >= 5, Total > 0, Current < Total и nonzero start — ETA доступен
+	if !strings.Contains(text, "осталось") {
+		t.Errorf("expected ETA in compact text, got %q", text)
 	}
 }

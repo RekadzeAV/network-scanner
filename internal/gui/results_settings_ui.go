@@ -62,6 +62,8 @@ func (a *App) saveResultsViewSettings() {
 		mode = "all"
 	}
 	p.SetString(prefPortStateMode, mode)
+	// P2-12: сохраняем видимость колонок.
+	a.saveVisibleCols()
 }
 
 // resultsForSave возвращает результаты для сохранения и причину неудачи.

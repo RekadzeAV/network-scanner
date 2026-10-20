@@ -67,6 +67,16 @@ func (a *App) cancelStatusToast() {
 	a.statusToastTimerMu.Unlock()
 }
 
+// N-07: центральный блок статус-бара — прогресс N/M и ETA.
+// setScanProgress обновляет центральный прогресс-блок статус-бара.
+// Пустая строка очищает блок (после завершения/ошибки скана).
+func (a *App) setScanProgress(text string) {
+	if a == nil || a.scanProgressLabel == nil {
+		return
+	}
+	a.scanProgressLabel.SetText(text)
+}
+
 // updateResultsFiltersVisibility автоматически сворачивает/разворачивает
 // Accordion «Фильтры и режимы отображения»: в подрежиме Inventory фильтры
 // устройств не нужны и панель скрывается, в остальных — разворачивается.

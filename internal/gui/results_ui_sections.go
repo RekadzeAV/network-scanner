@@ -283,10 +283,11 @@ func (a *App) buildResultsLayout() *fyne.Container {
 
 	a.resultsDiagnosticsGrid = container.NewGridWithColumns(3, a.diagnosticsLabel, a.copyDiagnosticsBtn, a.saveDiagnosticsBtn)
 	a.resultsSortGrid = container.NewGridWithColumns(
-		5,
+		6,
 		widget.NewLabel("Сортировка:"), a.resultsSortSel,
 		widget.NewLabel("Чипов портов:"), a.chipLimitSel,
 		a.showRawBannersCheck,
+		a.buildColumnsBtn(),
 	)
 	a.resultsCidrGrid = container.NewGridWithColumns(
 		4,

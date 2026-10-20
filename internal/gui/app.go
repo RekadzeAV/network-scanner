@@ -23,6 +23,7 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -65,6 +66,7 @@ type App struct {
 	portRegisteredBtn           *widget.Button
 	portDynamicBtn              *widget.Button
 	statusLabel                 *widget.Label
+	scanProgressLabel           *widget.Label
 	layoutStatusLabel           *widget.Label
 	resultsStateLabel           *widget.Label
 	autoProfileHeaderLabel      *widget.Label
@@ -94,6 +96,7 @@ type App struct {
 	resultsSort                 string
 	resultsSortDesc             bool
 	resultsCountLabel           *widget.Label
+	resultsVisibleCols          [8]bool // P2-12: видимость колонок (true = показывать)
 	resultsSortSel              *widget.Select
 	resultsFilterEnt            *widget.Entry
 	resultsFilterQuery          string
@@ -139,6 +142,9 @@ type App struct {
 	topologyTypeFilterSel       *widget.Select
 	topologyConfidenceFilterSel *widget.Select
 	topologyResetMapBtn         *widget.Button
+	topologyZoomInBtn           *widget.Button
+	topologyZoomOutBtn          *widget.Button
+	topologyViewport            *topologyViewport
 	topologyGraphStatus         *widget.Label
 	topologyStatus              *widget.Label
 	snmpStageLabel              *widget.Label
@@ -231,6 +237,7 @@ type App struct {
 	services                    *AppServices
 	mainToolbar                 *fyne.Container
 	scanAdvancedAccordion       *widget.Accordion
+	settingsDialog              *dialog.CustomDialog // P2-11: диалог настроек сканирования
 	scanAdvancedOpen            bool
 	resultsFiltersAccordion     *widget.Accordion
 	resultsFiltersAccordionOpen bool
@@ -281,6 +288,7 @@ const (
 	prefFilterPreset1           = "scan.results_filter_preset_1"
 	prefFilterPreset2           = "scan.results_filter_preset_2"
 	prefFilterPreset3           = "scan.results_filter_preset_3"
+	prefResultsVisibleCols      = "scan.results_visible_cols"
 	prefToolHost                = "scan.tools.host"
 	prefToolPingCount           = "scan.tools.ping_count"
 	prefToolTimeout             = "scan.tools.timeout_sec"
@@ -569,6 +577,7 @@ func (a *App) autoDetectNetwork() {
 // Run запускает GUI приложение
 func (a *App) Run() {
 	a.setupMainMenu()
+	a.initSettingsMenu() // P2-11: меню настроек сканирования
 	a.setupAppShortcuts()
 	a.setupLayoutResetShortcut()
 	a.myWindow.SetOnClosed(func() {
@@ -586,6 +595,7 @@ func (a *App) ApplyScanRunStart(autoProfileNote string) {
 	a.setResultsState(resultsStateScanning, -1)
 	a.setScanResults(nil)
 	a.selectedHostIP = ""
+	a.setScanProgress("")
 }
 
 func (a *App) RenderScanResultsView() {

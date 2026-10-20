@@ -101,6 +101,25 @@ func scanProgressText(ev scand.Event, started time.Time, found int) string {
 	return "Сканирование… " + strings.Join(parts, " · ")
 }
 
+// scanProgressCompact — компактная версия для центрального блока статус-бара:
+// «37/254 · 15% · осталось 00:41». Пустая строка, если прогресс не показан.
+func scanProgressCompact(ev scand.Event, started time.Time) string {
+	var parts []string
+	if ev.Current > 0 && ev.Total > 0 {
+		parts = append(parts, fmt.Sprintf("%d/%d", ev.Current, ev.Total))
+	}
+	if pct := scanProgressPercent(ev); pct >= 0 {
+		parts = append(parts, fmt.Sprintf("%d%%", pct))
+	}
+	if eta := scanETA(started, ev); eta {
+		parts = append(parts, "осталось "+formatDurationShort(scanETADuration(started, ev)))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, " · ")
+}
+
 // scanProgressPercent — процент готовности или -1, если он неизвестен.
 func scanProgressPercent(ev scand.Event) int {
 	if ev.Total > 0 {

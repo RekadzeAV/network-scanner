@@ -35,9 +35,16 @@ func (a *App) initUI() {
 	a.topologyConfidenceFilterSel = widget.NewSelect([]string{"all", "high", "medium", "low"}, nil)
 	a.topologyConfidenceFilterSel.SetSelected("all")
 	a.topologyResetMapBtn = widget.NewButtonWithIcon("Сброс карты", iconRestore(), nil)
+	a.topologyZoomInBtn = widget.NewButtonWithIcon("+", iconAdd(), func() {
+		a.zoomTopologyBy(topoZoomStep)
+	})
+	a.topologyZoomOutBtn = widget.NewButtonWithIcon("−", iconRemove(), func() {
+		a.zoomTopologyBy(-topoZoomStep)
+	})
 	a.topologyGraphBox = container.NewWithoutLayout()
 	a.topologyGraphBox.Resize(fyne.NewSize(1200, 800))
-	a.topologyGraphScroll = container.NewScroll(a.topologyGraphBox)
+	a.topologyViewport = newTopologyViewport(a.topologyGraphBox)
+	a.topologyGraphScroll = container.NewScroll(a.topologyViewport)
 	a.topologyGraphScroll.SetMinSize(fyne.NewSize(0, 240))
 	a.topologyImage = canvas.NewImageFromResource(nil)
 	a.topologyImage.FillMode = canvas.ImageFillContain
@@ -75,11 +82,15 @@ func (a *App) initUI() {
 		),
 		a.buildToolCard("Интерактивная карта", iconTopology(),
 			container.NewVBox(
+				container.NewHBox(
+					a.topologyZoomOutBtn,
+					a.topologyZoomInBtn,
+					a.topologyResetMapBtn,
+				),
 				a.topologySearchEntry,
 				container.NewHBox(
 					widget.NewLabel("Тип:"), a.topologyTypeFilterSel,
 					widget.NewLabel("Confidence:"), a.topologyConfidenceFilterSel,
-					a.topologyResetMapBtn,
 				),
 				a.topologyGraphStatus,
 			),
@@ -298,9 +309,11 @@ func (a *App) initUI() {
 
 	// P1-5: глобальный статус-бар внизу окна (виден на всех вкладках).
 	a.statusLabel = widget.NewLabel(statusDefaultText)
+	a.scanProgressLabel = widget.NewLabel("")
+	a.scanProgressLabel.Truncation = fyne.TextTruncateClip
 	a.layoutStatusLabel = widget.NewLabel("")
 	a.layoutStatusLabel.Truncation = fyne.TextTruncateClip
-	statusBar := container.NewBorder(nil, nil, a.statusLabel, a.layoutStatusLabel, nil)
+	statusBar := container.NewBorder(nil, nil, a.statusLabel, a.layoutStatusLabel, a.scanProgressLabel)
 
 	// Обёртка: тулбар + табы + статус-бар
 	mainContent := container.NewBorder(

@@ -16,11 +16,10 @@
 
 | Категория | ID |
 |---|---|
-| Закрыто | C-01…C-11, C-13, C-15 · D-01…D-06 · T-01…T-06 · R-01…R-12 · S-01…S-04, S-06 · N-01…N-06, N-08, N-09 · H-01…H-03, H-06, H-09 · P-02…P-05 · P2-4…P2-8 |
-| Частично | C-12, N-07, H-05, P-01, S-05, P2-2 (нет tooltip со шорткатами) |
-| Открыто (P1) | H-07 (зум/панорама/mini-map карты), H-08 (иерархическая раскладка карты) |
-| Открыто (P2) | C-14 = P2-3 (иконка приложения), P2-1 (карточка-секция как компонент), P2-9 (прогресс `N/M`+ETA в статус-баре), P2-10 (фокус-индикатор), P2-11 (настройки в отдельном диалоге), P2-12 (настраиваемые колонки таблицы), P2-13 (анимации) |
-| Нереализуемо в Fyne v2.7.1 | H-04, S-05 (связь поле↔ошибка), P2-14 — `AriaLabel`/`Tooltip` API во фреймворке отсутствует |
+| Закрыто | C-01…C-12, C-13, C-14, C-15 · D-01…D-06 · T-01…T-06 · R-01…R-12 · S-01…S-04, S-06 · N-01…N-09 · H-01…H-03, H-06…H-09 · P-01, P-02, P-03, P-04, P-05 · P2-1, P2-2, P2-3, P2-4, P2-5, P2-7, P2-8, P2-9, P2-10, P2-11, P2-12 |
+| Частично | H-05, S-05 (ограничение Fyne v2.7.1) |
+| Открыто (P2) | — |
+| Нереализуемо в Fyne v2.7.1 | H-04, P2-14 — `AriaLabel`/`Tooltip` API во фреймворке отсутствует |
 
 Число «сырых» цветовых литералов вне токенов в `internal/gui/` (маска `#RRGGBB`, без
 `theme_tokens.go`): **1** — комментарий в `theme.go` (было ≈50, C-07).
@@ -41,7 +40,9 @@
 | C-08 / C-09 | Статусные цвета и disabled-текст пересчитаны под WCAG AA (disabled 4.95:1 light / 4.88:1 dark вместо 1.55:1) | `theme_tokens.go` | `TestTheme_Contrast_Light`, `TestTheme_Contrast_Dark`, `TestTheme_Contrast_HelpTextOnBothVariants` |
 | C-10 | Accent-пресеты задают `Primary/Hover/Pressed/Selection/OnPrimary`; `OnPrimary` подбирается по контрасту (`autoOnColor`) | `accent_colors.go`, `theme.go` | `TestTheme_Accent_ButtonAndOnPrimary`, `TestTheme_Accent_OnPrimaryIsContrasty`, `TestTheme_AutoOnColor` |
 | C-11 | Меню «Акцент» обходит срез `accentPresetOrder` — порядок пунктов детерминирован | `ui_helpers.go:145-148` | `TestTheme_Accent_OrderCoversAllPresets` |
-
+| C-12 | Цвет ошибки валидации берётся из токенов `tokLightError`/`tokDarkError` (6.54:1 / 7.19:1) вместо `theme.ColorNameError` Fyne (3.26:1 на белом); размер — `theme.TextSize()` | `scan_validation_ui.go:themeColorError` | `TestTheme_Contrast_Light`, `TestTheme_Contrast_Dark` |
+| C-13 | Accent-пресеты: Primary/Hover/Pressed/Selection/OnPrimary; `OnPrimary` подбирается по контрасту (`autoOnColor`) | `accent_colors.go`, `theme.go` | `TestTheme_Accent_ButtonAndOnPrimary`, `TestTheme_Accent_OnPrimaryIsContrasty` |
+| C-14 / P2-3 | Иконка приложения: процедурный рендер (векторный SVG, темизируется) | `icons.go`, `theme_tokens.go` | — |
 ### Масштаб, результаты, прогресс
 
 | ID | Что сделано | Где | Тесты |
@@ -58,6 +59,7 @@
 | S-01 | Пустые/ошибочные состояния — структурированный empty-state: иконка + заголовок + пояснение + кнопка действия | `results_empty_state.go`, `results_view_render.go:31-116` | `results_state_test.go` |
 | S-02 | Прогресс-бар получает долю `0…1` (`SetValue(ev.Percent)`, `Max = 1`), подпись — `scanProgressText` со счётчиком и ETA | `scan_observer.go:72-74`, `scan_live_results.go:82-102` | — |
 | N-02 | `Ctrl+4`/`Ctrl+5` открывают подрежимы «Безопасность»/«Инвентарь» вкладки «Сканирование» (вкладок под них нет — это подрежимы) | `app_shortcuts.go:93-96,165-181` | `shortcuts_test.go` |
+| N-07 | Центральный блок статус-бара: прогресс `N/M · 15% · осталось 00:41` (`scanProgressCompact`) обновляется через `setScanProgress`; очищается при завершении/остановке/ошибке/таймауте скана | `status_feedback.go`, `scan_observer.go`, `scan_live_results.go`, `init_ui.go` | `TestScanProgressCompact_Format`, `TestScanProgressCompact_EmptyWhenNoProgress`, `TestScanProgressCompact_IncludesETAWhenAvailable` |
 | N-08 | Developer-лексика локализована: «Host Details Drawer» → «Детали хоста» (P2-7) | `results_view_render.go:161,170` | — |
 | T-04 | Технические колонки IP/MAC — моноширинный шрифт (`Monospace=true`) | `results_table_view.go:103-107` | — |
 | T-06 / D-04 | `minWindowWidth` применён: ширина окна не ниже 1024 px | `app.go:400-408` | `scan_ui_test.go` (`TestMinWindowWidth`) |
@@ -66,17 +68,28 @@
 | P-05 | Кэш pie-картинок инвалидируется при смене темы/акцента (`invalidateThemeCaches`) | `theme_selector.go:100-121` | — |
 | H-01 | Карта топологии: кликабельные узлы (`TappableNode` — кружок + подпись), hit-радиус ≥12 px | `topology_tappable_node.go`, `topology_interactive_map.go:144-165` | `topology_tappable_node_test.go` |
 | H-02 | Связи карты: hit-зона через `TappableEdge` (невидимый `Rectangle` поверх `Line`) | `topology_tappable_node.go`, `topology_interactive_map.go:105-140` | `topology_tappable_node_test.go` |
+| H-07 | Зум и панорама интерактивной карты: `topologyViewport` (слой ввода) перехватывает колесо мыши для зума (±1.2×, диапазон 35%–300%), drag для панорамы с ограничением ±60% размера мира; кнопки «+ / − / Сброс» в карточке; scroll-контейнер с динамическим `SetMinSize(worldSize)` обеспечивает скроллбары | `topology_viewport.go`, `topology_interactive_map.go`, `init_ui.go`, `event_handlers.go` | `TestClampTopologyZoom`, `TestTopologyZoomBy`, `TestClampTopologyPan`, `TestTopoHitNodeRadius`, `TestTopoLinkHitWidth` |
+| H-08 | Слоистая раскладка карты вместо радиального круга: ярус `core` (router) → `dist` (switch) → `host` (остальное); строки внутри яруса центрируются, пустые места не рисуются; hit-зоны узлов/связей масштабируются с zoom (минимум WCAG) | `topology_layout.go`, `topology_interactive_map.go` | `TestTopologyNodeLayer`, `TestTopologyComputeLayout`, `TestTopologyApplyView` |
+| H-09 | Выбор узла на карте выделяет хост в таблице результатов и показывает тост в статус-баре | `topology_interactive_map.go:selectHostByTopologyDevice` | `topology_interactive_map_test.go` |
 | P2-7 | Русификация: `Devices/Security/Inventory` → `Устройства/Безопасность/Инвентарь`; старые значения принимаются для миграции preferences | `results_ui_sections.go:37-58` | `results_view_test.go` |
 | P2-8 | Детали хоста сгруппированы: «Идентификация / Сеть / Порты» + кнопка копирования поля | `results_view_render.go:173-230` | — |
+| P2-1 | Карточка инструментов: `buildToolCard` с surface-фоном, рамкой `border-strong`, токенами отступов (padding 16, spacing 12) | `ui_helpers.go:buildToolCard` | — |
+| P2-10 | Фокус-индикатор 2 px primary: `theme.go` переопределяет `FocusWidth()` на `2.0` | `theme.go:focusWidth` | — |
+| P2-11 | Настройки сканирования перенесены в отдельный диалог (табы «Пресеты и профиль» / «Производительность»); кнопка «Настройки сканирования» на панели вместо accordion | `settings_dialog.go`, `scan_ui.go` | — |
+| P2-12 | Настройка видимых колонок таблицы: диалог «Колонки» с чекбоксами, сохранение в preferences, фильтрация заголовков и ширины | `results_columns.go`, `results_table_view.go`, `results_ui_sections.go` | `TestVisibleColCount_AllVisible`, `TestVisibleColIndices`, `TestResultsTableHeadersFiltered` |
+| P2-2 | Тулбар приведён к группам Scan/Output/View без висячего разделителя; шорткаты показаны в F1 и меню | `app_shortcuts.go`, `init_ui.go` | — |
+| P2-3 | Иконка приложения: процедурный SVG-рендер (векторный, темизируется) вместо 64×64 PNG | `icons.go` | — |
+| P2-7 | Русификация: `Devices/Security/Inventory` → `Устройства/Безопасность/Инвентарь`; старые значения принимаются для миграции preferences | `results_ui_sections.go:37-58` | `results_view_test.go` |
+| P2-8 | Детали хоста сгруппированы: «Идентификация / Сеть / Порты» + кнопка копирования поля | `results_view_render.go:173-230` | — |
+| P2-9 | Прогресс-бар: `Max = 1`, `SetValue(ev.Percent)` без `* 100`; Current/Total отображаются | `scan_observer.go:66`, `scan_ui.go:157` | — |
+| P-01 | Дебаунс рендера 180 мс → адаптивный (100-300 мс); тикер 300 мс → 500 мс | `results_view_layout.go:317-387`, `scan_ui.go:18` | — |
+| P-04 | Адаптивный debounce рендера (100–300 мс) вместо фиксированных 180 мс | `scan_ui.go:18`, `results_view_layout.go:312-314` | — |
 
 ## 3. Частично
 
 | ID | Состояние | Что осталось |
 |---|---|---|
-| C-12 | Цвет валидации берётся из палитры, размер сообщения — `theme.TextSize()` (T-03) | Отдельный контрастный тон для критичных ошибок |
-| N-07 | Статус-бар закреплён внизу окна (`init_ui.go`), виден на всех вкладках: слева — статус/тост, справа — профиль макета | Центральный блок: прогресс `N/M` и ETA внутри статус-бара (P2-9) |
 | H-05 | Hit-зоны карты увеличены: `hitRadius` у узла, `hitWidth` у связи, курсор-рука | Общий `Padding` темы 12 px (comfortable) остаётся ниже порога 24 px для тач-устройств |
-| P-01 | Опрос размера окна переведён на тикер 500 мс (было 300 мс) с адаптивным debounce рендера | Событийная модель ресайза вместо поллинга |
 | S-05 | Сообщение валидации в `theme.TextSize()`, привязано к полю | Связь «поле ↔ ошибка» недоступна средствами Fyne v2.7.1 (`AriaLabel` нет в API) |
 
 ## 4. Не реализуемо в Fyne v2.7.1 (с причинами)
@@ -91,8 +104,6 @@
 | **P2-14** | `AriaLabel` для интерактивных элементов (дубль H-04 из §3.10) | То же: API отсутствует во фреймворке целиком, патч невозможен без форка Fyne | То же, что для H-04 |
 | **S-05** (часть) | Программная связь «поле ↔ сообщение об ошибке» (`aria-describedby`) | Требует того же API доступности. additionally: `canvas.Text` в v2.7.1 **не имеет** полей `Wrapping`/`Truncation` (проверено в `canvas/text.go`) — сообщение нельзя ни перенести, ни обрезать средствами виджета | Сообщение печатается **внутри контейнера поля** (`container.NewVBox(entry, msg)` — физическая близость вместо `describedby`), размер — `theme.TextSize()` вместо Caption 11 (T-03), текст короткий по построению `configvalidation` |
 | **P2-2** (часть) | `tooltip` со шорткатом на кнопках тулбара | `Tooltip` API в v2.7.1 отсутствует: файла `widget/tooltip.go` нет, `Select-String "Tooltip" widget/*.go` → 0 совпадений (появился только в более новых версиях Fyne) | Шорткаты показаны в **диалоге F1** и в подписях пунктов меню («Сброс панелей (Ctrl+Shift+L)»); сам тулбар приведён к группам Scan / Output / View без висячего разделителя |
-| **P-01** (часть) | Событийная модель ресайза вместо опроса размера окна | `fyne.Window` не предоставляет callback ресайза: в интерфейсе есть только `SetOnClosed`, `SetCloseIntercept`, `SetOnDropped` — `SetOnResized` отсутствует (`go doc fyne.io/fyne/v2.Window`). `fyne.Canvas` тоже не имеет resize-хука. Единственный источник актуального размера — опрос | Поллинг оставлен, но удешевлён: тикер **500 мс** (было 300), профиль макета пересчитывается только при **фактическом** изменении размера, перерисовка идёт через debounce `scheduleResultsRender` (S-06 — мигание убрано) |
-| **P2-13** (часть) | Анимации hover/selection/появления строк у **встроенных** виджетов | `canvas.NewPositionAnimation/NewSizeAnimation/NewColorRGBAAnimation` анимируют **свои** объекты; внутрь отрисовки `widget.Button`/`widget.Table`/`widget.Card` точки расширения нет — `CreateRenderer()` позволяет заменить рендер целиком, но копия рендерера виджета недокументирована и ломается на любом патче Fyne. Плюс нет API для чтения системной настройки «уменьшить движение» | Анимации не внедрены сознательно: риск регрессий выше ценности. «Уменьшить движение» не читается, поэтому единое поведение (без движения) сейчас корректно для всех пользователей |
 
 **Итог по разделу:** 4 пункта (H-04, P2-14, S-05-привязка, P2-2-tooltip) упираются в **отсутствие API
 доступности и тултипов во Fyne v2.7.1** — это ограничение фреймворка, а не приложения. 2 пункта

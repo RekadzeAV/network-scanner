@@ -7,6 +7,49 @@
 
 ## [Unreleased]
 
+### 2026-10-20: GUI — настройки в отдельном диалоге (P2-11)
+
+- **Настройки сканирования в диалоге (P2-11):**
+  - `settings_dialog.go` — диалог с табами «Пресеты и профиль» / «Производительность», открывается кнопкой «Настройки сканирования» на панели или хоткеем `Ctrl+,`.
+  - Панель сканирования упрощена: только основное (сеть, порты, запуск) + кнопка настроек. Accordion удалён.
+  - Пункт меню «Инструменты → Настройки сканирования...» добавлен.
+  - Все preference keys сохранены — настройки совместимы с предыдущими версиями.
+- **Закрыт последний открытый пункт аудита GUI (P2-11).** Все P0, P1, P2-дефекты из `GUI_DESIGN_RECOMMENDATIONS.md` закрыты или признаны нереализуемыми в Fyne v2.7.1.
+- **Проверки:** `go build ./...` чисто; `go vet ./...` чисто; `go test ./internal/gui/...` — все ok (~17.5s).
+
+### 2026-10-19: GUI — контраст валидации, колонки таблицы, статус-бар (C-12, N-07, P2-1, P2-10, P2-12)
+
+- **Контраст ошибки валидации (C-12):** `themeColorError()` читает `tokLightError`/`tokDarkError` напрямую (6.54:1 / 7.19:1) вместо Fyne `theme.ColorNameError` (3.26:1 на белом) — теперь соответствует WCAG AA.
+- **Центральный блок статус-бара (N-07):** прогресс `37/254 · 15% · осталось 00:41` (`scanProgressCompact`) через `setScanProgress`; очищается при завершении/ошибке/остановке/таймауте скана.
+- **Настраиваемые колонки таблицы (P2-12):**
+  - `results_columns.go` — чекбоксы видимости колонок, диалог «Видимые колонки», CSV-сохранение в preferences (`scan.results_visible_cols`).
+  - `buildTableView` учитывает `resultsVisibleCols` — фильтрует заголовки и ширины; минимум 1 колонка (IP) всегда видна.
+  - Кнопка «Колонки» в панели сортировки результатов.
+  - Тесты: `TestVisibleColCount_*`, `TestVisibleColIndices`, `TestResultsTableHeadersFiltered`, `TestResultsTableColumnWidthsFiltered`, `TestColumnDefs`.
+- **Карточка-секция (P2-1):** `buildToolCard` использует `widget.NewCard` — surface-фон и рамка из токенов `ModernTheme.Color()` (ColorNameButton → surface, ColorNameInputBorder → borderStrong).
+- **Фокус-индикатор (P2-10):** `ColorNameFocus` → `p.primary` в `ModernTheme.Color()` — 2 px outline акцентным цветом при фокусе.
+- **Проверки:** `go build ./...` чисто; `go vet ./internal/gui/...` чисто; `go test ./internal/gui/...` — все ok (~17.5s).
+
+### 2026-10-18: GUI — зум и слоистая раскладка карты топологии (H-07, H-08)
+
+- **Зум и панорама интерактивной карты (H-07):**
+  - `topologyViewport` — слой ввода (scrollable widget), перехватывает колесо мыши и drag-события.
+  - Колесо → зум ±1.2×, диапазон 35%–300% (`topoZoomMin=0.35`, `topoZoomMax=3.0`).
+  - Drag → панорама с ограничением ±60% размера мира (`topoPanClampRatio=0.6`).
+  - Кнопки «+ / − / Сброс карты» в карточке «Интерактивная карта».
+  - Scroll-контейнер с динамическим `SetMinSize(worldSize)` — скроллбары появляются при зуме >100%.
+  - Hit-зоны узлов/связей масштабируются с zoom (минимум WCAG 2.5.8: 14 px / 12 px).
+- **Слоистая раскладка карты (H-08):**
+  - Три яруса сверху вниз: ядро (`router`) → дистрибуция (`switch`) → хосты (`host`/`unknown`).
+  - Строки внутри яруса центрируются по горизонтали; пустые строки не рисуются.
+  - `topologyComputeLayout` — детерминированный порядок узлов в строке (сортировка по ключу).
+  - `topologyApplyView` — масштабирование + смещение перед отрисовкой, без накопления ошибки.
+- **Центральный блок статус-бара — прогресс N/M и ETA (N-07/P2-9):**
+  - Статус-бар: слева — статус/тост, **центр — прогресс** `37/254 · 15% · осталось 00:41`, справа — профиль макета.
+  - `scanProgressCompact` — компактная строка без маркеров; очищается при завершении/ошибке/остановке/таймауте скана.
+- **Тесты:** `TestClampTopologyZoom`, `TestTopologyZoomBy`, `TestClampTopologyPan`, `TestTopoHitNodeRadius`, `TestTopoLinkHitWidth`, `TestTopologyNodeLayer`, `TestTopologyComputeLayout`, `TestTopologyApplyView`, `TestScanProgressCompact_Format`, `TestScanProgressCompact_EmptyWhenNoProgress`, `TestScanProgressCompact_IncludesETAWhenAvailable`.
+- **Проверки:** `go build ./...` чисто; `go vet ./internal/gui/...` чисто; `go test ./internal/gui/...` — все ok (~17.5s).
+
 ### 2026-10-17: GUI — обратная связь карты, мёртвый код, локализация фильтров (P2)
 
 - **Обратная связь клика по карте (H-09):** `selectHostByTopologyDevice` показывает тост «Хост … выбран на карте — детали в разделе «Детали хоста»», выбор не молчит при активной другой вкладке.
