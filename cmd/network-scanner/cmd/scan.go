@@ -214,12 +214,20 @@ func RunScan(cfg builder.Config, args ...string) error {
 			}
 		case "--timeout", "-t":
 			if i+1 < len(args) {
-				_, _ = fmt.Sscanf(args[i+1], "%d", &timeout)
+				v, perr := parsePositiveInt("--timeout", args[i+1])
+				if perr != nil {
+					return perr
+				}
+				timeout = v
 				i++
 			}
 		case "--threads":
 			if i+1 < len(args) {
-				_, _ = fmt.Sscanf(args[i+1], "%d", &threads)
+				v, perr := parsePositiveInt("--threads", args[i+1])
+				if perr != nil {
+					return perr
+				}
+				threads = v
 				i++
 			}
 		case "--show-closed":
@@ -257,7 +265,11 @@ func RunScan(cfg builder.Config, args ...string) error {
 			}
 		case "--snmp-timeout":
 			if i+1 < len(args) {
-				_, _ = fmt.Sscanf(args[i+1], "%d", &snmptTimeout)
+				v, perr := parsePositiveInt("--snmp-timeout", args[i+1])
+				if perr != nil {
+					return perr
+				}
+				snmptTimeout = v
 				i++
 			}
 		case "--hosts-file":
@@ -276,6 +288,25 @@ func RunScan(cfg builder.Config, args ...string) error {
 			exportXML = true
 		case "--export-pdf":
 			exportPDF = true
+		}
+	}
+
+	// Валидация ввода (P0, Этап 1): значения из legacy-флагов проверяются
+	// до запуска сканирования. Раньше неверный --timeout/--threads молча
+	// оставлял дефолт (fmt.Sscanf), а экстремальные значения (timeout=0,
+	// threads=100000) уходили в сканер без ограничений.
+	if verr := validateScanTimeoutSeconds("--timeout", timeout); verr != nil {
+		return verr
+	}
+	if verr := validateScanThreads("--threads", threads); verr != nil {
+		return verr
+	}
+	if verr := validateScanPortRange(portRange); verr != nil {
+		return verr
+	}
+	if strings.TrimSpace(networkCIDR) != "" {
+		if verr := validateScanCIDR(networkCIDR); verr != nil {
+			return verr
 		}
 	}
 
