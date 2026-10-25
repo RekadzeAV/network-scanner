@@ -49,6 +49,7 @@ var appShortcutSpecs = []shortcutSpec{
 	{displayComb: "Ctrl+Shift+D", label: "Раздел «Устройства» (Ctrl+Shift+D)", keyName: fyne.KeyD, modifier: fyne.KeyModifierShift | fyne.KeyModifierControl},
 	{displayComb: "Ctrl+Shift+I", label: "Раздел «Инвентарь» (Ctrl+Shift+I)", keyName: fyne.KeyI, modifier: fyne.KeyModifierShift | fyne.KeyModifierControl},
 	{displayComb: "Ctrl+Shift+R", label: "Раздел «Безопасность» (Ctrl+Shift+R)", keyName: fyne.KeyR, modifier: fyne.KeyModifierShift | fyne.KeyModifierControl},
+	{displayComb: "F11", label: "Полноэкранный режим (F11)", keyName: fyne.KeyF11, modifier: 0},
 	{displayComb: "F1", label: "Справка (F1)", keyName: fyne.KeyF1, modifier: 0},
 	{displayComb: "Ctrl+,", label: "Настройки сканирования (Ctrl+,)", keyName: fyne.KeyComma, modifier: fyne.KeyModifierControl},
 }
@@ -103,6 +104,8 @@ func (a *App) shortcutHandlerFor(displayComb string) func() {
 		return func() { a.showResultsSectionShortcut(resultsSubModeInventory) }
 	case "Ctrl+Shift+R":
 		return func() { a.showResultsSectionShortcut(resultsSubModeSecurity) }
+	case "F11":
+		return a.ToggleFullscreen
 	case "F1":
 		return a.showShortcutsDialog
 	case "Ctrl+,":
@@ -217,6 +220,7 @@ func (a *App) showShortcutsDialog() {
 		"  Ctrl+Shift+R    — раздел «Безопасность»\n" +
 		"  Ctrl+Shift+I    — раздел «Инвентарь»\n" +
 		"  Ctrl+Shift+L    — сброс расположения UI\n" +
+		"  F11             — полноэкранный / оконный режим\n" +
 		"  F1              — это диалог справки"
 	dialog.ShowInformation("Справка по горячим клавишам", help, a.myWindow)
 }

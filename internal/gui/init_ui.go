@@ -282,6 +282,15 @@ func (a *App) initUI() {
 		}),
 	)
 	outputGroup := container.NewHBox(
+		widget.NewSeparator(),
+		a.makeFullscreenToggleBtn(),
+		widget.NewSeparator(),
+		widget.NewButtonWithIcon("Сброс UI", iconRefresh(), func() {
+			if a.settingsMgr != nil {
+				a.settingsMgr.ResetUIPanelLayoutWithFeedback(a.scanTabMainSplit, a.topologyMainSplit, a.toolsTabMainSplit, a.myWindow)
+			}
+		}),
+		widget.NewSeparator(),
 		widget.NewButtonWithIcon("Сохранить", iconSave(), func() {
 			a.saveResults()
 		}),

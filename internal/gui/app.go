@@ -256,6 +256,7 @@ type App struct {
 	topoCtrl    *controller.TopologyController
 	toolsCtrl   *controller.ToolsController
 	settingsMgr *controller.SettingsManager
+	winMode     *windowModeCtrl // контроллер полноэкранного/оконного режима
 }
 
 const (
@@ -442,6 +443,7 @@ func NewApp() *App {
 
 	app.initUI()
 	app.initControllers() // ← Инициализация ПОСЛЕ создания UI
+	app.setupWindowMode()
 	app.setupEventHandlers()
 	app.loadScanSettings()
 	app.autoDetectNetwork()
@@ -581,6 +583,10 @@ func (a *App) Run() {
 	a.setupAppShortcuts()
 	a.setupLayoutResetShortcut()
 	a.myWindow.SetOnClosed(func() {
+		// Останавливаем watcher синхронизации fullscreen, чтобы избежать утечки goroutine.
+		if a.winMode != nil {
+			a.winMode.stopWatcher()
+		}
 		if a.previewPath != "" {
 			_ = os.Remove(a.previewPath)
 		}

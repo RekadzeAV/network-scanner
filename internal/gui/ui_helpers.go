@@ -126,6 +126,10 @@ func (a *App) setupMainMenu() {
 	helpMenu := fyne.NewMenu("Справка", shortcutsItem, aboutItem)
 	viewMenu := fyne.NewMenu("Вид", resetItem)
 
+	// Полноэкранный/оконный режим — добавляем в начало меню «Вид».
+	fsItems := a.fullscreenMenuItems()
+	viewMenu.Items = append(fsItems, append([]*fyne.MenuItem{fyne.NewMenuItemSeparator()}, viewMenu.Items...)...)
+
 	// T-02: переключатель плотности в меню «Вид».
 	currentDensity := DensityComfortable
 	if mt := a.currentModernTheme(); mt != nil {
