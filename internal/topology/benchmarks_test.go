@@ -1,6 +1,7 @@
 package topology
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -58,12 +59,8 @@ func BenchmarkTopologySaveJSON(b *testing.B) {
 	results := generateTestResults(50)
 	snmpData := generateTestSNMPData(10)
 	topo, _ := BuildTopology(results, snmpData)
-	filename := "/tmp/benchmark-topology.json"
+	filename := b.TempDir() + "/benchmark-topology.json"
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = topo.SaveJSON(filename)
-	}
-	// Cleanup
 	for i := 0; i < b.N; i++ {
 		_ = topo.SaveJSON(filename)
 	}
@@ -75,8 +72,10 @@ func BenchmarkTopologyToDOT(b *testing.B) {
 	snmpData := generateTestSNMPData(10)
 	topo, _ := BuildTopology(results, snmpData)
 	b.ResetTimer()
+	var buf bytes.Buffer
 	for i := 0; i < b.N; i++ {
-		_ = topo.ToDOT(nil)
+		buf.Reset()
+		_ = topo.ToDOT(&buf)
 	}
 }
 
@@ -331,7 +330,7 @@ func BenchmarkTopologySaveGraphML(b *testing.B) {
 	results := generateTestResults(50)
 	snmpData := generateTestSNMPData(10)
 	topo, _ := BuildTopology(results, snmpData)
-	filename := "/tmp/benchmark-topology.graphml"
+	filename := b.TempDir() + "/benchmark-topology.graphml"
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = topo.SaveGraphML(filename)
