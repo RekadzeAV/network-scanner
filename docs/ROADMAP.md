@@ -181,19 +181,21 @@
 - [x] `go test -cover ./internal/scanner/... ./internal/api/... ./internal/devicecontrol/...` ≥ 85%
 - [x] Нет regressions в существующих тестах
 
-### M2: CI/CD стабилизация
+### M2: CI/CD стабилизация ✅ (завершено 2026-10-26)
 - [x] Lint `golangci-lint run` — 0 замечаний
-- [x] Test `go test ./... -short` — 52/52 пакета ok
+- [x] Test `go test ./... -short` — 49/49 пакетов ok
 - [x] `go test -race ./... -short` — 0 FAIL, 0 DATA RACE (2026-09-24)
-- [x] Добавить `govulncheck` в CI
-- [x] Добавить `docker-compose.yml` + CI-сборка образа
+- [x] Добавить `govulncheck` в CI (security job)
+- [x] Добавить `docker-compose.yml` + CI-сборка образа (docker job)
+- [x] Обновить Dockerfile: libpcap-dev, версия 2.4.0
+- [x] Обновить docker-compose.yml: версия 2.4.0
 
 ### M3: Улучшение документации
 - [x] `docs/CLI_REFERENCE.md`
 - [x] `.github/CODEOWNERS`
 - [x] `CONTRIBUTING.md` (branching, commits, ответственность)
 - [x] Актуализировать `docs/ARCHITECTURE.md` под v2.4 (2026-10-26)
-- [ ] Автогенерация docs (godoc → `docs/dev/`)
+- [x] Автогенерация docs (godoc → `docs/dev/`) — скрипты `scripts/gen-godoc.{sh,ps1}`, CI job `docs` (2026-10-26)
 - [x] Обновить `docs/GUI.md` (v2.4.0, 2026-10-23)
 
 ### M4: Добавить performance benchmarks ✅ (topology/report, 2026-10-26)
