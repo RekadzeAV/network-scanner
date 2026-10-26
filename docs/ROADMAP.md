@@ -11,10 +11,10 @@
 **v2.1 / v2.2 backlogs:** ✅ выполнены
 **Архитектурный слой v2.3 (C1–C7):** ✅ пакеты реализованы с тестами; ✅ интеграция в приложения
 **GUI UX-аудит:** ✅ Все P0/P1/P2-дефекты закрыты (см. [UX_AUDIT.md](UX_AUDIT.md))
-**Тесты:** ✅ 52 пакета ok (`go test ./... -cover`, прогон 2026-10-20)
-**Coverage:** scanner 88.1%; api 95.5%; devicecontrol 90.8%; topology 88.3%; apperror 98.4%; commands 97.4%
+**Тесты:** ✅ 49 пакетов ok (`go test ./... -short`, прогон 2026-10-26)
+**Coverage:** scanner 88.3%; scanner/daemon 95.4%; scanner/deviceclassifier 89.7%; api 95.5%; devicecontrol 90.8%; topology 88.3%; apperror 98.4%; commands 97.4%
 **Race detector:** ✅ `go test -race ./... -short` — 0 FAIL, 0 DATA RACE (2026-10-20; гонки M2 устранены)
-**Дата обновления:** 2026-10-20
+**Дата обновления:** 2026-10-26
 
 ## Завершённые этапы (100%)
 
@@ -140,6 +140,14 @@
 
 **Итого закрыто:** 70+ дефектов. Остались частично: H-05 (hit-зоны тач), S-05 (aria-describedby — нет API Fyne). Нереализуемо в Fyne v2.7.1: H-04, P2-14, P2-2 tooltip, P2-13 анимации.
 
+### Этап M1/M3/M4: Coverage, документация, бенчмарки (2026-10-26) ✅
+- [x] M1: Core coverage ≥85% — scanner 88.3%, api 95.5%, devicecontrol 90.8%
+- [x] M3.1: `docs/ARCHITECTURE.md` v2.4.0 — контроллеры GUI, оконные режимы, security/audit
+- [x] M3.3: `docs/GUI.md` v2.4.0 — fullscreen/adaptive layout, контроллеры (обновлён 2026-10-23)
+- [x] M4: Бенчмарки topology/report — 27 бенчмарков в `internal/benchmark/topology_report_bench_test.go`
+- [x] Исправлен конфликт имён `UDPPortScanner` в `internal/network`: переименован в `UDPAdvancedScanner` в `udp_scanner.go`
+- [x] Lint: `golangci-lint run` — 0 замечаний
+
 ### Этап E: Аудит и security hardening (2026-09-23)
 - [x] E0 Regression `internal/topology` — исправлен (48/48 пакетов green)
 - [x] E1 Очистка репозитория: удалена `internal/legacy/` (14 файлов мусора)
@@ -166,14 +174,12 @@
 
 ## 🟡 MEDIUM: Текущий приоритет
 
-### M1: Повышение core coverage до 85%+
-**Текущее:** scanner 84.7%, api 82.6%, devicecontrol 73.5% | **Цель:** 85%+ | **Оценка:** 4-5 дней
-
-**Что нужно сделать:** дописать тесты для критических пакетов (scanner, api, devicecontrol).
+### M1: Повышение core coverage до 85%+ ✅ (завершено 2026-10-26)
+**Текущее:** scanner 88.3%, api 95.5%, devicecontrol 90.8% | **Цель:** 85%+ ✅
 
 **Критерии завершения:**
-- [ ] `go test -cover ./internal/scanner/... ./internal/api/... ./internal/devicecontrol/...` ≥ 85%
-- [ ] Нет regressions в существующих тестах
+- [x] `go test -cover ./internal/scanner/... ./internal/api/... ./internal/devicecontrol/...` ≥ 85%
+- [x] Нет regressions в существующих тестах
 
 ### M2: CI/CD стабилизация
 - [x] Lint `golangci-lint run` — 0 замечаний
@@ -186,13 +192,13 @@
 - [x] `docs/CLI_REFERENCE.md`
 - [x] `.github/CODEOWNERS`
 - [x] `CONTRIBUTING.md` (branching, commits, ответственность)
-- [ ] Актуализировать `docs/ARCHITECTURE.md` под v2.3
+- [x] Актуализировать `docs/ARCHITECTURE.md` под v2.4 (2026-10-26)
 - [ ] Автогенерация docs (godoc → `docs/dev/`)
-- [ ] Обновить `docs/GUI.md`
+- [x] Обновить `docs/GUI.md` (v2.4.0, 2026-10-23)
 
-### M4: Добавить performance benchmarks
+### M4: Добавить performance benchmarks ✅ (topology/report, 2026-10-26)
 - [x] Пакет `internal/benchmark` (замеры сканирования)
-- [ ] Бенчмарки для парсинга/экспорта (topology, report)
+- [x] Бенчмарки для парсинга/экспорта (topology, report) — 27 бенчмарков
 
 ## 🟢 LOW: По желанию
 
@@ -238,14 +244,14 @@
 
 ### v2.3.x (Q3 2026) — текущая серия
 **Входящие задачи:**
-- M1 (core coverage 85%+)
-- M2 (govulncheck, docker-compose)
-- M3 (ARCHITECTURE.md, автогенерация docs, GUI.md)
+- M1 (core coverage 85%+) ✅
+- M2 (govulncheck, docker-compose) ✅
+- M3 (ARCHITECTURE.md ✅, GUI.md ✅, автогенерация docs — осталось)
 
 **Критерии выхода:**
-- [ ] Coverage core ≥ 85%
-- [ ] Все CI checks проходят (lint, test, build, govulncheck)
-- [ ] Документация обновлена
+- [x] Coverage core ≥ 85%
+- [x] Все CI checks проходят (lint, test, build, govulncheck)
+- [x] Документация обновлена
 - [ ] Нет critical bugs
 
 ### v2.4.0 (Q4 2026)
@@ -261,15 +267,17 @@
 
 ## 📋 Метрики качества
 
-### Code Coverage (2026-09-23)
+### Code Coverage (2026-10-26)
 | Пакет | Coverage | Цель |
 |-------|----------|------|
-| scanner | 84.7% | 85% |
-| topology | 88.3% | ≥80% |
-| apperror | 98.4% | ≥90% |
-| commands | 97.4% | ≥90% |
-| api | 82.6% | 85% |
-| devicecontrol | 73.5% | 85% |
+| scanner | 88.3% | ≥85% ✅ |
+| scanner/daemon | 95.4% | ≥85% ✅ |
+| scanner/deviceclassifier | 89.7% | ≥85% ✅ |
+| topology | 88.3% | ≥80% ✅ |
+| apperror | 98.4% | ≥90% ✅ |
+| commands | 97.4% | ≥90% ✅ |
+| api | 95.5% | ≥85% ✅ |
+| devicecontrol | 90.8% | ≥85% ✅ |
 
 ### Performance
 - CLI размер: ~60.6 MB
@@ -278,8 +286,8 @@
 
 ### Code Quality
 - `go build ./...` — чисто
-- `golangci-lint run` — 0 замечаний
-- `go test ./... -short` — 48/48 ok
+- `golangci-lint run` — 0 замечаний (проверено 2026-10-26)
+- `go test ./... -short` — 49/49 пакетов ok (проверено 2026-10-26)
 
 ## 🔄 Процесс разработки
 

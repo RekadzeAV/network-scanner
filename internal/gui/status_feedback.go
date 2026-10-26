@@ -29,12 +29,6 @@ func (a *App) setStatusToast(text string) {
 	a.setStatusToastWithMarker("✓ ", text)
 }
 
-// setStatusErrorToast показывает временную ошибку в статус-баре с маркером "✗ ".
-// Через statusToastDuration статус возвращается к дефолту (S-04).
-func (a *App) setStatusErrorToast(text string) {
-	a.setStatusToastWithMarker("✗ ", text)
-}
-
 // setStatusToastWithMarker — общий механизм тоста с произвольным маркером.
 func (a *App) setStatusToastWithMarker(marker, text string) {
 	if a == nil || a.statusLabel == nil {

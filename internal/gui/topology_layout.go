@@ -164,12 +164,6 @@ func topologyApplyView(p fyne.Position, baseW, baseH, zoom, panX, panY float32) 
 	)
 }
 
-// topologyViewSize возвращает размер холста при текущем масштабе.
-func topologyViewSize(baseW, baseH, zoom float32) fyne.Size {
-	z := clampTopologyZoom(zoom)
-	return fyne.NewSize(baseW*z, baseH*z)
-}
-
 // topoHitNodeMinRadius — нижняя граница hit-зоны узла (WCAG 2.5.8, 14 лог. px).
 const topoHitNodeMinRadius = float32(14)
 

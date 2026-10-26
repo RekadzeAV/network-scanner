@@ -23,7 +23,6 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -236,9 +235,6 @@ type App struct {
 	operations                  *OperationsManager
 	services                    *AppServices
 	mainToolbar                 *fyne.Container
-	scanAdvancedAccordion       *widget.Accordion
-	settingsDialog              *dialog.CustomDialog // P2-11: диалог настроек сканирования
-	scanAdvancedOpen            bool
 	resultsFiltersAccordion     *widget.Accordion
 	resultsFiltersAccordionOpen bool
 	quickTypeCheckRow           []fyne.CanvasObject
