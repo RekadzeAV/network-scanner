@@ -8,6 +8,7 @@ import (
 	"math"
 	"network-scanner/internal/builder"
 	"network-scanner/internal/devicecontrol"
+	"network-scanner/internal/eventbus"
 	"network-scanner/internal/gui/controller"
 	"network-scanner/internal/inventory"
 	"network-scanner/internal/logger"
@@ -235,6 +236,7 @@ type App struct {
 	resultsPipelineCacheData    []scanner.Result
 	operations                  *OperationsManager
 	services                    *AppServices
+	eventBus                    *eventbus.EventBus // P2-5: шина событий сканера для event-driven GUI
 	mainToolbar                 *fyne.Container
 	scanAdvancedAccordion       *widget.Accordion
 	settingsDialog              *dialog.CustomDialog // P2-11: диалог настроек сканирования
@@ -438,8 +440,9 @@ func NewApp() *App {
 	// Инициализация сервисов через DI контейнер
 	container := builder.NewContainer(builder.Config{
 		LogLevel: "info",
-	})
+	}).WithEventBus(eventbus.NewEventBus())
 	app.services = NewAppServices(container)
+	app.eventBus = container.GetEventBus()
 
 	app.initUI()
 	app.initControllers() // ← Инициализация ПОСЛЕ создания UI
@@ -447,6 +450,11 @@ func NewApp() *App {
 	app.setupEventHandlers()
 	app.loadScanSettings()
 	app.autoDetectNetwork()
+
+	// P2-5: подписываем GUI на события сканера через eventbus.
+	app.SubscribeToScanEvents(app.eventBus)
+
+	logger.Log("GUI приложение инициализировано")
 
 	logger.Log("GUI приложение инициализировано")
 

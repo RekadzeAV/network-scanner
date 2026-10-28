@@ -3,6 +3,7 @@ package gui
 import (
 	"network-scanner/internal/builder"
 	"network-scanner/internal/contracts"
+	"network-scanner/internal/eventbus"
 )
 
 // AppServices агрегация сервисов для GUI
@@ -18,6 +19,7 @@ type AppServices struct {
 	RiskSignature    *RiskSignatureService
 	WOL              *WOLService
 	NetTools         *NetToolsService
+	EventBus         *eventbus.EventBus
 }
 
 // NewAppServices создаёт AppServices из контейнера
@@ -34,5 +36,6 @@ func NewAppServices(container *builder.Container) *AppServices {
 		RiskSignature:    NewRiskSignatureService(),
 		WOL:              NewWOLService(),
 		NetTools:         NewNetToolsService(),
+		EventBus:         container.GetEventBus(),
 	}
 }
