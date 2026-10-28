@@ -4,27 +4,25 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: "2.3.0"
-        BUILD_TIME: "2026-09-23"
-        GIT_COMMIT: "latest"
-    image: network-scanner:2.3.0
+        VERSION: ${VERSION:-dev}
+        BUILD_TIME: ${BUILD_TIME:-unknown}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+    image: network-scanner:${VERSION:-dev}
     container_name: network-scanner-cli
-    environment:
-      - NETWORK_SCANNER_DATA_DIR=/data/scans
-      - NETWORK_SCANNER_CONFIG_DIR=/data/config
-      - NETWORK_SCANNER_LOG_LEVEL=info
-    volumes:
-      - scanner-data:/data/scans
-      - scanner-config:/data/config
-    # Сеть host для доступа к локальной сети
-    network_mode: host
-    # Права для ICMP ping и ARP
+    # Для сканирования сети (ICMP/raw сокеты) нужны дополнительные права
     cap_add:
-      - NET_ADMIN
       - NET_RAW
+      - NET_ADMIN
+    network_mode: host
+    # Запуск от непривилегированного пользователя (см. Dockerfile USER scanner)
+    user: "1000:1000"
+    environment:
+      - VERSION=${VERSION:-dev}
+      - NETWORK_SCANNER_LOG_LEVEL=info
+    # Пример: сканирование сети при запуске
+    # command: scan --cidr 192.168.1.0/24 --ports 1-1000 --timeout 2
+    # Чтобы использовать, закомментируйте command и раскомментируйте ниже:
+    # command: ["--help"]
 
-volumes:
-  scanner-data:
-    driver: local
-  scanner-config:
-    driver: local
+volumes: {}
+networks: {}
