@@ -1,15 +1,18 @@
 [Unit]
 Description=Network Scanner - Network Discovery Service
-Documentation=https://github.com/network-scanner/network-scanner
-After=network.target
+Documentation=https://github.com/RekadzeAV/network-scanner
+After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/network-scanner scan --snmp --topology --security
+# Запуск сканирования по умолчанию (сетевой диапазон настраивается через EnvironmentFile)
+ExecStart=/usr/local/bin/network-scanner --network ${SCANNER_DEFAULT_CIDR:-192.168.1.0/24} --ports ${SCANNER_PORT_RANGE:-1-1000} --timeout ${SCANNER_TIMEOUT_SEC:-2} --threads ${SCANNER_THREADS:-50}
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
-RestartSec=10
+RestartSec=30
+StartLimitBurst=5
+StartLimitIntervalSec=60
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=network-scanner
@@ -20,14 +23,19 @@ ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=/var/lib/network-scanner /var/log/network-scanner
 PrivateTmp=true
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
 
-# User/Group
-User=root
-Group=root
+# User/Group — непривилегированный пользователь с необходимыми capabilities для raw-сокетов
+User=scanner
+Group=scanner
 
 # Environment
+EnvironmentFile=-/etc/network-scanner/scanner.env
 Environment=GOLOG_FORMAT=json
 Environment=NETWORK_SCANNER_LOG_LEVEL=info
+Environment=NETWORK_SCANNER_DATA_DIR=/var/lib/network-scanner/scans
+Environment=NETWORK_SCANNER_CONFIG_DIR=/var/lib/network-scanner/config
 
 [Install]
 WantedBy=multi-user.target
