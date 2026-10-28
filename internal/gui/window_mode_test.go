@@ -212,7 +212,7 @@ func TestMakeFullscreenToggleBtn_NilWinMode(t *testing.T) {
 	a := &App{}
 	btn := a.makeFullscreenToggleBtn()
 	if btn == nil {
-		t.Error("expected non-nil button")
+		t.Fatal("expected non-nil button")
 	}
 	if btn.Text != "Полный экран" {
 		t.Errorf("expected 'Полный экран', got %q", btn.Text)
@@ -226,7 +226,7 @@ func TestMakeFullscreenToggleBtn_Fullscreen(t *testing.T) {
 	}
 	btn := a.makeFullscreenToggleBtn()
 	if btn == nil {
-		t.Error("expected non-nil button")
+		t.Fatal("expected non-nil button")
 	}
 	if btn.Text != "Оконный режим" {
 		t.Errorf("expected 'Оконный режим', got %q", btn.Text)

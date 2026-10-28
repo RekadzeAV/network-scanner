@@ -147,14 +147,6 @@ func paletteSurface(dark bool) color.RGBA {
 	return tokLightSurface
 }
 
-// paletteSurfaceAlt — фон чипов/зебры (elevation 2) варианта темы.
-func paletteSurfaceAlt(dark bool) color.RGBA {
-	if dark {
-		return tokDarkSurfaceAlt
-	}
-	return tokLightSurfaceAlt
-}
-
 // --- Топология (canvas-отрисовка графа) ---------------------------------------
 
 // Узлы и связи графа — нетекстовые элементы: по WCAG 1.4.11 нужен контраст

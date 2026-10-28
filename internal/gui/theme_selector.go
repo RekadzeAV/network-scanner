@@ -73,7 +73,15 @@ func (a *App) applyTheme(mode ThemeMode) {
 	if a == nil || a.myApp == nil {
 		return
 	}
-	a.myApp.Settings().SetTheme(newThemeForMode(mode, a.loadAccentPreset()))
+	th := newThemeForMode(mode, a.loadAccentPreset())
+	// L1.2: восстановленный из Preferences произвольный акцент применяется
+	// поверх пресета, если выбран режим "Custom".
+	if th.Accent() == customAccentName {
+		if hex := a.loadCustomAccentHex(); hex != "" {
+			_ = th.SetCustomAccent(hex)
+		}
+	}
+	a.myApp.Settings().SetTheme(th)
 	a.invalidateThemeCaches()
 }
 

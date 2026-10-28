@@ -182,6 +182,23 @@ func (a *App) setupMainMenu() {
 		}
 		accentMenu.Items = append(accentMenu.Items, menuItem)
 	}
+	// L1.2: произвольный акцентный цвет (#RRGGBB).
+	accentMenu.Items = append(accentMenu.Items, fyne.NewMenuItemSeparator())
+	customItem := fyne.NewMenuItem("Произвольный цвет…", func() {
+		a.showAccentCustomDialog()
+	})
+	customItem.Icon = iconAccent()
+	if currentPreset == customAccentName {
+		customItem.Checked = true
+	}
+	accentMenu.Items = append(accentMenu.Items, customItem)
+
+	// L1.4: предпросмотр светлой/тёмной тем.
+	previewItem := fyne.NewMenuItem("Предпросмотр тем…", func() {
+		a.showThemePreviewDialog()
+	})
+	previewItem.Icon = iconPalette()
+	themeMenu.Items = append(themeMenu.Items, fyne.NewMenuItemSeparator(), previewItem)
 
 	mainMenu := fyne.NewMainMenu(viewMenu, themeMenu, accentMenu, helpMenu)
 	a.myWindow.SetMainMenu(mainMenu)

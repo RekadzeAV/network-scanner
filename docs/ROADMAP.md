@@ -196,12 +196,12 @@
 
 ## 🟢 LOW: По желанию
 
-### L1: UI theme customization
-**Текущее:** Default theme | **Цель:** Пользовательские темы | **Оценка:** 1-2 дня
-- [ ] L1.1 Light/Dark/System
-- [ ] L1.2 Кастомные цвета
-- [ ] L1.3 Сохранение настроек темы
-- [ ] L1.4 Preview темы
+### L1: UI theme customization ✅ (завершено 2026-10-28, ветка feature/gui-design)
+**Текущее:** Light/Dark/System + 7 акцентных пресетов | **Цель:** Пользовательские темы | ✅
+- [x] L1.1 Light/Dark/System (реализовано ранее, C-01…C-03)
+- [x] L1.2 Кастомные цвета (`internal/gui/theme_custom.go`: произвольный #RRGGBB, вывод акцентных ролей, WCAG-коррекция по варианту темы)
+- [x] L1.3 Сохранение настроек темы (Preferences: `gui.theme.accent.custom_hex`, восстановление при старте)
+- [x] L1.4 Preview темы (диалог «Предпросмотр тем»: карточки светлого/тёмного вариантов; меню «Акцент → Произвольный цвет…»)
 
 ### L2: Plugin system (реальные плагины)
 - [x] L2.1 Plugin interface + registry (`internal/plugin`, `internal/scanner/plugin`)

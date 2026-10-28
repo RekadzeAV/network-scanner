@@ -3,6 +3,7 @@ package gui
 import (
 	"image/color"
 	"math"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
@@ -22,6 +23,9 @@ type ModernTheme struct {
 	followSystem bool
 	accent       string
 	density      Density
+	// customAccentHex — произвольный акцентный цвет (#RRGGBB, L1.2);
+	// пустой — акцент берётся из пресета accent.
+	customAccentHex string
 }
 
 // themePalette — набор семантических цветов одного варианта темы.
@@ -65,7 +69,13 @@ func NewSystemTheme() *ModernTheme {
 }
 
 // normalizeAccentPreset приводит произвольное имя к известному пресету.
+// Специальное имя customAccentName ("Custom") означает произвольный цвет (L1.2)
+// и проходит без нормализации.
 func normalizeAccentPreset(name string) string {
+	name = strings.TrimSpace(name)
+	if name == customAccentName {
+		return customAccentName
+	}
 	if _, ok := accentPresets[name]; ok {
 		return name
 	}
@@ -195,7 +205,11 @@ func (t *ModernTheme) palette(dark bool) themePalette {
 }
 
 // accentVariant — набор акцентных цветов пресета для варианта темы.
+// Для произвольного цвета (L1.2) роли выводятся из hex-значения.
 func (t *ModernTheme) accentVariant(dark bool) accentVariant {
+	if t.accent == customAccentName && t.customAccentHex != "" {
+		return deriveAccentVariant(parseHexColor(t.customAccentHex), dark)
+	}
 	entry, ok := accentPresets[normalizeAccentPreset(t.accent)]
 	if !ok {
 		entry = accentPresets[defaultAccentPreset]
