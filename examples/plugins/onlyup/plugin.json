@@ -1,0 +1,10 @@
+{
+  "name": "OnlyUp",
+  "version": "1.0.0",
+  "description": "Фильтр: пропускает только хосты с открытыми портами",
+  "author": "Network Scanner",
+  "type": "filter",
+  "entry": "onlyup.so",
+  "enabled": true,
+  "min_version": "2.4.0"
+}
