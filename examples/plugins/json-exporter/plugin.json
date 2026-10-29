@@ -1,0 +1,10 @@
+{
+  "name": "JSONExporter",
+  "version": "1.0.0",
+  "description": "Экспорт результатов в формат JSON Lines",
+  "author": "Network Scanner",
+  "type": "exporter",
+  "entry": "jsonexporter.so",
+  "enabled": true,
+  "min_version": "2.4.0"
+}

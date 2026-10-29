@@ -205,9 +205,10 @@
 
 ### L2: Plugin system (реальные плагины)
 - [x] L2.1 Plugin interface + registry (`internal/plugin`, `internal/scanner/plugin`)
-- [ ] L2.2 Загрузка плагинов из директории (dynamic loader)
-- [ ] L2.3 Примеры плагинов (filter, export, alert)
-- [ ] L2.4 Гайд по созданию плагинов
+- [x] L2.2 Загрузка плагинов из директории (dynamic loader)
+- [x] L2.3 Примеры плагинов (filter, export, alert)
+- [x] L2.4 Гайд по созданию плагинов
+**Статус:** ✅ L2 завершён (feature/l2-plugin-loader)
 
 ### L3: Mobile support — ❌ НЕ ПЛАНИРУЕТСЯ (отменено 2026-09-19)
 **Решение:** мобильный GUI не поставляется.

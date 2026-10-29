@@ -1,0 +1,10 @@
+{
+  "name": "AlertReport",
+  "version": "1.0.0",
+  "description": "Генерация отчёта о критических портах",
+  "author": "Network Scanner",
+  "type": "reporter",
+  "entry": "alertreport.so",
+  "enabled": true,
+  "min_version": "2.4.0"
+}
