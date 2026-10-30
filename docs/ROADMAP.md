@@ -12,9 +12,9 @@
 **Архитектурный слой v2.3 (C1–C7):** ✅ пакеты реализованы с тестами; ✅ интеграция в приложения
 **GUI UX-аудит:** ✅ Все P0/P1/P2-дефекты закрыты (см. [UX_AUDIT.md](UX_AUDIT.md))
 **Тесты:** ✅ 52 пакета ok (`go test ./... -cover`, прогон 2026-10-20)
-**Coverage:** scanner 88.1%; api 95.5%; devicecontrol 90.8%; topology 88.3%; apperror 98.4%; commands 97.4%
+**Coverage:** scanner 88.1%; api 95.2%; devicecontrol 90.8%; topology 88.3%; apperror 98.4%; commands 97.4%
 **Race detector:** ✅ `go test -race ./... -short` — 0 FAIL, 0 DATA RACE (2026-10-20; гонки M2 устранены)
-**Дата обновления:** 2026-10-20
+**Дата обновления:** 2026-10-30
 
 ## Завершённые этапы (100%)
 
@@ -172,8 +172,7 @@
 **Что нужно сделать:** дописать тесты для критических пакетов (scanner, api, devicecontrol).
 
 **Критерии завершения:**
-- [ ] `go test -cover ./internal/scanner/... ./internal/api/... ./internal/devicecontrol/...` ≥ 85%
-- [ ] Нет regressions в существующих тестах
+- [x] M1 (core coverage ≥ 85%: scanner 88.1%, api 95.2%, devicecontrol 90.8%)
 
 ### M2: CI/CD стабилизация
 - [x] Lint `golangci-lint run` — 0 замечаний
@@ -262,15 +261,15 @@
 
 ## 📋 Метрики качества
 
-### Code Coverage (2026-09-23)
+### Code Coverage (2026-10-30)
 | Пакет | Coverage | Цель |
 |-------|----------|------|
-| scanner | 84.7% | 85% |
-| topology | 88.3% | ≥80% |
-| apperror | 98.4% | ≥90% |
-| commands | 97.4% | ≥90% |
-| api | 82.6% | 85% |
-| devicecontrol | 73.5% | 85% |
+| scanner | 88.1% | ≥85% ✅ |
+| topology | 88.3% | ≥80% ✅ |
+| apperror | 98.4% | ≥90% ✅ |
+| commands | 97.4% | ≥90% ✅ |
+| api | 95.2% | ≥85% ✅ |
+| devicecontrol | 90.8% | ≥85% ✅ |
 
 ### Performance
 - CLI размер: ~60.6 MB

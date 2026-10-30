@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+
+	"network-scanner/internal/metrics"
 )
 
 // Router создаёт и настраивает маршрутизатор
@@ -79,6 +81,7 @@ func (r *Router) setupRoutes() {
 	api.Use(r.handler.corsMiddleware)
 	api.Use(r.handler.loggingMiddleware)
 	api.Use(r.handler.rateLimitMiddleware(r.config.RateLimitPerSecond))
+	api.Use(metricsHandlerMiddleware)
 
 	// Routes
 	api.HandleFunc("/scan", r.handler.handleScan).Methods("POST")
@@ -115,4 +118,18 @@ func (r *Router) setupRoutes() {
 
 	// Swagger docs (placeholder)
 	r.router.HandleFunc("/api/docs", r.handler.handleDocs).Methods("GET")
+
+	// Prometheus metrics endpoint (публичный, без аутентификации)
+	r.router.HandleFunc("/metrics", metricsHandler).Methods("GET")
+}
+
+// metricsHandlerMiddleware собирает метрики HTTP-запросов к API.
+func metricsHandlerMiddleware(next http.Handler) http.Handler {
+	return metrics.NewHandler(next)
+}
+
+// metricsHandler отдаёт метрики в формате Prometheus Exposition Format.
+func metricsHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	metrics.Global.WriteTo(w)
 }

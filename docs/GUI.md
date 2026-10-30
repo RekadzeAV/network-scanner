@@ -44,7 +44,9 @@ internal/gui/
 ├── theme.go                  # ModernTheme (токены, followSystem, вариант-зависимая палитра)
 ├── theme_tokens.go           # Единый источник цветовых токенов WCAG AA (light/dark)
 ├── theme_selector.go         # Меню «Тема»/«Акцент», applyThemeToUI, invalidateThemeCaches
-├── accent_colors.go          # Акцентные пресеты (ApplyAccentPreset, OnPrimary контраст)
+├── theme_custom.go           # Пользовательские акцентные цвета (#RRGGBB), WCAG-коррекция
+├── theme_custom_ui.go        # UI-компоненты L1: предпросмотр тем, диалоги акцентов
+├── accent_colors.go          # 7 акцентных пресетов (macOS Blue, Windows 11, Green, Purple, Orange, Red, Teal)
 ├── icons.go                  # Единая точка тематических иконок (29 обёрток theme.*Icon())
 ├── formatter.go              # Форматирование результатов в Markdown
 ├── ui_helpers.go             # Вспомогательные функции (меню, бейджи, тосты)
@@ -172,6 +174,8 @@ GUI использует единую систему темизации на о�
 - **`theme.go`** — `ModernTheme` (реализует `fyne.Theme`), вариант-зависимая палитра, `followSystem`
 - **`theme_tokens.go`** — единый источник цветовых значений (light/dark), палитра состояний портов, токены топологии
 - **`theme_selector.go`** — меню «Тема»/«Акцент», `applyThemeToUI()`, инвалидация кэшей
+- **`theme_custom.go`** — пользовательские акцентные цвета (#RRGGBB): валидация hex, WCAG-коррекция (`adjustAccentForVariant`: тёмная тема → min luminance 0.35, светлая → max 0.65), генерация акцентных ролей (`OnPrimary`, `Primary`, `PrimaryDisabled`), сохранение в `Preferences` (`gui.theme.accent.custom_hex`) и восстановление при старте
+- **`theme_custom_ui.go`** — UI-компоненты L1: `previewSwatch` (цветная плашка с hex-подписью), `themePreviewContent` (карточки light/dark вариантов), диалоги `showAccentCustomDialog` и `showThemePreviewDialog`
 - **`accent_colors.go`** — 7 акцентных пресетов (macOS Blue, Windows 11, Green, Purple, Orange, Red, Teal) с подбором `OnPrimary` по контрасту
 
 ### Поддерживаемые темы
