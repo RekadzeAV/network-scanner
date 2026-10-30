@@ -7,6 +7,25 @@
 
 ## [Unreleased]
 
+### 2026-10-30: Plugin system (L2.2–L2.4) + Prometheus метрики (P3)
+
+- **L2.2 Plugin loader:** `internal/plugin/manifest.go` — LoadManifest/SaveManifest, валидация, path traversal защита; `internal/plugin/loader.go` — SearchPaths (env + defaults), LoadAll, WatchForChanges с рекурсивной подписью
+- **CLI:** `network-scanner plugins list` — таблица статусов (загружен/выключен/ошибка)
+- **L2.3 Примеры плагинов:** onlyup (filter: только open-порты), json-exporter (JSON Lines), alert-report (critical ports 21/22/23/80/443/445/3389)
+- **L2.4 Гайд:** `examples/plugins/README.md` — структура, сборка, NETWORK_SCANNER_PLUGINS_DIR, ограничения
+- **P3 Prometheus метрики:** `internal/metrics/` — Registry, Counter, Gauge, Histogram с бакетами, WriteTo (Prometheus exposition format), HTTPRequest middleware, InitMetrics (10+ метрик), тесты race-clean
+- **ROADMAP:** M1 закрыт (scanner 88.1%, api 95.2%, devicecontrol 90.8%); L1/L2 отмечены ✅
+
+### 2026-10-30: GUI — кастомные темы (L1)
+
+- **`theme_custom.go`:** произвольный `#RRGGBB`, WCAG-коррекция по variant (`adjustAccentForVariant`: тёмная → minLum 0.35, светлая → maxLum 0.65), `deriveAccentVariant` для всех ролей
+- **`theme_custom_ui.go`:** `previewSwatch`, `themePreviewContent` (карточки light/dark), диалоги «Произвольный цвет…», «Предпросмотр тем…»
+- **`theme_selector.go`:** меню «Акцент → Произвольный цвет…», `applyCustomAccentHex`, `customAccentName = "Custom"`
+- **Preferences:** `gui.theme.accent.custom_hex`, сохранение/восстановление при старте
+- **16 тестов:** hex-валидация, парсинг, нормализация, blend, luminance, WCAG-контраст, коррекция по variant, Preferences
+- **cleanup:** удалены мёртвые поля из `app.go`, `status_feedback.go`, `theme_tokens.go`, `topology_layout.go`
+- **Проверки:** `go build ./...` чисто; `go test ./internal/gui/...` ok; `golangci-lint run ./internal/gui/...` 0 замечаний
+
 ### 2026-10-20: GUI — финализация UX-аудита (P2-11)
 
 - **Настройки сканирования в диалоге (P2-11):**
