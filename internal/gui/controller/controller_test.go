@@ -12,13 +12,15 @@ import (
 )
 
 // mockScanActions implements ScanActions for testing
-type mockScanActions struct{}
+type mockScanActions struct {
+	lastState string
+}
 
 func (m *mockScanActions) ApplyScanRunStart(autoProfileNote string) {}
 func (m *mockScanActions) ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeout time.Duration) {
 }
 func (m *mockScanActions) RenderScanResultsView()                  {}
-func (m *mockScanActions) SetResultsState(state string, found int) {}
+func (m *mockScanActions) SetResultsState(state string, found int) { m.lastState = state }
 func (m *mockScanActions) ConfirmLargeScanBypass() bool            { return false }
 func (m *mockScanActions) SetConfirmLargeScanBypass(val bool)      {}
 
