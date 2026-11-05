@@ -76,9 +76,15 @@ func (c *ScanController) ApplyRecommendedProfile(networkStr string) {
 		c.ui.ThreadsEntry.SetText("100")
 		profileName = "углубленный для небольшой подсети"
 	}
-	c.ui.ScanUDPCheck.SetChecked(false)
-	c.ui.ScanBannersCheck.SetChecked(false)
-	c.ui.ScanOSActiveCheck.SetChecked(false)
+	if c.ui.ScanUDPCheck != nil {
+		c.ui.ScanUDPCheck.SetChecked(false)
+	}
+	if c.ui.ScanBannersCheck != nil {
+		c.ui.ScanBannersCheck.SetChecked(false)
+	}
+	if c.ui.ScanOSActiveCheck != nil {
+		c.ui.ScanOSActiveCheck.SetChecked(false)
+	}
 	if c.ui.ScanVerboseLogsCheck != nil {
 		c.ui.ScanVerboseLogsCheck.SetChecked(false)
 	}
@@ -133,11 +139,21 @@ func (c *ScanController) RefreshPresetUI() {
 	if c.ui == nil {
 		return
 	}
-	c.ui.PortRangeEntry.Refresh()
-	c.ui.TimeoutEntry.Refresh()
-	c.ui.ThreadsEntry.Refresh()
-	c.ui.ScanUDPCheck.Refresh()
-	c.ui.StatusLabel.Refresh()
+	if c.ui.PortRangeEntry != nil {
+		c.ui.PortRangeEntry.Refresh()
+	}
+	if c.ui.TimeoutEntry != nil {
+		c.ui.TimeoutEntry.Refresh()
+	}
+	if c.ui.ThreadsEntry != nil {
+		c.ui.ThreadsEntry.Refresh()
+	}
+	if c.ui.ScanUDPCheck != nil {
+		c.ui.ScanUDPCheck.Refresh()
+	}
+	if c.ui.StatusLabel != nil {
+		c.ui.StatusLabel.Refresh()
+	}
 }
 
 // autoScanProfile применяет автоматический профиль сканирования
