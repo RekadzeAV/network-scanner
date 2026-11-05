@@ -16,6 +16,10 @@ type Config struct {
 	RateLimitPerSecond int
 	InventoryPath      string
 	AuthToken          string // Bearer-токен для аутентификации API (пусто = отключить)
+
+	// TLS — опциональный HTTPS (P4-1: строгий TLS-режим API)
+	TLSCertFile string // путь к TLS-сертификату (PEM)
+	TLSKeyFile  string // путь к TLS-приватному ключу (PEM)
 }
 
 // DefaultConfig возвращает конфигурацию по умолчанию
