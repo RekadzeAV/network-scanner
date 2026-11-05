@@ -100,34 +100,55 @@ func (c *ScanController) LoadSettings() {
 	defer c.errHandler.HandlePanic(nil)
 
 	p := c.app.Preferences()
-	if v := p.String("scan.network"); v != "" {
-		c.ui.NetworkEntry.SetText(v)
+	if c.ui.NetworkEntry != nil {
+		if v := p.String("scan.network"); v != "" {
+			c.ui.NetworkEntry.SetText(v)
+		}
 	}
-	if v := p.String("scan.port_range"); v != "" {
-		c.ui.PortRangeEntry.SetText(v)
+	if c.ui.PortRangeEntry != nil {
+		if v := p.String("scan.port_range"); v != "" {
+			c.ui.PortRangeEntry.SetText(v)
+		}
 	}
-	if v := p.String("scan.timeout_sec"); v != "" {
-		c.ui.TimeoutEntry.SetText(v)
+	if c.ui.TimeoutEntry != nil {
+		if v := p.String("scan.timeout_sec"); v != "" {
+			c.ui.TimeoutEntry.SetText(v)
+		}
 	}
-	if v := p.String("scan.threads"); v != "" {
-		c.ui.ThreadsEntry.SetText(v)
+	if c.ui.ThreadsEntry != nil {
+		if v := p.String("scan.threads"); v != "" {
+			c.ui.ThreadsEntry.SetText(v)
+		}
 	}
-	c.ui.ScanUDPCheck.SetChecked(p.String("scan.udp") == "true")
+	// Сохраняем текущее состояние UI, если Preference отсутствует (пустая строка)
+	if c.ui.ScanUDPCheck != nil {
+		if v := p.String("scan.udp"); v != "" {
+			c.ui.ScanUDPCheck.SetChecked(v == "true")
+		}
+	}
 	if c.ui.ScanBannersCheck != nil {
-		c.ui.ScanBannersCheck.SetChecked(p.String("scan.grab_banners") == "true")
+		if v := p.String("scan.grab_banners"); v != "" {
+			c.ui.ScanBannersCheck.SetChecked(v == "true")
+		}
 	}
 	if c.ui.ScanOSActiveCheck != nil {
-		c.ui.ScanOSActiveCheck.SetChecked(p.String("scan.os_detect_active") == "true")
+		if v := p.String("scan.os_detect_active"); v != "" {
+			c.ui.ScanOSActiveCheck.SetChecked(v == "true")
+		}
 	}
 	if c.ui.ScanVerboseLogsCheck != nil {
-		c.ui.ScanVerboseLogsCheck.SetChecked(p.String("scan.verbose_port_logs") == "true")
+		if v := p.String("scan.verbose_port_logs"); v != "" {
+			c.ui.ScanVerboseLogsCheck.SetChecked(v == "true")
+		}
 	}
 	if c.ui.ScanTCPPortsCheck != nil {
 		tcpPref := p.String("scan.scan_tcp_ports")
+		// Пустой pref означает «по умолчанию включено» (семантика по умолчанию true)
 		c.ui.ScanTCPPortsCheck.SetChecked(tcpPref == "" || tcpPref == "true")
 	}
 	if c.ui.AutoProfileCheck != nil {
 		autoPref := p.String("scan.auto_profile")
+		// Пустой pref означает «по умолчанию включено» (семантика по умолчанию true)
 		c.ui.AutoProfileCheck.SetChecked(autoPref == "" || autoPref == "true")
 	}
 }
@@ -283,18 +304,29 @@ func (c *ScanController) StartScan(results []scanner.Result) {
 	c.actions.SetConfirmLargeScanBypass(false)
 	logger.LogDebug("[StartScan] Проверка threads")
 	if c.ui.ThreadsEntry != nil {
-		threads := 50
-		if v, err := strconv.Atoi(strings.TrimSpace(c.ui.ThreadsEntry.Text)); err == nil && v > 0 {
-			threads = v
-		}
-		if threads < 1 {
-			threads = 1
-			c.ui.ThreadsEntry.SetText("1")
-			c.ui.StatusLabel.SetText("Параметр threads скорректирован до 1")
+		rawThreads := strings.TrimSpace(c.ui.ThreadsEntry.Text)
+		threads := 50 // Значение по умолчанию
+		if v, err := strconv.Atoi(rawThreads); err == nil {
+			if v > 0 {
+				threads = v
+			} else {
+				// Установка корректного значения вместо 0 или отрицательного числа
+				c.ui.ThreadsEntry.SetText("1")
+				threads = 1
+				if c.ui.StatusLabel != nil {
+					c.ui.StatusLabel.SetText("Параметр threads скорректирован до 1")
+				}
+			}
+		} else if rawThreads == "" {
+			// Заполнение пустого поля значением по умолчанию
+			c.ui.ThreadsEntry.SetText("50")
 		}
 		if threads > maxScanThreadsGUI {
+			threads = maxScanThreadsGUI
 			c.ui.ThreadsEntry.SetText(strconv.Itoa(maxScanThreadsGUI))
-			c.ui.StatusLabel.SetText(fmt.Sprintf("Параметр threads скорректирован до %d", maxScanThreadsGUI))
+			if c.ui.StatusLabel != nil {
+				c.ui.StatusLabel.SetText(fmt.Sprintf("Параметр threads скорректирован до %d", maxScanThreadsGUI))
+			}
 		}
 	}
 	logger.LogDebug("[StartScan] Применение autoProfile")

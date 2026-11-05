@@ -630,8 +630,22 @@ def contrast(fg, bg):
 
 ## 13. Чеклист приёмки дизайн-изменений (для PR)
 
-- [ ] `grep -rn "color.RGBA{" internal/gui --include='*.go' | grep -v _test.go` — совпадения только в `theme_tokens.go`
-- [ ] Скрипт §A: 0 `FAIL` для текстовых пар в обеих темах
+### Автоматизированные (scripts/check-gui.ps1)
+
+- [ ] `scripts/check-gui.ps1` — **0 FAIL** для пункта (a): `color.RGBA{` только в `theme_tokens.go` (и `*_test.go`)
+- [ ] `scripts/check-gui.ps1` — **0 FAIL** для пункта (e): `TestWCAGSweep` (WCAG-контраст)
+- [ ] `scripts/check-gui.ps1` — gofmt, go vet, go test — чисто
+
+> Текущий статус пункта (a): 6 известных нарушений в GUI-коде —
+> `accent_colors.go:110`, `app.go:329`, `theme_custom.go:58,65,67,98`
+> (вычисляемые цвета палитр/кастомных акцентов). Исправление — перенос литералов
+> в токены — выполняется только в `feature/gui-design`.
+
+> Полный автомат-прогон: `.\scripts\check-gui.ps1` (с тестами ~1–3 мин) или
+> `.\scripts\check-gui.ps1 -SkipTests` (быстрый, без тестов).
+
+### Ручные (docs/GUI_SMOKE_CHECKLIST.md)
+
 - [ ] Меню «Тема»: три режима работают, активный отмечен, порядок акцентов стабилен
 - [ ] `FYNE_SCALE` не устанавливается в коде; ручной прогон 100/125/150%
 - [ ] Результаты: live-строки во время скана; заголовок таблицы виден при скролле; сортировка по клику работает и сохраняется
@@ -640,5 +654,6 @@ def contrast(fg, bg):
 - [ ] IPC/MAC/порты — моноширинно; усечение — многоточием без битых символов
 - [ ] Состояние порта различимо по форме, не только цветом
 - [ ] Карта: курсор меняется над узлами, hit-радиус ≥12 px, цвета из токенов
-- [ ] `go build ./...`, `go vet ./...`, `go test ./internal/gui/... -count=1`, `gofmt -l internal/gui` — чисто
 - [ ] Скриншоты light/dark до/после приложены к PR
+
+> Полный список ручных проверок — в [docs/GUI_SMOKE_CHECKLIST.md](GUI_SMOKE_CHECKLIST.md).
