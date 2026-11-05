@@ -1,7 +1,7 @@
 # Архитектура проекта - Network Scanner
 
 **Версия:** 2.4.0  
-**Дата обновления:** 2026-10-20
+**Дата обновления:** 2026-11-02
 
 ## Содержание
 
@@ -54,9 +54,10 @@ network-scanner/
 ├── cmd/
 │   ├── network-scanner/    # CLI точка входа
 │   │   ├── main.go         # Точка входа CLI
-│   │   ├── cmd/            # Команды CLI (scan, security, topology, и т.д.)
+│   │   ├── cmd/            # Команды CLI (scan, security, topology, plugins, и т.д.)
 │   │   └── dpi_windows.go  # DPI awareness для Windows
-│   └── gui/                # GUI точка входа
+│   ├── gui/                # GUI точка входа
+│   └── md2pdf/             # Конвертация markdown в PDF
 ├── internal/
 │   ├── builder/            # DI Container и сборка зависимостей
 │   ├── contracts/          # Service interfaces (общие интерфейсы)
@@ -65,6 +66,7 @@ network-scanner/
 │   │   ├── scanner.go      # NetworkScanner
 │   │   ├── interfaces.go   # Интерфейсы (NetworkProber, PortScanner, и т.д.)
 │   │   ├── deviceclassifier/ # Определение типов устройств
+│   │   ├── plugin/         # Плагин-сканер (Probe interface)
 │   │   └── daemon/         # Daemon mode для фоновой работы
 │   ├── network/            # Сетевые операции
 │   │   ├── network.go      # Определение сети, парсинг CIDR
@@ -73,15 +75,23 @@ network-scanner/
 │   │   └── parser.go       # Парсинг диапазонов
 │   ├── display/            # Вывод результатов (CLI)
 │   ├── presenter/          # Презентеры (CLI, JSON, XML)
-│   ├── gui/                # GUI компоненты (Fyne)
-│   │   ├── app.go          # Главный файл GUI
-│   │   ├── scan_controller.go    # Контроллер сканирования
-│   │   ├── topology_controller.go # Контроллер топологии
+│   ├── gui/                # GUI компоненты (Fyne, ~140 файлов)
+│   │   ├── app.go          # Composition Root
+│   │   ├── controller/     # Контроллеры GUI (SRP)
+│   │   │   ├── scan_controller.go
+│   │   │   ├── security_controller.go
+│   │   │   ├── results_controller.go
+│   │   │   ├── topology_controller.go
+│   │   │   ├── tools_controller.go
+│   │   │   └── settings_manager.go
+│   │   ├── errors/         # Ошибки GUI-слоя
+│   │   ├── inventory/      # Представление инвентаря
 │   │   ├── results_view.go       # Отображение результатов
 │   │   └── operations.go         # Operations Runtime
 │   ├── topology/           # Построение топологии сети
 │   ├── snmpcollector/      # SNMP сбор данных
 │   ├── security/           # Анализ безопасности
+│   ├── cve/                # Поиск уязвимостей (CVE-базы)
 │   ├── audit/              # Аудит открытых портов
 │   ├── risksignature/      # Risk Signatures
 │   ├── devicecontrol/      # Device Control (HTTP API)
@@ -89,7 +99,8 @@ network-scanner/
 │   ├── inventory/          # Инвентаризация (SQLite)
 │   ├── comparator/         # Сравнение снапшотов
 │   ├── alerting/           # Система уведомлений
-│   ├── api/                # REST API (Bearer-token auth, v2.3)
+│   ├── api/                # REST API (Bearer-token auth, /metrics endpoint)
+│   ├── metrics/            # Реестр метрик (Counter/Gauge/Histogram, Prometheus)
 │   ├── report/             # Экспорт отчетов (PDF/HTML)
 │   ├── banner/             # Banner grabbing
 │   ├── osdetect/           # Определение ОС
@@ -103,16 +114,18 @@ network-scanner/
 │   ├── redact/             # Маскирование чувствительных данных
 │   ├── errors/             # Единая система ошибок
 │   ├── logger/             # Логирование
-│   ├── eventbus/           # Шина событий (E6: scan.started/completed/failed)
+│   ├── eventbus/           # Шина событий (E6: scan/probe/host/port/theme/settings)
+│   ├── features/           # Feature flags (D1–D3)
 │   ├── apperror/           # Типизированные ошибки приложения
 │   ├── commands/           # Командный слой (Command/Request/Response)
 │   ├── configvalidation/   # Схемы и валидаторы конфигурации
-│   ├── plugin/             # Plugin-система probe-обработчиков
+│   ├── plugin/             # Plugin-система (Loader, Manifest, CLI `plugins list`)
 │   ├── benchmark/          # Бенчмарки и perf-regression gate
 │   ├── telemetry/          # Телеметрия (метрики, opt-in)
 │   └── mock/               # Mock-сервисы для тестирования
 ├── scripts/                # Скрипты сборки и тестов
 ├── docs/                   # Документация
+│   └── dev/godoc/          # Сгенерированная godoc-справка (GODOC_DUMP.txt)
 ├── config/                 # Конфигурационные файлы
 ├── inventory/              # База данных инвентаризации (SQLite)
 └── .github/workflows/      # CI/CD
@@ -186,8 +199,8 @@ network-scanner/
 │  - Точка входа GUI приложения                               │
 │  - Инициализация GUI                                        │
 └──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
+                        │
+                        ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              internal/gui/app.go                             │
 │  ┌──────────────────────────────────────────────────────┐   │
@@ -200,18 +213,21 @@ network-scanner/
                │                           │                  │
                ▼                           ▼                  ▼
 ┌──────────────────────────────┐  ┌──────────────────────────────┐  ┌──────────────────────────────┐
-│ internal/gui/controllers     │  │ internal/gui/results         │  │ internal/gui/tools           │
+│ internal/gui/controller/     │  │ internal/gui/results         │  │ internal/gui/tools           │
 │ - scan_controller.go         │  │ - results_view.go            │  │ - operations.go              │
-│ - topology_controller.go     │  │ - results_model.go           │  │ - Operations Center          │
-│ - UI state transitions       │  │ - results_analytics_view.go  │  │ - Retry/Cancel              │
-└──────────────┬───────────────┘  │ - security_view.go           │  └──────────────┬──────────────┘
-               │                  └──────────────┬───────────────┘                 │
-               ▼                                 ▼                                 ▼
-┌──────────────────────────────┐     ┌──────────────────────────────┐   ┌──────────────────────────────┐
-│ internal/scanner/scanner.go  │     │ internal/snmpcollector/      │   │ internal/topology/topology.go│
-│ - NetworkScanner             │     │ collector.go                 │   │ - BuildTopology/Export       │
-│ - diagnostics summary        │     │ - CollectWithReport          │   │ - Preview/Graph export       │
-└──────────────────────────────┘     └──────────────────────────────┘   └──────────────────────────────┘
+│ - security_controller.go     │  │ - results_model.go           │  │ - Operations Center          │
+│ - results_controller.go      │  │ - results_analytics_view.go  │  │ - Retry/Cancel              │
+│ - topology_controller.go     │  │ - security_view.go           │  │ - DNS/Ping/Traceroute      │
+│ - tools_controller.go        │  └──────────────┬───────────────┘  │ - DeviceControl/PortAudit  │
+│ - settings_manager.go        │                 │                  └──────────────┬──────────────┘
+└──────────────┬───────────────┘                 ▼                                 │
+               │                  ┌──────────────────────────────┐   ┌──────────────────────────────┐
+               ▼                  │ internal/snmpcollector/      │   │ internal/topology/topology.go│
+┌──────────────────────────────┐  │ collector.go                 │   │ - BuildTopology/Export       │
+│ internal/scanner/scanner.go  │     │ - CollectWithReport        │   │ - Preview/Graph export       │
+│ - NetworkScanner             │     └──────────────────────────────┘   └──────────────────────────────┘
+│ - diagnostics summary        │
+└──────────────────────────────┘
 ```
 
 ---
@@ -522,6 +538,46 @@ if isPortOpen(host, port, timeout) {
    func GetVendorMIBNeighbors() (..., error)
    ```
 
+### Система плагинов (v2.2+)
+
+Пакет `internal/plugin` реализует **L2.2 Dynamic Plugin Loader**:
+
+- **Loader** (`PluginLoader`) — загрузка `.so/.dll/.dylib` из директорий:
+  `NETWORK_SCANNER_PLUGINS_DIR` → `./plugins` → `<config>/network-scanner/plugins`
+- **Manifest** (`plugin.json`) — метаинформация: имя, версия, тип, entry-файл, enabled-флаг
+- **Plugin interface** — `Info()`, `Init(cfg)`, `Run(ctx, results)`, `Close()`
+- **Типы плагинов:** `Filter`, `Exporter`, `Scanner`, `Reporter`
+- **Встроенные плагины:** `OSFilterPlugin` (фильтрация по ОС), `CSVExporterPlugin`
+- **CLI:** `network-scanner plugins list` — показывает каталоги поиска и состояние плагинов
+
+Пример создания плагина:
+```go
+package main
+
+import (
+    "network-scanner/internal/plugin"
+    "network-scanner/internal/contracts"
+)
+
+func PluginInfo() plugin.Info {
+    return plugin.Info{
+        Name:        "MyFilter",
+        Version:     "1.0.0",
+        Description: "Мой пользовательский фильтр",
+        Author:      "Developer",
+        Type:        plugin.Filter,
+    }
+}
+
+func Init(cfg map[string]interface{}) error { return nil }
+
+func Run(ctx context.Context, results []contracts.ScanResult) (interface{}, error) {
+    return results, nil
+}
+
+func Close() error { return nil }
+```
+
 ### Интерфейсы для расширения
 
 Можно создать интерфейсы для плагинов:
@@ -627,6 +683,33 @@ results, err := container.GetScanner().Scan(ctx, cfg, nil)
 | `scan.completed` | `*ScanCompletedEvent` | `HostCount`, `OpenPorts`, `Duration` |
 | `scan.failed` | `*BaseEvent` | `network`, `reason` (при отмене/ошибке) |
 
+### События результатов и probe
+
+| Событие | Тип | Payload |
+|---------|-----|---------|
+| `host.found` | `*HostFoundEvent` | `IP`, `MAC`, `Hostname` |
+| `port.opened` | `*PortOpenedEvent` | `IP`, `Port`, `Protocol`, `Service` |
+| `device.detected` | `*DeviceDetectedEvent` | `IP`, `DeviceType`, `DeviceVendor`, `OS` |
+| `probe.started` | `*ProbeStartedEvent` | `ProbeName`, `Host`, `Port` |
+| `probe.completed` | `*ProbeCompletedEvent` | `ProbeName`, `Host`, `Port`, `Result` |
+| `probe.failed` | `*ProbeFailedEvent` | `ProbeName`, `Host`, `Port`, `Error` |
+| `progress.updated` | `*ProgressUpdatedEvent` | `Stage`, `Current`, `Total`, `Message` |
+| `theme.changed` | `*ThemeChangedEvent` | `Mode` |
+| `settings.changed` | `*SettingsChangedEvent` | `Key`, `Value` |
+
+### API шины
+
+| Метод | Назначение |
+|-------|-----------|
+| `Publish(event Event)` | Публикация события всем подписчикам (асинхронно) |
+| `PublishBatch(events []Event)` | Batch-публикация нескольких событий |
+| `Subscribe(eventType, handler)` | Подписка на тип события |
+| `SubscribeAny(handler)` | Подписка на все события |
+| `HandleOnce(eventType, handler)` | Однократная подписка (sync.Once) |
+| `Unsubscribe(eventType)` | Удаление всех подписчиков типа |
+| `SubscriberCount(eventType)` / `TotalSubscriberCount()` | Диагностика подписок |
+| `Close()` / `IsClosed()` | Управление жизненным циклом |
+
 ### Гарантии и ограничения
 
 - **Асинхронность:** `Publish` возвращается сразу; обработчики вызываются в
@@ -635,12 +718,37 @@ results, err := container.GetScanner().Scan(ctx, cfg, nil)
   сканирование.
 - **Best-effort:** события не персистентны и не переигрываются; подписчик должен
   быть подписан до запуска сканирования.
-- **Порядок:** гарантируется порядок публикации внутри одного горутине-издателя,
+- **Порядок:** гарантируется порядок публикации внутри одного горутина-издателя,
   но не порядок вызова обработчиков при конкурентной публикации.
 
-Другие предопределённые события (GUI/UI-слой): `host.found`, `port.opened`,
-`device.detected`, `progress.updated`, `theme.changed`, `settings.changed` —
-см. `internal/eventbus/eventbus.go`.
+## Метрики (Prometheus Exposition)
+
+Начиная с v2.4 пакет `internal/metrics` предоставляет **реестр метрик** приложения:
+
+### API реестра
+
+| Метод | Назначение |
+|-------|-----------|
+| `NewRegistry()` | Создание реестра |
+| `NewCounter(name, help, labels)` | Создание/получение Counter |
+| `NewGauge(name, help, labels)` | Создание/получение Gauge |
+| `NewHistogram(name, help, buckets, labels)` | Создание/получение Histogram |
+| `Gather() []Metric` | Сбор всех метрик в структуре |
+| `WriteTo(w)` | Вывод в формате Prometheus Exposition Format |
+
+### HTTP-эндпоинт
+
+В `internal/api/router.go` зарегистрирован маршрут `GET /metrics` (публичный, без аутентификации),
+который вызывает `metrics.Global.WriteTo(w)`. Middleware `metrics.NewHandler(next)` оборачивает
+запросы API, фиксируя длительность каждого HTTP-запроса.
+
+### Типы метрик
+
+| Тип | Описание |
+|-----|----------|
+| `Counter` | Только растущий счётчик (`Inc`, `Add`, `Value`) |
+| `Gauge` | Может расти и падать (`Inc`, `Dec`, `Set`, `Value`) |
+| `Histogram` | Распределение с бакетами (`Observe`, `Snapshot`) |
 
 ---
 
@@ -655,9 +763,10 @@ results, err := container.GetScanner().Scan(ctx, cfg, nil)
 - [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md) - Структура каталогов релизной сборки (`build/release/`)
 - [RELEASE_OPERATIONS_CHEATSHEET.md](archive/2026-09-15-docs-sync/RELEASE_OPERATIONS_CHEATSHEET.md) - Команды closure и локальные релизные артефакты
 - [ROADMAP.md](ROADMAP.md) - Дорожная карта проекта
+- [dev/README.md](dev/README.md) - Developer documentation, сгенерированная godoc-справка
 
 ---
 
-**Версия документа:** 2.3.0  
-**Последнее обновление:** 2026-09-23
+**Версия документа:** 2.4.0  
+**Последнее обновление:** 2026-11-02
 
