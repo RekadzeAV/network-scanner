@@ -447,10 +447,14 @@ var remoteExecCmd = &cobra.Command{
   --execute            переключает команду из dry-run в режим выполнения
   --consent I_UNDERSTAND  явное согласие на удалённый запуск команды
 
+С --audit-log каждый прогон пишет одну JSONL-запись: dry-run, успешное
+выполнение и отклонённые политикой попытки.
+
 Примеры:
   network-scanner remote-exec --transport ssh --target 10.0.0.5 --command "uptime"
   network-scanner remote-exec --transport ssh --target 10.0.0.5 --command "uptime" \
-      --allow-hosts 10.0.0.5 --allow-commands "uptime" --execute --consent I_UNDERSTAND`,
+      --allow-hosts 10.0.0.5 --allow-commands "uptime" --execute --consent I_UNDERSTAND \
+      --audit-log remote-exec.jsonl`,
 	RunE: func(c *cobra.Command, _ []string) error {
 		cfg := builder.Config{LogLevel: "info", DBPath: defaultInventoryDBPath()}
 		// Флаги передаются в существующий ручной парсер RunRemoteExecCLI для
@@ -493,7 +497,7 @@ func init() {
 	remoteExecCmd.Flags().Bool("dry-run", true, "Только проверка политики без выполнения (по умолчанию)")
 	remoteExecCmd.Flags().Bool("execute", false, "Реально выполнить команду (требует --consent I_UNDERSTAND)")
 	remoteExecCmd.Flags().Int("timeout", defaultRemoteExecTimeout, "Таймаут в секундах")
-	remoteExecCmd.Flags().String("audit-log", "", "Путь к audit-логу")
+	remoteExecCmd.Flags().String("audit-log", "", "Путь к audit-логу (JSONL)")
 	remoteExecCmd.MarkFlagsMutuallyExclusive("dry-run", "execute")
 
 	// device-control: флаги зеркалят ручной парсер RunDeviceControl.
