@@ -3,9 +3,11 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"network-scanner/cmd/network-scanner/cmd"
 	"network-scanner/internal/api"
@@ -40,7 +42,11 @@ func main() {
 	// Check for --api flag
 	if len(os.Args) > 1 && os.Args[1] == "--api" {
 		cfg := api.DefaultConfig()
-		cfg.AuthToken = resolveAPIToken(os.Args)
+		flags := resolveAPIFlags(os.Args)
+		cfg.AuthToken = flags.token
+		cfg.TLSCertFile = flags.tlsCertFile
+		cfg.TLSKeyFile = flags.tlsKeyFile
+
 		router := api.NewRouter(cfg)
 		addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 		fmt.Printf("Starting REST API server on %s\n", addr)
@@ -49,9 +55,30 @@ func main() {
 		} else {
 			fmt.Println("API authentication: enabled (Bearer token)")
 		}
-		if err := http.ListenAndServe(addr, router.GetRouter()); err != nil {
-			fmt.Fprintf(os.Stderr, "Error starting server: %v\n", err)
-			os.Exit(1)
+
+		if cfg.TLSCertFile != "" && cfg.TLSKeyFile != "" {
+			// P4-1: HTTPS с TLS 1.2+ (строгий минимум для защиты токена и payload).
+			fmt.Println("TLS: enabled (minimum version 1.2)")
+			srv := &http.Server{
+				Addr:              addr,
+				Handler:           router.GetRouter(),
+				TLSConfig:         &tls.Config{MinVersion: tls.VersionTLS12},
+				ReadHeaderTimeout: 10 * time.Second,
+				ReadTimeout:       30 * time.Second,
+				WriteTimeout:      60 * time.Second,
+				IdleTimeout:       120 * time.Second,
+			}
+			if err := srv.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile); err != nil {
+				fmt.Fprintf(os.Stderr, "Error starting server: %v\n", err)
+				os.Exit(1)
+			}
+		} else {
+			// HTTP: предупреждение о том, что токен и данные идут открытым текстом.
+			fmt.Println("WARNING: API served over plain HTTP — token and data are not encrypted")
+			if err := http.ListenAndServe(addr, router.GetRouter()); err != nil {
+				fmt.Fprintf(os.Stderr, "Error starting server: %v\n", err)
+				os.Exit(1)
+			}
 		}
 		return
 	}

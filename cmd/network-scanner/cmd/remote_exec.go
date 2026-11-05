@@ -3,12 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"network-scanner/internal/builder"
 	"network-scanner/internal/contracts"
+	"network-scanner/internal/remoteexec"
 )
 
 // remoteExecConsentToken — токен явного согласия на реальное удалённое
@@ -164,6 +166,31 @@ func parseBoolFlag(inline string, hasInline bool, def bool) bool {
 	return v
 }
 
+// recordRemoteExecAudit пишет одну JSONL-запись аудит-лога, если задан
+// --audit-log (P4: аудит изменяющих операций). Пишутся и успешные прогоны, и
+// неудачные попытки — зеркально device-control аудиту, где необратимые действия
+// логируются всегда. Ошибка записи выводится в stderr, но не меняет результат
+// команды: отказ диска не должен маскировать факт выполнения.
+func recordRemoteExecAudit(opts remoteExecOptions, dryRun, success bool, message string) {
+	path := strings.TrimSpace(opts.auditPath)
+	if path == "" {
+		return
+	}
+	entry := remoteexec.AuditEntry{
+		Transport: opts.transport,
+		Target:    opts.target,
+		Command:   opts.command,
+		DryRun:    dryRun,
+		Success:   success,
+		Message:   message,
+	}
+	if err := remoteexec.AppendAudit(path, entry); err != nil {
+		fmt.Fprintf(os.Stderr, "Audit log error: %v\n", err)
+		return
+	}
+	fmt.Printf("Audit log: %s\n", path)
+}
+
 // RunRemoteExecCLI запускает удалённое выполнение.
 //
 // По умолчанию работает в dry-run (P0-2): проверяет транспорт, цель и команду
@@ -199,12 +226,11 @@ func RunRemoteExecCLI(cfg builder.Config, args ...string) error {
 		fmt.Println("=== Dry Run (реальное выполнение выключено; добавьте --execute) ===")
 		fmt.Printf("Transport: %s\nTarget: %s\nCommand: %s\n", opts.transport, opts.target, opts.command)
 		if err := remoteExecService.DryRun(context.TODO(), req); err != nil {
+			recordRemoteExecAudit(opts, true, false, err.Error())
 			return fmt.Errorf("dry run failed: %w", err)
 		}
 		fmt.Println("Policy check passed")
-		if opts.auditPath != "" {
-			fmt.Printf("Audit log: %s\n", opts.auditPath)
-		}
+		recordRemoteExecAudit(opts, true, true, "policy check passed")
 		return nil
 	}
 
@@ -213,6 +239,8 @@ func RunRemoteExecCLI(cfg builder.Config, args ...string) error {
 
 	res, err := remoteExecService.Execute(context.TODO(), req)
 	if err != nil {
+		// Неудачная попытка (ошибка политики или транспорта) тоже уходит в аудит.
+		recordRemoteExecAudit(opts, false, false, err.Error())
 		return fmt.Errorf("remote exec failed: %w", err)
 	}
 
@@ -225,10 +253,7 @@ func RunRemoteExecCLI(cfg builder.Config, args ...string) error {
 		fmt.Println("Status: Failed")
 	}
 
-	// Audit log
-	if opts.auditPath != "" {
-		fmt.Printf("Audit log: %s\n", opts.auditPath)
-	}
+	recordRemoteExecAudit(opts, false, res.Success, strings.TrimSpace(res.Output))
 
 	return nil
 }
