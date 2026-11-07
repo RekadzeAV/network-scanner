@@ -200,7 +200,8 @@ func (a *App) setupMainMenu() {
 	previewItem.Icon = iconPalette()
 	themeMenu.Items = append(themeMenu.Items, fyne.NewMenuItemSeparator(), previewItem)
 
-	mainMenu := fyne.NewMainMenu(viewMenu, themeMenu, accentMenu, helpMenu)
+	pluginsMenu := a.setupPluginsMenu()
+	mainMenu := fyne.NewMainMenu(viewMenu, themeMenu, accentMenu, pluginsMenu, helpMenu)
 	a.myWindow.SetMainMenu(mainMenu)
 }
 

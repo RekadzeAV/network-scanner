@@ -12,6 +12,7 @@ import (
 	"network-scanner/internal/inventory"
 	"network-scanner/internal/logger"
 	"network-scanner/internal/network"
+	"network-scanner/internal/plugin"
 	"network-scanner/internal/scanner"
 	"network-scanner/internal/snmpcollector"
 	"network-scanner/internal/topology"
@@ -247,12 +248,13 @@ type App struct {
 	threadsEntryMsg             *canvas.Text
 
 	// Controllers (H2 Refactoring)
-	scanCtrl    *controller.ScanController
-	resultsCtrl *controller.ResultsController
-	topoCtrl    *controller.TopologyController
-	toolsCtrl   *controller.ToolsController
-	settingsMgr *controller.SettingsManager
-	winMode     *windowModeCtrl // контроллер полноэкранного/оконного режима
+	scanCtrl     *controller.ScanController
+	resultsCtrl  *controller.ResultsController
+	topoCtrl     *controller.TopologyController
+	toolsCtrl    *controller.ToolsController
+	settingsMgr  *controller.SettingsManager
+	winMode      *windowModeCtrl      // контроллер полноэкранного/оконного режима
+	pluginLoader *plugin.PluginLoader // загрузчик плагинов (L2)
 }
 
 const (
@@ -443,6 +445,7 @@ func NewApp() *App {
 	app.setupEventHandlers()
 	app.loadScanSettings()
 	app.autoDetectNetwork()
+	app.pluginLoader = plugin.NewPluginLoaderFromEnv()
 
 	logger.Log("GUI приложение инициализировано")
 
