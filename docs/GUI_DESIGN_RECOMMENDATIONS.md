@@ -632,14 +632,12 @@ def contrast(fg, bg):
 
 ### Автоматизированные (scripts/check-gui.ps1)
 
-- [ ] `scripts/check-gui.ps1` — **0 FAIL** для пункта (a): `color.RGBA{` только в `theme_tokens.go` (и `*_test.go`)
+- [ ] `scripts/check-gui.ps1` — **0 FAIL** для пункта (a): зашитые числовые литералы
+      `color.RGBA{R: ..., G: ..., B: ...}` и позиционные `color.RGBA{r, g, b, a}`
+      вне `theme_tokens.go` запрещены; комментарии, нулевые возвраты
+      `color.RGBA{}` и вычисляемые цвета (`byte(r)`, `mix(c.R)`) — не считаются
 - [ ] `scripts/check-gui.ps1` — **0 FAIL** для пункта (e): `TestWCAGSweep` (WCAG-контраст)
 - [ ] `scripts/check-gui.ps1` — gofmt, go vet, go test — чисто
-
-> Текущий статус пункта (a): 6 известных нарушений в GUI-коде —
-> `accent_colors.go:110`, `app.go:329`, `theme_custom.go:58,65,67,98`
-> (вычисляемые цвета палитр/кастомных акцентов). Исправление — перенос литералов
-> в токены — выполняется только в `feature/gui-design`.
 
 > Полный автомат-прогон: `.\scripts\check-gui.ps1` (с тестами ~1–3 мин) или
 > `.\scripts\check-gui.ps1 -SkipTests` (быстрый, без тестов).

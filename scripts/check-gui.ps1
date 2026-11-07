@@ -32,34 +32,96 @@ function Report-OK  { param([string]$Name); Write-OK $Name; $script:TotalChecks+
 function Report-FAIL { param([string]$Name); Write-FAIL $Name; $script:TotalChecks++ }
 
 # ============================================================================
-# (a) color.RGBA{ — only theme_tokens.go
+# (a) hardcoded palette literals — only theme_tokens.go
+#
+# Правило §13 по смыслу запрещает ЖЁСТКО ЗАШИТЫЕ ЗНАЧЕНИЯ палитры вне
+# theme_tokens.go, а не сам синтаксис color.RGBA{...}. Поэтому проверяется
+# содержимое литерала, а не факт его наличия:
+#
+#   FAIL  — R/G/B инициализированы числовым литералом (R: 0x12, R: 18) либо
+#           литерал позиционный и содержит числа (color.RGBA{255, 0, 0, 255});
+#   OK    — значения вычисляются (byte(r), mix(c.R), byte((val >> 24) & 0xFF)),
+#           литерал пуст (color.RGBA{} как нулевое значение ошибки) или
+#           встречается в комментарии.
+#
+# Альфа-канал (A:) намеренно не проверяется: A: 0xFF — идиома «непрозрачный»,
+# а не цвет палитры.
+#
+# Известное ограничение: комментарии вырезаются эвристикой («//» до конца
+# строки без учёта строковых литералов). Ложных срабатываний это не даёт,
+# теоретически может пропустить литерал внутри raw-строки с «//» — в GUI-коде
+# таких мест нет.
 # ============================================================================
-Write-SEP 'Point (a): color.RGBA literals'
+Write-SEP 'Point (a): hardcoded color.RGBA literals'
+
+# Блоковые комментарии /* */ вырезаются с сохранением длин (смещения строк
+# остаются валидными), чтобы литерал внутри комментария не считался кодом.
+function Remove-BlockComments {
+    param([string]$Text)
+    return [regex]::Replace($Text, '/\*[\s\S]*?\*/', { param($m) (' ' * $m.Value.Length) })
+}
+
+# Строчные комментарии //... вырезаются до конца строки (длина сохраняется).
+function Remove-LineComments {
+    param([string]$Text)
+    return [regex]::Replace($Text, '(?m)//[^\r\n]*', { param($m) (' ' * $m.Value.Length) })
+}
+
+# Номер строки по смещению в тексте (1-индексированный).
+function Get-LineNumber {
+    param([string]$Text, [int]$Index)
+    return ($Text.Substring(0, $Index).Split("`n").Count)
+}
 
 $failCountA = 0
+# Ключевой синтаксис с числовым литералом в канале цвета: R: 0x12 / G: 34 / B: 0
+$reKeyedNumeric = '(?<![A-Za-z0-9_])[RGB]\s*:\s*(?:0[xX])?[0-9]+\s*[,}]'
+# Позиционный синтаксис: внутри есть цифры, но нет ни одного ключа канала.
+$reAnyDigit = '[0-9]'
+$reAnyKey = '(?<![A-Za-z0-9_])[RGB]\s*:'
+
 $goFiles = Get-ChildItem -Path $GuiDir -Filter '*.go' -Recurse
 foreach ($f in $goFiles) {
     $name = $f.Name
     if ($name -match '_test\.go$') { continue }
     if ($name -eq 'theme_tokens.go') { continue }
 
-    $lines = Get-Content $f.FullName
-    $ln = 0
-    foreach ($line in $lines) {
-        $ln++
-        if ($line -match 'color\.RGBA\{') {
+    $text = [IO.File]::ReadAllText($f.FullName)
+    if ($text -notmatch 'color\.RGBA') { continue }
+
+    $code = Remove-BlockComments -Text $text
+    $code = Remove-LineComments -Text $code
+
+    $rel = $f.FullName.Substring($Root.Length).TrimStart('\')
+
+    foreach ($m in [regex]::Matches($code, 'color\.RGBA\s*\{[^{}]*\}', 'Singleline')) {
+        $body = $m.Value
+
+        $isKeyed = [regex]::IsMatch($body, $reAnyKey)
+        $violation = $false
+        if ($isKeyed) {
+            if ([regex]::IsMatch($body, $reKeyedNumeric)) { $violation = $true }
+        }
+        elseif ([regex]::IsMatch($body, $reAnyDigit)) {
+            # Позиционный литерал с числами — это зашитое значение цвета.
+            $violation = $true
+        }
+
+        if ($violation) {
             $failCountA++
-            $rel = $f.FullName.Substring($Root.Length).TrimStart('\')
-            Write-FAIL "  $rel : $ln"
+            $lineNo = Get-LineNumber -Text $code -Index $m.Index
+            $snippet = ($body -replace '\s+', ' ').Trim()
+            if ($snippet.Length -gt 72) { $snippet = $snippet.Substring(0, 69) + '...' }
+            Write-FAIL "  $rel : $lineNo  $snippet"
         }
     }
 }
 
 if ($failCountA -eq 0) {
-    Report-OK 'color.RGBA{} only in theme_tokens.go'
+    Report-OK 'no hardcoded color.RGBA palette literals outside theme_tokens.go'
 }
 else {
-    Report-FAIL "color.RGBA{} only in theme_tokens.go ($failCountA violation(s) found)"
+    Report-FAIL "hardcoded color.RGBA palette literals outside theme_tokens.go ($failCountA violation(s) found)"
 }
 
 # ============================================================================
