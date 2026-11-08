@@ -10,7 +10,7 @@
 FROM golang:1.25-alpine AS builder
 
 # Установка зависимостей для сборки
-RUN apk add --no-cache git gcc musl-dev
+RUN apk add --no-cache git gcc musl-dev libpcap-dev
 
 # Установка рабочей директории
 WORKDIR /app
@@ -41,14 +41,15 @@ FROM alpine:3.20
 LABEL org.opencontainers.image.title="Network Scanner CLI"
 LABEL org.opencontainers.image.description="Network scanner CLI tool for discovering and analyzing network devices"
 LABEL org.opencontainers.image.source="https://github.com/RekadzeAV/network-scanner"
-LABEL org.opencontainers.image.version="2.3.0"
+LABEL org.opencontainers.image.version="2.4.0"
 
 # Установка зависимостей для запуска
 RUN apk add --no-cache \
     iproute2 \
     iputils \
     bash \
-    ca-certificates
+    ca-certificates \
+    libpcap
 
 # Создание пользователя для безопасности
 RUN addgroup -S scanner && adduser -S scanner -G scanner
