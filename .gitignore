@@ -85,3 +85,7 @@ internal/gui/inventory/
 
 # Generated godoc artifacts (scripts/gen-godoc.ps1 | .sh)
 /docs/dev/godoc/
+
+# SQLite artifacts (runtime inventory DB, test artifacts)
+*.db
+*.db-journal
