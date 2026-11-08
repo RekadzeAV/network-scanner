@@ -7,6 +7,16 @@
 
 ## [Unreleased]
 
+### 2026-11-07: GUI — меню «Плагины» (L2) + аудит check-gui (P4-доп)
+
+- **L2 GUI-меню «Плагины»:** пункт «Плагины» в главном меню; список из `plugin.Loader.Statuses()` с `Checked`-флагом; вкл/выкл через редактирование `plugin.json` (манифест); подменю «Ошибки загрузки» (`LoadError.Error()`); подменю «Каталоги поиска» (`Dirs()`); кнопка «Обновить список» (`Reload()`); `pluginLoader` инициализируется через `NewPluginLoaderFromEnv()`.
+- **P4-доп аудит check-gui (point a):** переписан чек «зашитые vs вычисляемые» `color.RGBA{}`; читает файл целиком, вырезает блочные/строчные комментарии, FAIL только для keyed-литералов (`R: 0x12`) и позиционных (`255, 0, 0, 255`); комментарии, `color.RGBA{}`, `byte(r)`, `mix(c.R)` — пропуск; синхронизирована формулировка §13 в `docs/GUI_DESIGN_RECOMMENDATIONS.md` и шапке `theme_tokens.go`.
+
+### 2026-10-30: HTTPS API + remote-exec audit log (P4-security)
+
+- **HTTPS API:** флаги `--api-tls-cert`/`--api-tls-key` (оба обязательны или оба пусты); TLS 1.2+; opt-in; `internal/api/config.go` (`TLSCertFile`/`TLSKeyFile`); `cmd/network-scanner/api_flags.go` (`resolveAPIFlags`); `main.go`/`main_unix.go`; `api_flags_test.go` (7 PASS).
+- **remote-exec `--audit-log`:** `recordRemoteExecAudit` (`cmd/network-scanner/cmd/remote_exec.go`) — пишет dry-run/success/fail в указанный файл; раньше флаг был декоративным (только печатал путь); `remote_exec_audit_test.go` (5 PASS).
+
 ### 2026-10-30: Plugin system (L2.2–L2.4) + Prometheus метрики (P3)
 
 - **L2.2 Plugin loader:** `internal/plugin/manifest.go` — LoadManifest/SaveManifest, валидация, path traversal защита; `internal/plugin/loader.go` — SearchPaths (env + defaults), LoadAll, WatchForChanges с рекурсивной подписью
