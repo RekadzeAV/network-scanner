@@ -4,6 +4,7 @@ Type=Application
 Name=Network Scanner
 GenericName=Network Scanner
 Comment=Advanced network discovery and security analysis tool
+TryExec=/usr/local/bin/network-scanner-gui
 Exec=/usr/local/bin/network-scanner-gui %U
 Icon=network-scanner
 Terminal=false
@@ -17,3 +18,19 @@ StartupNotify=true
 # Desktop file metadata
 X-KDE-SubstituteUID=false
 X-GNOME-FullName=Network Scanner GUI
+Actions=Scan;Topology;Version;
+
+[Desktop Action Scan]
+Name=Быстрое сканирование
+Exec=/usr/local/bin/network-scanner-gui
+Icon=network-scanner
+
+[Desktop Action Topology]
+Name=Построение топологии
+Exec=/usr/local/bin/network-scanner-gui --topology
+Icon=network-scanner
+
+[Desktop Action Version]
+Name=Версия
+Exec=/usr/local/bin/network-scanner --version
+Icon=network-scanner
