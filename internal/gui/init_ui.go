@@ -90,7 +90,7 @@ func (a *App) initUI() {
 				a.topologySearchEntry,
 				container.NewHBox(
 					widget.NewLabel("Тип:"), a.topologyTypeFilterSel,
-					widget.NewLabel("Confidence:"), a.topologyConfidenceFilterSel,
+					widget.NewLabel("Уверенность:"), a.topologyConfidenceFilterSel,
 				),
 				a.topologyGraphStatus,
 			),
@@ -204,9 +204,9 @@ func (a *App) initUI() {
 				),
 				container.NewGridWithColumns(2,
 					widget.NewLabel("Ping пакетов:"), a.toolsPingCountEnt,
-					widget.NewLabel("Timeout (сек):"), a.toolsTimeoutEnt,
-					widget.NewLabel("Traceroute hops:"), a.toolsTraceHopsEnt,
-					widget.NewLabel("DNS resolver:"), a.toolsDNSResolverEnt,
+					widget.NewLabel("Таймаут (сек):"), a.toolsTimeoutEnt,
+					widget.NewLabel("Хопы Traceroute:"), a.toolsTraceHopsEnt,
+					widget.NewLabel("DNS-резолвер:"), a.toolsDNSResolverEnt,
 				),
 			),
 		),
@@ -233,7 +233,7 @@ func (a *App) initUI() {
 		a.buildToolCard("Аудит и риски", iconSecurity(),
 			container.NewVBox(
 				container.NewGridWithColumns(2,
-					widget.NewLabel("Audit min severity:"), a.toolsAuditMinSeveritySel,
+					widget.NewLabel("Мин. серьёзность аудита:"), a.toolsAuditMinSeveritySel,
 				),
 				container.NewGridWithColumns(2, a.toolsAuditBtn, a.toolsRiskBtn),
 			),
@@ -241,7 +241,7 @@ func (a *App) initUI() {
 	))
 	a.toolsControlsScroll.SetMinSize(fyne.NewSize(0, 200))
 	a.operationsHeaderGrid = container.New(layout.NewGridLayoutWithColumns(2),
-		widget.NewLabel("Operations:"),
+		widget.NewLabel("Операции:"),
 		a.operationsSelect,
 		a.operationsRetryBtn,
 		a.operationsCancelBtn,

@@ -16,21 +16,21 @@ import (
 
 func (a *App) buildInventoryDashboardView() fyne.CanvasObject {
 	if a == nil {
-		return widget.NewLabel("Inventory: app is not initialized")
+		return widget.NewLabel("Инвентаризация: приложение не инициализировано")
 	}
 	if a.inventoryStatusLabel == nil {
 		a.inventoryStatusLabel = widget.NewLabel("")
 	}
 	if a.inventoryScanASelect == nil || a.inventoryScanBSelect == nil {
-		return widget.NewLabel("Inventory controls are not initialized")
+		return widget.NewLabel("Элементы управления инвентаризации не инициализированы")
 	}
 	diffText := widget.NewRichTextFromMarkdown(a.inventoryDiffMarkdown())
 	diffText.Wrapping = fyne.TextWrapWord
 	return container.NewVBox(
 		widget.NewLabel("Инвентаризация сети (снапшоты и сравнение):"),
 		a.inventoryStatusLabel,
-		container.NewGridWithColumns(2, widget.NewLabel("Snapshot A:"), a.inventoryScanASelect),
-		container.NewGridWithColumns(2, widget.NewLabel("Snapshot B:"), a.inventoryScanBSelect),
+		container.NewGridWithColumns(2, widget.NewLabel("Снимок A:"), a.inventoryScanASelect),
+		container.NewGridWithColumns(2, widget.NewLabel("Снимок B:"), a.inventoryScanBSelect),
 		widget.NewSeparator(),
 		diffText,
 	)
