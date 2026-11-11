@@ -29,6 +29,14 @@ func (a *App) setStatusToast(text string) {
 	a.setStatusToastWithMarker("✓ ", text)
 }
 
+// setStatusError показывает временное сообщение об ошибке в статус-баре
+// с маркером "✗ " (S-04). Через statusToastDuration статус возвращается
+// к дефолту. S-05: используется в обработчиках валидации полей, чтобы текст
+// ошибки был доступен вне визуального канала (скринридеры, WCAG 3.3.1).
+func (a *App) setStatusError(text string) {
+	a.setStatusToastWithMarker("✗ ", text)
+}
+
 // setStatusToastWithMarker — общий механизм тоста с произвольным маркером.
 func (a *App) setStatusToastWithMarker(marker, text string) {
 	if a == nil || a.statusLabel == nil {

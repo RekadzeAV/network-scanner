@@ -63,11 +63,24 @@ func showFieldError(msg *canvas.Text, err error) {
 	msg.Refresh()
 }
 
-// showFieldErrorDelayed безопасно вызывает showFieldError из UI-колбэков
-// (nil-безопасно по msg).
-// S-05: устанавливает tooltip с текстом ошибки для скринридеров.
+// showFieldErrorDelayed — UI-колбэк валидации поля: показывает/скрывает
+// сообщение об ошибке под полем и дублирует ошибку в статус-баре (S-05).
+//
+// Fyne v2.7.1 не предоставляет API Tooltip/AriaLabel (см. ROADMAP: S-05
+// aria-describedby — нет API Fyne), поэтому вместо tooltip текст ошибки
+// прокидывается в постоянный статус-бар — единственную «приборную панель»
+// приложения (N-07), которую считывают скринридеры и которая видна всегда.
+// Это соответствует WCAG 3.3.1 (Error Identification): ошибка описана
+// текстом и доступна вне визуального канала.
+//
+// При успешной валидации статус-бар не трогаем: колбэк вызывается на каждый
+// keystroke и сброс к дефолту затирал бы полезные тосты («Сохранено ✓» и т.п.).
 func (a *App) showFieldErrorDelayed(msg *canvas.Text, err error) {
 	showFieldError(msg, err)
+	if a == nil || err == nil {
+		return
+	}
+	a.setStatusError("Ошибка ввода: " + err.Error())
 }
 
 // themeColorError возвращает цвет ошибки из токенов темы (C-12).
