@@ -90,7 +90,7 @@ func (a *App) initUI() {
 				a.topologySearchEntry,
 				container.NewHBox(
 					widget.NewLabel("Тип:"), a.topologyTypeFilterSel,
-					widget.NewLabel("Confidence:"), a.topologyConfidenceFilterSel,
+					widget.NewLabel("Уверенность:"), a.topologyConfidenceFilterSel,
 				),
 				a.topologyGraphStatus,
 			),
@@ -204,9 +204,9 @@ func (a *App) initUI() {
 				),
 				container.NewGridWithColumns(2,
 					widget.NewLabel("Ping пакетов:"), a.toolsPingCountEnt,
-					widget.NewLabel("Timeout (сек):"), a.toolsTimeoutEnt,
-					widget.NewLabel("Traceroute hops:"), a.toolsTraceHopsEnt,
-					widget.NewLabel("DNS resolver:"), a.toolsDNSResolverEnt,
+					widget.NewLabel("Таймаут (сек):"), a.toolsTimeoutEnt,
+					widget.NewLabel("Хопы Traceroute:"), a.toolsTraceHopsEnt,
+					widget.NewLabel("DNS-резолвер:"), a.toolsDNSResolverEnt,
 				),
 			),
 		),
@@ -233,7 +233,7 @@ func (a *App) initUI() {
 		a.buildToolCard("Аудит и риски", iconSecurity(),
 			container.NewVBox(
 				container.NewGridWithColumns(2,
-					widget.NewLabel("Audit min severity:"), a.toolsAuditMinSeveritySel,
+					widget.NewLabel("Мин. серьёзность аудита:"), a.toolsAuditMinSeveritySel,
 				),
 				container.NewGridWithColumns(2, a.toolsAuditBtn, a.toolsRiskBtn),
 			),
@@ -241,7 +241,7 @@ func (a *App) initUI() {
 	))
 	a.toolsControlsScroll.SetMinSize(fyne.NewSize(0, 200))
 	a.operationsHeaderGrid = container.New(layout.NewGridLayoutWithColumns(2),
-		widget.NewLabel("Operations:"),
+		widget.NewLabel("Операции:"),
 		a.operationsSelect,
 		a.operationsRetryBtn,
 		a.operationsCancelBtn,
@@ -268,7 +268,6 @@ func (a *App) initUI() {
 		}
 	}
 
-	// P2-2: группировки Scan / Output / View.
 	scanGroup := container.NewHBox(
 		widget.NewButtonWithIcon("Сканирование", iconScan(), func() {
 			if a.scanCtrl != nil {
@@ -281,15 +280,12 @@ func (a *App) initUI() {
 			}
 		}),
 	)
+	// N-03: убран висячий separator в начале группы (пустая черта слева).
+	// N-04: кнопка «Сброс UI» удалена — действие дублировалось с «Сброс панелей»
+	// (viewGroup) и пунктом меню «Сброс панелей (Ctrl+Shift+L)» (ui_helpers.go).
+	// Единая лексика для одного действия — три точки входа, одна подпись.
 	outputGroup := container.NewHBox(
-		widget.NewSeparator(),
 		a.makeFullscreenToggleBtn(),
-		widget.NewSeparator(),
-		widget.NewButtonWithIcon("Сброс UI", iconRefresh(), func() {
-			if a.settingsMgr != nil {
-				a.settingsMgr.ResetUIPanelLayoutWithFeedback(a.scanTabMainSplit, a.topologyMainSplit, a.toolsTabMainSplit, a.myWindow)
-			}
-		}),
 		widget.NewSeparator(),
 		widget.NewButtonWithIcon("Сохранить", iconSave(), func() {
 			a.saveResults()

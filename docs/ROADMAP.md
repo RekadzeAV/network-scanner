@@ -14,7 +14,7 @@
 **Тесты:** ✅ 52 пакета ok (`go test ./... -cover`, прогон 2026-10-20)
 **Coverage:** scanner 88.1%; api 95.2%; devicecontrol 90.8%; topology 88.3%; apperror 98.4%; commands 97.4%
 **Race detector:** ✅ `go test -race ./... -short` — 0 FAIL, 0 DATA RACE (2026-10-20; гонки M2 устранены)
-**Дата обновления:** 2026-10-30
+**Дата обновления:** 2026-11-07
 
 ## Завершённые этапы (100%)
 
@@ -132,6 +132,16 @@
 #### P2-полировка
 - [x] P2-1: Карточка-секция `buildToolCard` с surface-фоном и рамкой
 - [x] P2-7: Русификация `Devices/Security/Inventory` → `Устройства/Безопасность/Инвентарь`
+
+### Этап P4-security: HTTPS API + audit-log (2026-10-30) ✅
+
+- [x] HTTPS API: флаги `--api-tls-cert`/`--api-tls-key` (оба обязательны или оба пусты); TLS 1.2+; opt-in; `internal/api/config.go` (`TLSCertFile`/`TLSKeyFile`); `cmd/network-scanner/api_flags.go` (`resolveAPIFlags`); `api_flags_test.go` (7 PASS).
+- [x] remote-exec `--audit-log`: `recordRemoteExecAudit` — пишет dry-run/success/fail; раньше флаг был декоративным; `remote_exec_audit_test.go` (5 PASS).
+
+### Этап P4-доп: аудит check-gui (point a) + L2 plugin menu (2026-11-07) ✅
+
+- [x] check-gui point (a): переписан чек «зашитые vs вычисляемые» `color.RGBA{}`; FAIL только для keyed/позиционных числовых литералов; синхронизирована формулировка §13.
+- [x] L2 GUI-меню «Плагины»: `setupPluginsMenu()`, toggle через манифест, Reload, Dirs(), LoadErrors().
 - [x] P2-8: Детали хоста сгруппированы: «Идентификация / Сеть / Порты»
 - [x] P2-9: Прогресс-бар с `Max=1`
 - [x] P2-10: Фокус-индикатор 2 px primary

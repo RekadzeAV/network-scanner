@@ -1,6 +1,6 @@
 # GUI версия - Графический интерфейс
 
-**Дата обновления:** 2026-10-23  
+**Дата обновления:** 2026-11-10
 **Текущая версия:** v2.4.0
 
 ## Описание
@@ -9,60 +9,91 @@ GUI версия Network Scanner предоставляет графически
 
 ## Структура
 
+Перечень **нетестовых** исходников `internal/gui` (актуально на 2026-11-10, сверено с `git ls-files`).
+
 ```
 internal/gui/
-├── app.go                    # Основная логика GUI приложения
-├── app_shortcuts.go          # Горячие клавиши приложения
-├── init_ui.go                # Инициализация UI-компонентов
+├── app.go                    # App struct, NewApp/Run, инициализация контроллеров
+├── app_shortcuts.go          # Горячие клавиши приложения (таблица + setupAppShortcuts)
+├── init_ui.go                # Инициализация UI: вкладки, сплиты, тулбар, меню
+├── doc.go                    # Пакетный godoc
+├── version.go                # Версия GUI-сборки
+├── model.go                  # Модель данных приложения (ScanResult, HostInfo, ...)
+├── services.go               # Подключение сервисов (scanner/topology/api/devicecontrol)
 ├── scanner_service.go        # Обёртка ScannerService с колбэком прогресса для UI
-├── scan_validation_ui.go     # On-the-fly валидация CIDR/портов (C-12)
-├── scan_settings_ui.go       # Настройки сканирования (пресеты, профиль)
-    ├── results_state.go            # Переходы состояния результатов и локализованные подписи (N-09)
-    ├── results_view_render.go    # Рендер таблицы/карточек, чипы портов, Host Details Drawer
-├── results_view_layout.go    # Адаптивный макет (compact/normal/wide/fullscreen, polling ресайза)
-├── results_charts.go         # Аналитика и pie-диаграммы (кэш, инвалидация при смене темы)
-├── results_model.go          # Модель отображения/сортировки результатов (R-02)
-├── results_table_view.go     # Табличное представление результатов
-├── results_columns.go        # Настраиваемые видимые колонки (P2-12)
-├── settings_dialog.go        # Диалог настроек сканирования (P2-11)
-├── results_ui_sections.go    # Секции UI результатов (фильтры, режимы, настройки)
-├── window_mode.go            # Контроллер режимов окна (fullscreen/windowed), debounce layout, syncFromWindow
-├── topology_interactive_map.go # Интерактивная карта топологии (узлы/связи/click-through)
-├── results_analytics_view.go # Явная аналитика в пайплайне рендера результатов
-├── results_filters_ui.go     # Панель фильтров результатов
-├── results_settings_ui.go    # Настройки отображения результатов
-├── results_formatter.go      # Форматирование полей результатов (device type, OS guess)
-├── topology_interactive_map.go # Интерактивная карта топологии (узлы/связи/click-through)
-├── topology_tappable_node.go # Кастомные виджеты: кликабельные узлы и hit-area связей (H-01, H-02)
-├── topology_layout.go        # Слоистая раскладка карты: ярусы core→dist→host, hit-зоны (H-08)
-├── topology_viewport.go      # Слой ввода: зум колесом, панорама drag'ом (H-07)
-├── operations.go             # Runtime операций (queued/running/success/failed/canceled)
-├── operations_ui.go          # UI Operations Center
-├── security_view.go          # Security Dashboard (audit + risk signatures)
-├── inventory_view.go         # Инвентаризация (SQLite)
-├── status_feedback.go        # Статус-бар, тосты ✓/✗ (S-04)
-├── theme.go                  # ModernTheme (токены, followSystem, вариант-зависимая палитра)
-├── theme_tokens.go           # Единый источник цветовых токенов WCAG AA (light/dark)
-├── theme_selector.go         # Меню «Тема»/«Акцент», applyThemeToUI, invalidateThemeCaches
-├── theme_custom.go           # Пользовательские акцентные цвета (#RRGGBB), WCAG-коррекция
-├── theme_custom_ui.go        # UI-компоненты L1: предпросмотр тем, диалоги акцентов
-├── accent_colors.go          # 7 акцентных пресетов (macOS Blue, Windows 11, Green, Purple, Orange, Red, Teal)
-├── icons.go                  # Единая точка тематических иконок (29 обёрток theme.*Icon())
-├── formatter.go              # Форматирование результатов в Markdown
-├── ui_helpers.go             # Вспомогательные функции (меню, бейджи, тосты)
-├── model.go                  # Модель данных приложения
+├── event_bus.go              # Шина событий GUI (P2-5: scan.*, progress.*, host.found)
 ├── event_handlers.go         # Обработчики событий
+├── plugins_menu.go           # Меню «Плагины» (L2, интеграция в главный меню-бар)
+├── telemetry_settings.go     # Настройки телеметрии (L4, opt-in)
+├── wol_service.go            # Wake-on-LAN сервис
 ├── nettools_service.go       # Сетевые инструменты (ping, traceroute, dns, whois, wifi)
 ├── device_control_service.go # Device Control (HTTP API)
 ├── audit_service.go          # Аудит открытых портов
 ├── audit_path.go             # Пути audit-логов (auditpath)
-├── performance_test.go       # Бенчмарки GUI
-├── gui_smoke_test.go         # Смоук-тесты GUI
-└── controller/
-    ├── scan_controller.go    # UI-оркестрация стадий/состояний сканирования
-    ├── scan_profile.go       # Профили сканирования (автопрофиль, рекомендации)
-    └── topology_controller.go # UI-оркестрация стадий/состояний построения топологии
+├── security_view.go          # Security Dashboard (audit + risk signatures)
+├── inventory_view.go         # Инвентаризация (SQLite)
+├── results_view.go           # Точка входа области результатов (композит контроллеров)
+├── results_view_interface.go # Интерфейсы области результатов (R-контракты)
+├── results_view_render.go    # Рендер таблицы/карточек, чипы портов, Host Details Drawer
+├── results_view_layout.go    # Адаптивный макет (compact/normal/wide/fullscreen, debounce)
+├── results_pipeline.go       # Пайплайн рендера результатов (snapshot → filter → sort → render)
+├── results_analytics_view.go # Явная аналитика в пайплайне рендера результатов
+├── results_charts.go         # Аналитика и pie-диаграммы (кэш, инвалидация при смене темы)
+├── results_columns.go        # Настраиваемые видимые колонки (P2-12)
+├── results_empty_state.go    # Empty/error-состояния с иконкой и действием (S-01)
+├── results_filters_ui.go     # Панель фильтров результатов
+├── results_settings_ui.go    # Настройки отображения результатов
+├── results_formatter.go      # Форматирование полей результатов (device type, OS guess)
+├── results_model.go          # Модель отображения/сортировки результатов (R-02)
+├── results_state.go          # Переходы состояния результатов и локализованные подписи (N-09)
+├── results_table_view.go     # Табличное представление результатов (R-01…R-03)
+├── results_ui_sections.go    # Секции UI результатов (фильтры, режимы, настройки)
+├── scan_live_results.go      # Live-строки во время скана (R-04)
+├── scan_observer.go          # Наблюдатель событий скана (прогресс S-02)
+├── scan_ui.go                # Панель управления сканированием
+├── scan_settings_ui.go       # Табы «Пресеты и профиль» / «Производительность» (P2-11)
+├── scan_validation_ui.go     # On-the-fly валидация CIDR/портов (C-12)
+├── settings_dialog.go        # Диалог настроек сканирования (P2-11)
+├── split_persist.go          # Сохранение/восстановление пропорций сплитов
+├── status_feedback.go        # Статус-бар, тосты ✓/✗ (S-04, N-07)
+├── operations.go             # Runtime операций (queued/running/success/failed/canceled)
+├── operations_ui.go          # UI Operations Center
+├── tools_ui.go               # Карточки инструментов (buildToolCard, P2-1)
+├── topology_interactive_map.go # Интерактивная карта топологии (узлы/связи/click-through)
+├── topology_tappable_node.go # Кастомные виджеты: кликабельные узлы и hit-area связей (H-01, H-02)
+├── topology_layout.go        # Слоистая раскладка карты: ярусы core→dist→host, hit-зоны (H-08)
+├── topology_viewport.go      # Слой ввода: зум колесом, панорама drag'ом (H-07)
+├── window_mode.go            # Контроллер режимов окна (fullscreen/windowed), debounce, syncFromWindow
+├── theme.go                  # ModernTheme (токены, followSystem, вариант-зависимая палитра)
+├── theme_tokens.go           # Единый источник цветовых токенов WCAG AA (light/dark)
+├── theme_selector.go         # Меню «Тема»/«Акцент», applyThemeToUI, invalidateThemeCaches
+├── theme_custom.go           # Пользовательские акцентные цвета (#RRGGBB), WCAG-коррекция (L1.2)
+├── theme_custom_ui.go        # UI-компоненты L1: предпросмотр тем, диалоги акцентов (L1.4)
+├── accent_colors.go          # 7 акцентных пресетов (macOS Blue, Windows 11, Green, Purple, Orange, Red, Teal)
+├── icons.go                  # Единая точка тематических иконок (обёртки theme.*Icon())
+├── formatter.go              # Форматирование результатов в Markdown
+├── ui_helpers.go             # Вспомогательные функции (меню, бейджи, тосты)
+├── controller/               # UI-контроллеры (H2 Refactoring)
+│   ├── scan_controller.go       # Стадии/состояния сканирования
+│   ├── scan_profile.go          # Профили сканирования (автопрофиль, рекомендации)
+│   ├── results_controller.go    # Оркестрация области результатов
+│   ├── security_controller.go   # Контроллер Security-подрежима
+│   ├── settings_manager.go      # Preferences (чтение/запись настроек)
+│   ├── tools_controller.go      # Контроллер вкладки «Инструменты»
+│   ├── topology_controller.go   # Стадии/состояния построения топологии
+│   ├── topology_format.go       # Форматирование данных топологии
+│   ├── topology_ui.go           # UI-сборка панели топологии
+│   └── confirm.go               # Диалоги подтверждения (large-scan, reboot)
+└── errors/                   # Обработка ошибок GUI
+    ├── handler.go               # Единая точка обработки ошибок
+    ├── retry.go                 # Политика повторов операций
+    └── types.go                 # Типы ошибок GUI
 ```
+
+> **Примечание:** тестовые файлы (`*_test.go`) намеренно не перечислены — их перечень
+> виден через `git ls-files internal/gui/*_test.go`. Тесты WCAG-контраста:
+> `wcag_sweep_test.go`; смоук-тесты: `gui_smoke_test.go`; бенчмарки: `performance_test.go`,
+> `results_bench_test.go`.
 
 ## Компоненты
 
@@ -146,7 +177,7 @@ go build -o network-scanner-gui ./cmd/gui
 - **Валидация ввода on-the-fly** - CIDR и диапазон портов проверяются при вводе; ошибка показывается под полем (цвет ошибки темы)
 - **Секционирование панели топологии** - боковая панель разбита на карточки: «Подключение (SNMP)», «Отчёты и превью», «Интерактивная карта»
 - **Сворачиваемая панель фильтров результатов** - редкие настройки (режим отображения, сортировка, CIDR, пресеты, быстрые фильтры, Inventory DB) вынесены в Accordion «Фильтры и режимы отображения»; на виду остаются текстовый фильтр, счётчик фильтров и сброс. В подрежиме `Inventory` панель сворачивается автоматически
-- **Статус-бар с уведомлениями** - единая точка обратной связи (`setStatus`); временные подтверждения показываются тостом с маркером «✓» и авто-возвратом через 4 секунды (`setStatusToast`); ошибки — с маркером «✗» (`setStatusErrorToast`, S-04)
+- **Статус-бар с уведомлениями** - единая точка обратной связи (`setStatus`); временные подтверждения показываются тостом с маркером «✓» и авто-возвратом через 4 секунды (`setStatusToast`); ошибки — с маркером «✗» (`setStatusError`, S-04); ошибки валидации полей дублируются в статус-бар (`showFieldErrorDelayed`, S-05)
 - **Меню «Справка»** - «Горячие клавиши» (F1) и «О программе» (версия, ОС/арх, версия Go)
 - **Интерактивная карта топологии** - выбор узлов и связей, фильтры (`query/type/confidence`) и click-through в `Host Details`
 - **Диагностика сканирования** - копирование/сохранение diagnostics summary последнего запуска
@@ -386,6 +417,6 @@ GUI версия работает на всех платформах, подде
 
 ---
 
-**Версия документа:** 2.4.0  
-**Последнее обновление:** 2026-10-23
+**Версия документа:** 2.4.1
+**Последнее обновление:** 2026-11-10
 
