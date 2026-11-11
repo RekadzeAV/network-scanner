@@ -268,7 +268,6 @@ func (a *App) initUI() {
 		}
 	}
 
-	// P2-2: группировки Scan / Output / View.
 	scanGroup := container.NewHBox(
 		widget.NewButtonWithIcon("Сканирование", iconScan(), func() {
 			if a.scanCtrl != nil {
@@ -281,15 +280,12 @@ func (a *App) initUI() {
 			}
 		}),
 	)
+	// N-03: убран висячий separator в начале группы (пустая черта слева).
+	// N-04: кнопка «Сброс UI» удалена — действие дублировалось с «Сброс панелей»
+	// (viewGroup) и пунктом меню «Сброс панелей (Ctrl+Shift+L)» (ui_helpers.go).
+	// Единая лексика для одного действия — три точки входа, одна подпись.
 	outputGroup := container.NewHBox(
-		widget.NewSeparator(),
 		a.makeFullscreenToggleBtn(),
-		widget.NewSeparator(),
-		widget.NewButtonWithIcon("Сброс UI", iconRefresh(), func() {
-			if a.settingsMgr != nil {
-				a.settingsMgr.ResetUIPanelLayoutWithFeedback(a.scanTabMainSplit, a.topologyMainSplit, a.toolsTabMainSplit, a.myWindow)
-			}
-		}),
 		widget.NewSeparator(),
 		widget.NewButtonWithIcon("Сохранить", iconSave(), func() {
 			a.saveResults()
