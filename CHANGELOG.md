@@ -7,6 +7,15 @@
 
 ## [Unreleased]
 
+### 2026-11-12: GUI-аудит D-06/N-09/N-03/N-04/S-05 + инфраструктура (docs)
+
+- **D-06 docs/GUI.md:** полная пересборка структуры по `git ls-files` (убран дубль `topology_interactive_map.go`, тестовые файлы; добавлены `controller/` (10 файлов) и `errors/` (3); версия док-та 2.4.1, дата 2026-11-10); gofmt `event_bus*.go`.
+- **N-09 локализация:** `inventory_view.go` («Снимок A/B:», 2 ошибки), `init_ui.go` («Уверенность:», «Таймаут (сек):», «Хопы Traceroute:», «DNS-резолвер:», «Мин. серьёзность аудита:», «Операции:»).
+- **N-03/N-04:** убран висячий `widget.NewSeparator()` и дублирующая кнопка «Сброс UI»; единая лексика «Сброс панелей» (тулбар + меню + Ctrl+Shift+L).
+- **S-05:** новый `setStatusError()` (маркер «✗ », авто-возврат через 4 с) в `status_feedback.go`; `showFieldErrorDelayed` дублирует ошибку валидации в статус-бар (WCAG 3.3.1); новый `scan_validation_ui_test.go` (9 тестов).
+- **Merge:** `feature/gui-design` → main `--no-ff` (merge commit `edc54d8`, 13 файлов, +501/−295).
+- **Инфраструктура (docs):** перенос `SECURITY.md`, `.dockerignore`, GitHub-шаблонов (`ISSUE_TEMPLATE/`, `PULL_REQUEST_TEMPLATE.md`) из `feature/v2.3.0-plan-continuation`; пересборка `docs/dev/BRANCH_PURPOSE.md` и `docs/dev/RULESETS.md` под актуальные CI-workflow'ы `go.yml`/`release.yml`; добавлены ссылки в `docs/dev/README.md`.
+
 ### 2026-11-07: GUI — меню «Плагины» (L2) + аудит check-gui (P4-доп)
 
 - **L2 GUI-меню «Плагины»:** пункт «Плагины» в главном меню; список из `plugin.Loader.Statuses()` с `Checked`-флагом; вкл/выкл через редактирование `plugin.json` (манифест); подменю «Ошибки загрузки» (`LoadError.Error()`); подменю «Каталоги поиска» (`Dirs()`); кнопка «Обновить список» (`Reload()`); `pluginLoader` инициализируется через `NewPluginLoaderFromEnv()`.

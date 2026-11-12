@@ -100,6 +100,8 @@ pwsh -ExecutionPolicy Bypass -File .\scripts\gen-godoc.ps1
 | [../swagger.yaml](../swagger.yaml) | Спецификация REST API (включая Bearer-аутентификацию) |
 | [../ROADMAP.md](../ROADMAP.md) | Дорожная карта проекта |
 | [CONTRIBUTING.md](../../CONTRIBUTING.md) | Процесс контрибьюции, code review |
+| [BRANCH_PURPOSE.md](BRANCH_PURPOSE.md) | Модель веток и правила слияния |
+| [RULESETS.md](RULESETS.md) | Параметры GitHub Rulesets |
 
 > **Примечание:** содержимое `docs/dev/godoc/` — генерируемый артефакт и не
 > коммитится в репозиторий (см. `.gitignore`).
