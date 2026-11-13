@@ -203,10 +203,17 @@ func (c *windowModeCtrl) enterFullscreen() {
 		}
 	}
 	c.save()
-	// После borderless-перехода размер канвы изменился — пересобираем layout
-	// и принудительно перерисовываем menu bar.
+	// После borderless-перехода размер канвы изменился — пересобираем layout.
+	// Меню bar может «пропасть» из-за того, что borderless не вызывает
+	// processResized → Fyne не знает, что нужно перерисовать overlay.
+	// Решаем двойным вызовом с задержкой.
 	c.refreshUI()
-	c.refreshMenuBar()
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		fyne.Do(func() {
+			c.refreshMenuBar()
+		})
+	}()
 }
 
 // exitFullscreen выходит из полноэкранного режима.
@@ -227,9 +234,19 @@ func (c *windowModeCtrl) exitFullscreen() {
 		c.borderSt = nil
 	}
 	// Восстанавливаем размер, если он был сохранён, с ограничением max.
+	// НЕ используем c.borderSt.Rect для позиционирования: DWM добавляет
+	// title bar после restore, и SetWindowPos ставит окно на старые coords,
+	// из-за чего верхняя часть уходит за экран. Поэтому после restore
+	// позиционируем заново через Resize + CenterOnScreen.
 	if c.state.normalSize.Width > 0 && c.state.normalSize.Height > 0 {
-		c.app.myWindow.Resize(clampToMaxSize(c.state.normalSize))
-		c.app.myWindow.CenterOnScreen()
+		time.AfterFunc(100*time.Millisecond, func() {
+			fyne.Do(func() {
+				if c.app.myWindow != nil {
+					c.app.myWindow.Resize(clampToMaxSize(c.state.normalSize))
+					c.app.myWindow.CenterOnScreen()
+				}
+			})
+		})
 	}
 	c.save()
 	c.refreshUI()

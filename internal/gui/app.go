@@ -13,7 +13,6 @@ import (
 	"network-scanner/internal/inventory"
 	"network-scanner/internal/logger"
 	"network-scanner/internal/network"
-	"network-scanner/internal/platform"
 	"network-scanner/internal/plugin"
 	"network-scanner/internal/scanner"
 	"network-scanner/internal/snmpcollector"
@@ -26,7 +25,6 @@ import (
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/driver"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -590,58 +588,15 @@ func (a *App) Run() {
 		}
 	})
 
-	// Адаптивный размер: до Show() canvas.Size() возвращает (0,0) и scale
-	// не вычислен — окно получается 1024x600. После Show() Fyne/DPI-awareness
-	// уже знает реальный размер монитора и масштаб → задаём окно 85% экрана.
-	// Используем MonitorWorkRectForWindow для получения физических пикселей
-	// рабочей области монитора, конвертируем в logical через canvas.Scale().
+	// Стартовый размер: фиксируем 1366×768 (стандарт для 14-15" ноутбуков).
+	// Не пытаемся угадать размер монитора — пользователь сам растянёт окно.
 	// Вызываем Show() вручную, а не ShowAndRun(), чтобы подогнать размер.
 	a.myWindow.Show()
-	go func() {
-		// Даем GLFW/DWM время на инициализацию viewport и scale.
-		time.Sleep(100 * time.Millisecond)
-		fyne.Do(func() {
-			if a.myWindow == nil || a.myWindow.Canvas() == nil {
-				return
-			}
-			size := a.myWindow.Canvas().Size()
-			if size.Width <= 0 || size.Height <= 0 {
-				return
-			}
+	a.myWindow.Resize(fyne.NewSize(1366, 768))
+	a.myWindow.CenterOnScreen()
 
-			// Пытаемся получить рабочую область монитора в физических пикселях
-			if native, ok := a.myWindow.(driver.NativeWindow); ok {
-				native.RunNative(func(c any) {
-					ctx := c.(driver.WindowsWindowContext)
-					if ctx.HWND != 0 {
-						hwnd := uintptr(ctx.HWND)
-						rect, ok := platform.MonitorWorkRectForWindow(hwnd)
-						if ok && rect.Width() > 0 && rect.Height() > 0 {
-							scl := a.myWindow.Canvas().Scale()
-							physW := float32(rect.Width())
-							physH := float32(rect.Height())
-							if scl != 0 {
-								physW = float32(int(float32(rect.Width()) * scl))
-								physH = float32(int(float32(rect.Height()) * scl))
-							}
-							w := float32(int(physW * 0.85))
-							h := float32(int(physH * 0.85))
-							if w < 1280 {
-								w = 1280
-							}
-							if h < 720 {
-								h = 720
-							}
-							a.myWindow.Resize(fyne.NewSize(w, h))
-						}
-					}
-				})
-			}
-
-			// Применяем полноэкранный режим (borderless), если нужно.
-			a.applyPendingFullscreen()
-		})
-	}()
+	// Применяем полноэкранный режим (borderless), если нужно.
+	a.applyPendingFullscreen()
 
 	a.myWindow.ShowAndRun()
 }
