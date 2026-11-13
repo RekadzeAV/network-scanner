@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"network-scanner/internal/nettools"
+	"network-scanner/internal/platform"
 )
 
 // PingResult результат ping
@@ -123,6 +124,7 @@ func (s *NetToolsService) Ping(ctx context.Context, host string, count int, time
 	default:
 		cmd = exec.CommandContext(ctx, "ping", "-c", strconv.Itoa(count), "-W", strconv.Itoa(int(timeout.Seconds())), validHost) //nolint:gosec // G204: host валидирован validateNetToolHost, числа через strconv
 	}
+	platform.HideWindow(cmd)
 
 	output, execErr := cmd.CombinedOutput()
 	pingErr := ""
@@ -162,6 +164,7 @@ func (s *NetToolsService) Traceroute(ctx context.Context, host string, maxHops i
 	default:
 		cmd = exec.CommandContext(ctx, "traceroute", "-m", strconv.Itoa(maxHops), validHost) //nolint:gosec // G204: host валидирован validateNetToolHost, числа через strconv
 	}
+	platform.HideWindow(cmd)
 
 	output, execErr := cmd.CombinedOutput()
 	hops := strings.Count(string(output), "\n")

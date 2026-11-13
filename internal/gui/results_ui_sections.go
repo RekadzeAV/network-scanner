@@ -330,24 +330,29 @@ func (a *App) buildResultsLayout() *fyne.Container {
 		a.resultsFiltersAccordion.Items[0].Open = a.resultsFiltersAccordionOpen
 	}
 
-	resultsContainer := container.NewBorder(
-		container.NewVBox(
-			separator,
-			resultsHeaderRow,
-			// N-01: переключатель «Вид» — сразу под заголовком, виден и в Inventory.
-			resultsSubModeRow,
-			a.resultsStateLabel,
-			a.autoProfileHeaderLabel,
-			a.resultsDiagnosticsGrid,
-			a.resultsFiltersAccordion,
-			container.NewBorder(
-				nil, nil,
-				nil,
-				container.NewHBox(a.clearFilterBtn, a.filtersInfoLabel, a.resultsPerfLabel),
-				a.resultsFilterEnt,
-			),
-			container.NewHBox(a.resetFiltersBtn),
+	resultsTop := container.NewVBox(
+		separator,
+		resultsHeaderRow,
+		// N-01: переключатель «Вид» — сразу под заголовком, виден и в Inventory.
+		resultsSubModeRow,
+		a.resultsStateLabel,
+		a.autoProfileHeaderLabel,
+		a.resultsDiagnosticsGrid,
+		a.resultsFiltersAccordion,
+		container.NewBorder(
+			nil, nil,
+			nil,
+			container.NewHBox(a.clearFilterBtn, a.filtersInfoLabel, a.resultsPerfLabel),
+			a.resultsFilterEnt,
 		),
+		container.NewHBox(a.resetFiltersBtn),
+	)
+	resultsTopScroll := container.NewScroll(resultsTop)
+	resultsTopScroll.Direction = container.ScrollVerticalOnly
+	resultsTopScroll.SetMinSize(fyne.NewSize(0, 100))
+
+	resultsContainer := container.NewBorder(
+		resultsTopScroll,
 		nil, nil, nil,
 		a.resultsScroll,
 	)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"network-scanner/internal/platform"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -81,6 +82,9 @@ func (p *DefaultICMPPinger) PingICMP(host string, timeout time.Duration) (bool, 
 		// Linux/Unix: ping -c 1 -W <timeout_s> <host>
 		cmd = exec.CommandContext(ctx, "ping", "-c", "1", "-W", strconv.Itoa(int(timeout.Seconds())), validHost) //nolint:gosec // G204: host валидирован
 	}
+	// Подавляем консольное окно cmd.exe на Windows (GUI-приложение не должно
+	// показывать мелькающие окна при сканировании).
+	platform.HideWindow(cmd)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {

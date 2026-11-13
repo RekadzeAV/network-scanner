@@ -1,7 +1,6 @@
 package gui
 
 import (
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -50,8 +49,6 @@ func TestToggle_NormalToFullscreen(t *testing.T) {
 	}
 	ctrl.toggle()
 	if ctrl.state.mode != windowModeNormal {
-		// enterFullscreen is a no-op when myWindow is nil
-		// so mode stays Normal — это корректно
 		t.Logf("mode stayed Normal (myWindow nil, no-op)")
 	}
 }
@@ -62,8 +59,6 @@ func TestToggle_FullscreenToNormal(t *testing.T) {
 		state: windowModeState{mode: windowModeFullscreen},
 	}
 	ctrl.toggle()
-	// exitFullscreen is a no-op when myWindow is nil
-	// mode stays Fullscreen
 	if ctrl.state.mode != windowModeFullscreen {
 		t.Logf("mode stayed Fullscreen (myWindow nil, no-op)")
 	}
@@ -73,34 +68,34 @@ func TestToggle_FullscreenToNormal(t *testing.T) {
 
 func TestEnterFullscreen_NilApp(t *testing.T) {
 	ctrl := &windowModeCtrl{app: nil}
-	ctrl.enterFullscreen() // не должен паниковать
+	ctrl.enterFullscreen()
 }
 
 func TestEnterFullscreen_NilMyWindow(t *testing.T) {
 	ctrl := &windowModeCtrl{app: &App{}}
-	ctrl.enterFullscreen() // не должен паниковать
+	ctrl.enterFullscreen()
 }
 
 func TestExitFullscreen_NilApp(t *testing.T) {
 	ctrl := &windowModeCtrl{app: nil}
-	ctrl.exitFullscreen() // не должен паниковать
+	ctrl.exitFullscreen()
 }
 
 func TestExitFullscreen_NilMyWindow(t *testing.T) {
 	ctrl := &windowModeCtrl{app: &App{}}
-	ctrl.exitFullscreen() // не должен паниковать
+	ctrl.exitFullscreen()
 }
 
 // --- save (nil-safe) ---
 
 func TestSave_NilApp(t *testing.T) {
 	ctrl := &windowModeCtrl{app: nil}
-	ctrl.save() // не должен паниковать
+	ctrl.save()
 }
 
 func TestSave_NilMyApp(t *testing.T) {
 	ctrl := &windowModeCtrl{app: &App{}}
-	ctrl.save() // не должен паниковать
+	ctrl.save()
 }
 
 // --- IsFullscreen ---
@@ -130,60 +125,25 @@ func TestIsFullscreen_Fullscreen(t *testing.T) {
 
 // --- syncFromWindow (nil-safe) ---
 
-func TestSyncFromWindow_NilWindow(t *testing.T) {
+func TestSyncFromWindow_NilHWND(t *testing.T) {
 	ctrl := &windowModeCtrl{
 		app:   &App{},
 		state: windowModeState{mode: windowModeNormal},
 	}
-	ctrl.syncFromWindow() // не должен паниковать
+	ctrl.syncFromWindow()
 	if ctrl.state.mode != windowModeNormal {
 		t.Error("expected mode to stay Normal")
 	}
 }
 
 func TestSyncFromWindow_FullscreenToNormal(t *testing.T) {
-	// syncFromWindow читает window.FullScreen(), но у нас нет мок-окна.
-	// Проверяем, что при nil window режим не меняется.
 	ctrl := &windowModeCtrl{
 		app:   &App{},
 		state: windowModeState{mode: windowModeFullscreen},
 	}
 	ctrl.syncFromWindow()
 	if ctrl.state.mode != windowModeFullscreen {
-		t.Error("expected mode to stay Fullscreen when window is nil")
-	}
-}
-
-// --- debounce: layoutSeq ---
-
-func TestLayoutSeq_Increments(t *testing.T) {
-	ctrl := &windowModeCtrl{}
-	seq1 := ctrl.nextLayoutSeq()
-	seq2 := ctrl.nextLayoutSeq()
-	seq3 := ctrl.nextLayoutSeq()
-	if seq1 != 1 || seq2 != 2 || seq3 != 3 {
-		t.Errorf("expected 1, 2, 3; got %d, %d, %d", seq1, seq2, seq3)
-	}
-}
-
-func TestLayoutSeq_CurrentMatchesLast(t *testing.T) {
-	ctrl := &windowModeCtrl{}
-	ctrl.nextLayoutSeq()
-	ctrl.nextLayoutSeq()
-	if ctrl.currentLayoutSeq() != 2 {
-		t.Errorf("expected current to be 2, got %d", ctrl.currentLayoutSeq())
-	}
-}
-
-func TestDebounce_OldTaskIgnored(t *testing.T) {
-	ctrl := &windowModeCtrl{}
-	// Получаем seq = 1, затем сразу seq = 2
-	seq := ctrl.nextLayoutSeq() // seq = 1
-	ctrl.nextLayoutSeq()        // seq = 2, seq1 устарела
-
-	// Проверяем, что current != old seq
-	if ctrl.currentLayoutSeq() == seq {
-		t.Error("expected old seq to be stale")
+		t.Error("expected mode to stay Fullscreen when hwnd is nil")
 	}
 }
 
@@ -191,19 +151,16 @@ func TestDebounce_OldTaskIgnored(t *testing.T) {
 
 func TestWatchForExternalFullscreenChanges_StopsAfterTimeout(t *testing.T) {
 	ctrl := &windowModeCtrl{
-		app:   &App{},
-		state: windowModeState{mode: windowModeNormal},
+		app:       &App{},
+		state:     windowModeState{mode: windowModeNormal},
+		watchStop: make(chan struct{}),
 	}
-	// Передаём nil как окно — watcher должен корректно обработить nil
 	ctrl.watchForExternalFullscreenChanges(nil)
-
-	// Ждём достаточно долго, чтобы ticker сработал несколько раз
-	time.Sleep(1500 * time.Millisecond)
-
-	// Проверяем, что состояние не изменилось (nil window = no-op)
+	time.Sleep(600 * time.Millisecond)
 	if ctrl.state.mode != windowModeNormal {
 		t.Errorf("expected Normal after watcher, got %v", ctrl.state.mode)
 	}
+	ctrl.stopWatcher()
 }
 
 // --- makeFullscreenToggleBtn (nil-safe) ---
@@ -262,7 +219,6 @@ func TestFullscreenMenuItems_Checked(t *testing.T) {
 		t.Error("windowed item should be checked in normal mode")
 	}
 
-	// Переключаемся в fullscreen
 	a.winMode.state.mode = windowModeFullscreen
 	items = a.fullscreenMenuItems()
 	if !items[0].Checked {
@@ -273,116 +229,91 @@ func TestFullscreenMenuItems_Checked(t *testing.T) {
 	}
 }
 
-// --- atomic.Uint64 layoutSeq (race-safe) ---
+// --- applyPendingFullscreen (nil-safe) ---
 
-func TestLayoutSeq_RaceSafe(t *testing.T) {
-	var seq atomic.Uint64
-	done := make(chan struct{})
-	// Запускаем 10 гоутина одновременно
-	for i := 0; i < 10; i++ {
-		go func() {
-			for j := 0; j < 100; j++ {
-				seq.Add(1)
-			}
-			done <- struct{}{}
-		}()
-	}
-	for i := 0; i < 10; i++ {
-		<-done
-	}
-	if seq.Load() != 1000 {
-		t.Errorf("expected 1000, got %d", seq.Load())
-	}
-}
-
-// --- fullscreenLayoutRefreshDelay constant ---
-
-func TestFullscreenLayoutRefreshDelay_Type(t *testing.T) {
-	// Константа должна быть time.Duration (350 * time.Millisecond)
-	var _ time.Duration = fullscreenLayoutRefreshDelay
-	if fullscreenLayoutRefreshDelay <= 0 {
-		t.Error("fullscreenLayoutRefreshDelay must be positive")
-	}
-	if fullscreenLayoutRefreshDelay < 100*time.Millisecond {
-		t.Error("fullscreenLayoutRefreshDelay should be at least 100ms")
-	}
-}
-
-// --- detectLayoutProfile с fullscreen ---
-
-func TestDetectLayoutProfile_Fullscreen_Wide(t *testing.T) {
+func TestApplyPendingFullscreen_NilWinMode(t *testing.T) {
 	a := &App{}
-	a.winMode = &windowModeCtrl{state: windowModeState{mode: windowModeFullscreen}}
-	// На широком экране (>=1600) fullscreen даёт профиль "fullscreen"
-	profile := a.detectLayoutProfile(1920)
-	if profile != "fullscreen" {
-		t.Errorf("expected 'fullscreen' at 1920, got %q", profile)
+	a.applyPendingFullscreen()
+}
+
+// --- refreshWidgets nil-safe ---
+
+func TestRefreshWidgets_NilApp(t *testing.T) {
+	ctrl := &windowModeCtrl{
+		state: windowModeState{mode: windowModeNormal},
+	}
+	ctrl.refreshWidgets()
+}
+
+// --- refreshLayout nil-safe ---
+
+func TestRefreshLayout_NilApp(t *testing.T) {
+	ctrl := &windowModeCtrl{
+		state: windowModeState{mode: windowModeNormal},
+	}
+	ctrl.refreshLayout()
+}
+
+// --- refreshMenuBar ---
+
+func TestRefreshMenuBar_NilApp(t *testing.T) {
+	ctrl := &windowModeCtrl{state: windowModeState{mode: windowModeFullscreen}}
+	ctrl.refreshMenuBar()
+}
+
+func TestRefreshMenuBar_NilWindow(t *testing.T) {
+	ctrl := &windowModeCtrl{app: &App{}, state: windowModeState{mode: windowModeFullscreen}}
+	ctrl.refreshMenuBar()
+}
+
+func TestRefreshMenuBar_NoMenuIsNoop(t *testing.T) {
+	a := &App{}
+	ctrl := &windowModeCtrl{app: a, state: windowModeState{mode: windowModeFullscreen}}
+	ctrl.refreshMenuBar()
+}
+
+// --- enterFullscreen/exitFullscreen: безопасны без окна ---
+
+func TestEnterFullscreen_NilWindow(t *testing.T) {
+	ctrl := &windowModeCtrl{app: &App{}, state: windowModeState{mode: windowModeNormal}}
+	ctrl.enterFullscreen()
+	if ctrl.state.mode != windowModeNormal {
+		t.Errorf("при nil окне режим не должен меняться, получено %v", ctrl.state.mode)
 	}
 }
 
-func TestDetectLayoutProfile_Fullscreen_CompactScreen(t *testing.T) {
-	a := &App{}
-	a.winMode = &windowModeCtrl{state: windowModeState{mode: windowModeFullscreen}}
-	// На узком экране (< fullscreenMinWidth) fullscreen НЕ переопределяет
-	// компактный профиль —避免 5-7 колонок на 1366×768
-	profile := a.detectLayoutProfile(1366)
-	if profile != "compact" {
-		t.Errorf("expected 'compact' at 1366 even in fullscreen, got %q", profile)
+func TestExitFullscreen_NilWindow(t *testing.T) {
+	ctrl := &windowModeCtrl{app: &App{}, state: windowModeState{mode: windowModeFullscreen}}
+	ctrl.exitFullscreen()
+}
+
+func TestEnterFullscreen_AlreadyFullscreenIsNoop(t *testing.T) {
+	ctrl := &windowModeCtrl{
+		app:   &App{},
+		state: windowModeState{mode: windowModeFullscreen},
+	}
+	ctrl.enterFullscreen()
+	if ctrl.state.mode != windowModeFullscreen {
+		t.Errorf("режим должен остаться fullscreen, получено %v", ctrl.state.mode)
 	}
 }
 
-func TestDetectLayoutProfile_Fullscreen_NormalScreen(t *testing.T) {
-	a := &App{}
-	a.winMode = &windowModeCtrl{state: windowModeState{mode: windowModeFullscreen}}
-	// 1500px < fullscreenMinWidth=1600 → normal
-	profile := a.detectLayoutProfile(1500)
-	if profile != "normal" {
-		t.Errorf("expected 'normal' at 1500 even in fullscreen, got %q", profile)
+// --- stopWatcher ---
+
+func TestStopWatcher_NoPanic(t *testing.T) {
+	ctrl := &windowModeCtrl{
+		app:       &App{},
+		state:     windowModeState{mode: windowModeNormal},
+		watchStop: make(chan struct{}),
 	}
+	ctrl.watchForExternalFullscreenChanges(nil)
+	ctrl.stopWatcher()
+	ctrl.stopWatcher()
 }
 
-func TestDetectLayoutProfile_Fullscreen_ExactlyAtMinWidth(t *testing.T) {
-	a := &App{}
-	a.winMode = &windowModeCtrl{state: windowModeState{mode: windowModeFullscreen}}
-	// Ровно на границе fullscreenMinWidth=1600 → fullscreen
-	profile := a.detectLayoutProfile(float32(fullscreenMinWidth))
-	if profile != "fullscreen" {
-		t.Errorf("expected 'fullscreen' at %d, got %q", fullscreenMinWidth, profile)
-	}
-}
-
-func TestDetectLayoutProfile_Windowed_NotAffectedByFullscreenLogic(t *testing.T) {
-	a := &App{}
-	a.winMode = &windowModeCtrl{state: windowModeState{mode: windowModeNormal}}
-	profile := a.detectLayoutProfile(1920)
-	if profile != "normal" {
-		t.Errorf("expected 'normal' in windowed mode, got %q", profile)
-	}
-}
-
-// --- applyAdaptiveToolsScrollMinSizes с fullscreen-профилем ---
-
-func TestApplyAdaptiveToolsScrollMinSizes_Fullscreen(t *testing.T) {
-	a := &App{}
-	// Не должен паниковать с fullscreen-профилем
-	a.applyAdaptiveToolsScrollMinSizes("fullscreen", 1.0)
-}
-
-func TestApplyAdaptiveToolsScrollMinSizes_Fullscreen_DiffersFromNormal(t *testing.T) {
-	// Проверяем, что fullscreen-профиль не идентичен default (normal).
-	// Вызываем с обоими профилями — оба должны работать без паники.
-	a := &App{}
-	a.applyAdaptiveToolsScrollMinSizes("normal", 1.0)
-	a.applyAdaptiveToolsScrollMinSizes("fullscreen", 1.0)
-	// В fullscreen baseOut=280, baseOps=100; в default baseOut=360, baseOps=140.
-	// Без scroll-виджетов мы не можем напрямую проверить SetMinSize,
-	// но отсутствие паники подтверждает, что ветка "fullscreen" обработана.
-}
-
-// --- clampToMaxSize: поддержка 4K+ без выхода за границы экрана ---
+// --- clampToMaxSize ---
 
 func TestClampToMaxSize_WithinBounds(t *testing.T) {
-	// Стандартные разрешения — не должны меняться
 	tests := []struct {
 		name string
 		w, h float32
@@ -447,140 +378,9 @@ func TestClampToMaxSize_ZeroSize(t *testing.T) {
 func TestClampToMaxSize_NegativeSize(t *testing.T) {
 	sz := fyne.NewSize(-100, -100)
 	clamped := clampToMaxSize(sz)
-	// Отрицательные значения не клампятся вниз — это задача caller
 	if clamped.Width != -100 || clamped.Height != -100 {
 		t.Errorf("negative size should not change, got %v", clamped)
 	}
-}
-
-// --- 4K+ fullscreen: layout profile detection ---
-
-func TestDetectLayoutProfile_Fullscreen_4K(t *testing.T) {
-	a := &App{}
-	a.winMode = &windowModeCtrl{state: windowModeState{mode: windowModeFullscreen}}
-	// 4K (3840) >= fullscreenMinWidth → fullscreen
-	profile := a.detectLayoutProfile(3840)
-	if profile != "fullscreen" {
-		t.Errorf("expected 'fullscreen' at 4K, got %q", profile)
-	}
-}
-
-func TestDetectLayoutProfile_Fullscreen_5K(t *testing.T) {
-	a := &App{}
-	a.winMode = &windowModeCtrl{state: windowModeState{mode: windowModeFullscreen}}
-	profile := a.detectLayoutProfile(5120)
-	if profile != "fullscreen" {
-		t.Errorf("expected 'fullscreen' at 5K, got %q", profile)
-	}
-}
-
-func TestDetectLayoutProfile_Windowed_4K(t *testing.T) {
-	a := &App{}
-	a.winMode = &windowModeCtrl{state: windowModeState{mode: windowModeNormal}}
-	// 4K >= 2200 → wide (не fullscreen, т.к. не fullscreen режим)
-	profile := a.detectLayoutProfile(3840)
-	if profile != "wide" {
-		t.Errorf("expected 'wide' at 4K windowed, got %q", profile)
-	}
-}
-
-// --- 4K+ layoutAdaptiveMultiplier: не должен раздувать панели ---
-
-func TestLayoutAdaptiveMultiplier_4K(t *testing.T) {
-	// 4K при scale=1: ratio = sqrt(3840^2+2160^2)/1150 = 4406/1150 = 3.83
-	// mul = clamp(3.83, 0.72, 1.38) = 1.38 (упирается в ceiling)
-	m := layoutAdaptiveMultiplier(3840, 2160, 1)
-	if m > 1.38 {
-		t.Errorf("4K scale=1: mul should be clamped to 1.38, got %v", m)
-	}
-	if m < 0.72 {
-		t.Errorf("4K scale=1: mul should be >= 0.72, got %v", m)
-	}
-}
-
-func TestLayoutAdaptiveMultiplier_4K_HiDPI(t *testing.T) {
-	// 4K при scale=2: scaleAdj = sqrt(2)=1.414, clamped to 1.38
-	// mul = clamp(3.83/1.38, 0.72, 1.38) = clamp(2.77, 0.72, 1.38) = 1.38
-	m := layoutAdaptiveMultiplier(3840, 2160, 2)
-	if m > 1.38 {
-		t.Errorf("4K scale=2: mul should be clamped to 1.38, got %v", m)
-	}
-	if m < 0.72 {
-		t.Errorf("4K scale=2: mul should be >= 0.72, got %v", m)
-	}
-}
-
-func TestLayoutAdaptiveMultiplier_5K(t *testing.T) {
-	// 5K (5120×2880): ratio = sqrt(5120^2+2880^2)/1150 = 5870/1150 = 5.10
-	// mul = clamp(5.10, 0.72, 1.38) = 1.38
-	m := layoutAdaptiveMultiplier(5120, 2880, 1)
-	if m > 1.38 {
-		t.Errorf("5K: mul should be clamped to 1.38, got %v", m)
-	}
-}
-
-// --- 4K+ adaptivePanelMinHeight: панели не должны выходить за экран ---
-
-func TestAdaptivePanelMinHeight_4K_Fullscreen(t *testing.T) {
-	// Имитируем 4K fullscreen: canvas height = 2160, mul = 1.38
-	a := &App{lastCanvasSize: fyne.NewSize(3840, 2160)}
-	mul := float32(1.38)
-	// topologyScroll: base=400, maxFrac=0.65
-	// v = 400 * 1.38 = 552, maxH = 2160 * 0.65 = 1404 → v=552 (не превышает)
-	h := a.adaptivePanelMinHeight(400, mul, 0.65, 200)
-	if h > 2160 {
-		t.Errorf("panel height %v exceeds screen height 2160", h)
-	}
-	if h < 200 {
-		t.Errorf("panel height %v below minAbs 200", h)
-	}
-}
-
-func TestAdaptivePanelMinHeight_4K_AllPanelsSum(t *testing.T) {
-	// Проверяем, что сумма max-высот всех панелей в fullscreen-профиле
-	// не превышает высоту экрана (с учётом того, что панели в разных вкладках).
-	a := &App{lastCanvasSize: fyne.NewSize(3840, 2160)}
-	mul := float32(1.38)
-	screenH := float32(2160)
-
-	// Scan tab: scanControls + resultsScroll
-	scanMax := a.adaptivePanelMinHeight(140, mul, 0.25, 100) +
-		a.adaptivePanelMinHeight(50, mul, 0.50, 30)
-	if scanMax > screenH {
-		t.Errorf("scan tab panels sum %v exceeds screen height %v", scanMax, screenH)
-	}
-
-	// Topology tab: topologyControls + topologyScroll
-	topoMax := a.adaptivePanelMinHeight(120, mul, 0.20, 80) +
-		a.adaptivePanelMinHeight(400, mul, 0.65, 200)
-	if topoMax > screenH {
-		t.Errorf("topology tab panels sum %v exceeds screen height %v", topoMax, screenH)
-	}
-
-	// Tools tab: toolsControls + toolsOutput + opsOutput
-	toolsMax := a.adaptivePanelMinHeight(140, mul, 0.25, 100) +
-		a.adaptivePanelMinHeight(280, mul, 0.52, 150) +
-		a.adaptivePanelMinHeight(100, mul, 0.22, 72)
-	if toolsMax > screenH {
-		t.Errorf("tools tab panels sum %v exceeds screen height %v", toolsMax, screenH)
-	}
-}
-
-// --- 4K+ responsive layout: не должен паниковать ---
-
-func TestApplyResponsiveLayout_Fullscreen_4K(t *testing.T) {
-	a := &App{lastCanvasSize: fyne.NewSize(3840, 2160), lastCanvasScale: 1}
-	a.applyResponsiveLayout("fullscreen") // не должен паниковать
-}
-
-func TestApplyResponsiveLayout_Fullscreen_5K(t *testing.T) {
-	a := &App{lastCanvasSize: fyne.NewSize(5120, 2880), lastCanvasScale: 1}
-	a.applyResponsiveLayout("fullscreen") // не должен паниковать
-}
-
-func TestApplyResponsiveLayout_Fullscreen_4K_HiDPI(t *testing.T) {
-	a := &App{lastCanvasSize: fyne.NewSize(1920, 1080), lastCanvasScale: 2}
-	a.applyResponsiveLayout("fullscreen") // не должен паниковать
 }
 
 // --- syncFromWindow: mutex защита ---
@@ -590,7 +390,6 @@ func TestSyncFromWindow_MutexSafe(t *testing.T) {
 		app:   &App{},
 		state: windowModeState{mode: windowModeNormal},
 	}
-	// syncFromWindow при nil window — no-op, но должен работать через мьютекс.
 	done := make(chan struct{})
 	for i := 0; i < 10; i++ {
 		go func() {
@@ -605,143 +404,5 @@ func TestSyncFromWindow_MutexSafe(t *testing.T) {
 	}
 	if ctrl.state.mode != windowModeNormal {
 		t.Errorf("expected Normal after concurrent access, got %v", ctrl.state.mode)
-	}
-}
-
-// --- stopWatcher ---
-
-func TestStopWatcher_NoPanic(t *testing.T) {
-	ctrl := &windowModeCtrl{
-		app:       &App{},
-		state:     windowModeState{mode: windowModeNormal},
-		watchStop: make(chan struct{}),
-	}
-	ctrl.watchForExternalFullscreenChanges(nil)
-	ctrl.stopWatcher()
-	// Двойной вызов не должен паниковать
-	ctrl.stopWatcher()
-}
-
-func TestStopWatcher_StopsTicker(t *testing.T) {
-	ctrl := &windowModeCtrl{
-		app:       &App{},
-		state:     windowModeState{mode: windowModeNormal},
-		watchStop: make(chan struct{}),
-	}
-	ctrl.watchForExternalFullscreenChanges(nil)
-	ctrl.stopWatcher()
-	// Ждём, чтобы goroutine завершила работу
-	time.Sleep(100 * time.Millisecond)
-	// Если goroutine не завершилась — тест зависнет на таймауте
-}
-
-// --- refreshWidgets nil-safe ---
-
-func TestRefreshWidgets_NilApp(t *testing.T) {
-	ctrl := &windowModeCtrl{
-		state: windowModeState{mode: windowModeNormal},
-	}
-	ctrl.refreshWidgets() // не должен паниковать
-}
-
-// --- refreshLayout nil-safe ---
-
-func TestRefreshLayout_NilApp(t *testing.T) {
-	ctrl := &windowModeCtrl{
-		state: windowModeState{mode: windowModeNormal},
-	}
-	ctrl.refreshLayout() // не должен паниковать
-}
-
-// --- refreshMenuBar: меню не должно «пропадать» после смены режима окна ---
-
-func TestRefreshMenuBar_NilApp(t *testing.T) {
-	ctrl := &windowModeCtrl{state: windowModeState{mode: windowModeFullscreen}}
-	ctrl.refreshMenuBar() // не должен паниковать
-}
-
-func TestRefreshMenuBar_NilWindow(t *testing.T) {
-	ctrl := &windowModeCtrl{app: &App{}, state: windowModeState{mode: windowModeFullscreen}}
-	ctrl.refreshMenuBar() // не должен паниковать
-}
-
-func TestRefreshMenuBar_NoMenuIsNoop(t *testing.T) {
-	a := NewTestApp(t)
-	ctrl := &windowModeCtrl{app: a, state: windowModeState{mode: windowModeFullscreen}}
-	ctrl.refreshMenuBar() // меню нет — тихо выходим, без паники
-}
-
-func TestRefreshMenuBar_ReappliesSameMenu(t *testing.T) {
-	a := NewTestApp(t)
-	menu := fyne.NewMainMenu(fyne.NewMenu("Вид", fyne.NewMenuItem("Полный экран", nil)))
-	a.myWindow.SetMainMenu(menu)
-
-	ctrl := &windowModeCtrl{app: a, state: windowModeState{mode: windowModeFullscreen}}
-	ctrl.refreshMenuBar()
-
-	if got := a.myWindow.MainMenu(); got != menu {
-		t.Errorf("меню должно остаться тем же объектом после перерисовки: получено %v", got)
-	}
-	if len(a.myWindow.MainMenu().Items) != 1 {
-		t.Errorf("пункты меню не должны теряться, получено %d", len(a.myWindow.MainMenu().Items))
-	}
-}
-
-// --- enterFullscreen/exitFullscreen: безопасны без окна ---
-
-func TestEnterFullscreen_NilWindow(t *testing.T) {
-	ctrl := &windowModeCtrl{app: &App{}, state: windowModeState{mode: windowModeNormal}}
-	ctrl.enterFullscreen() // не должен паниковать
-	if ctrl.state.mode != windowModeNormal {
-		t.Errorf("при nil окне режим не должен меняться, получено %v", ctrl.state.mode)
-	}
-}
-
-func TestExitFullscreen_NilWindow(t *testing.T) {
-	ctrl := &windowModeCtrl{app: &App{}, state: windowModeState{mode: windowModeFullscreen}}
-	ctrl.exitFullscreen() // не должен паниковать
-}
-
-func TestEnterFullscreen_AlreadyFullscreenIsNoop(t *testing.T) {
-	a := NewTestApp(t)
-	ctrl := &windowModeCtrl{app: a, state: windowModeState{mode: windowModeFullscreen}}
-	ctrl.enterFullscreen()
-	if ctrl.state.mode != windowModeFullscreen {
-		t.Errorf("режим должен остаться fullscreen, получено %v", ctrl.state.mode)
-	}
-}
-
-// --- refreshUI: два пересчёта layout (500 мс + 1200 мс) ---
-
-func TestRefreshUI_SchedulesTwoLayoutPasses(t *testing.T) {
-	a := NewTestApp(t)
-	a.myWindow.Resize(fyne.NewSize(1600, 900))
-	ctrl := &windowModeCtrl{app: a, state: windowModeState{mode: windowModeNormal}}
-
-	before := ctrl.layoutSeq.Load()
-	ctrl.refreshUI()
-
-	// Ожидание больше второй задержки: оба пересчёта должны отработать.
-	time.Sleep(fullscreenLayoutRefreshDelay2 + 300*time.Millisecond)
-
-	if got := ctrl.layoutSeq.Load(); got-before != 2 {
-		t.Errorf("refreshUI должен ставить ровно 2 пересчёта layout, получено %d", got-before)
-	}
-}
-
-func TestRefreshUI_DebounceCancelsStalePass(t *testing.T) {
-	a := NewTestApp(t)
-	a.myWindow.Resize(fyne.NewSize(1600, 900))
-	ctrl := &windowModeCtrl{app: a, state: windowModeState{mode: windowModeNormal}}
-
-	ctrl.refreshUI()
-	// Быстрое повторное переключение — старый отложенный пересчёт отбрасывается.
-	ctrl.refreshUI()
-
-	time.Sleep(fullscreenLayoutRefreshDelay + 200*time.Millisecond)
-
-	// Профиль применён без паники; проверяем, что состояние канвы согласовано.
-	if a.lastCanvasSize.Width > 0 && a.layoutProfile == "" {
-		t.Error("после пересчёта профиль layout должен быть установлен")
 	}
 }

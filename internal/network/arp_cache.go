@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"network-scanner/internal/platform"
 )
 
 // ARPCache — асинхронное кэширование ARP-таблицы с фоновым обновлением.
@@ -293,7 +295,10 @@ func parseLinuxARPFromArpString(output string) map[string]string {
 
 // GetARPTabaleWindows запускает "arp -a" и парсит результат.
 func GetARPTabaleWindows() (map[string]string, error) {
-	cmd := exec.Command("cmd", "/c", "arp", "-a")
+	// arp -a напрямую, без cmd /c — cmd.exe всегда создаёт консольное окно
+	// даже с HideWindow, а сам arp.exe — нет.
+	cmd := exec.Command("arp", "-a")
+	platform.HideWindow(cmd)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to run arp -a: %w", err)
@@ -305,10 +310,12 @@ func GetARPTabaleWindows() (map[string]string, error) {
 // GetARPTabaleLinux запускает "ip neigh" и парсит результат.
 func GetARPTabaleLinux() (map[string]string, error) {
 	cmd := exec.Command("ip", "neigh")
+	platform.HideWindow(cmd)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Fallback на "arp -n"
 		cmd = exec.Command("arp", "-n")
+		platform.HideWindow(cmd)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
 			return nil, fmt.Errorf("failed to run arp/ip command: %w", err)

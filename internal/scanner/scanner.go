@@ -20,6 +20,7 @@ import (
 	"network-scanner/internal/logger"
 	"network-scanner/internal/network"
 	"network-scanner/internal/osdetect"
+	"network-scanner/internal/platform"
 	portdb "network-scanner/internal/ports"
 	"network-scanner/internal/scanner/deviceclassifier"
 )
@@ -1256,6 +1257,7 @@ func (ns *NetworkScanner) readMACFromWindowsARP(ipStr string) (string, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "arp", "-a", ipStr)
+	platform.HideWindow(cmd)
 	output, err := cmd.Output()
 	if err != nil {
 		// Проверяем, не был ли это таймаут
@@ -1304,6 +1306,7 @@ func (ns *NetworkScanner) readMACFromDarwinARP(ipStr string) (string, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "arp", "-n", ipStr)
+	platform.HideWindow(cmd)
 	output, err := cmd.Output()
 	if err != nil {
 		// Проверяем, не был ли это таймаут
@@ -1321,6 +1324,7 @@ func (ns *NetworkScanner) readMACFromDarwinARP(ipStr string) (string, error) {
 
 	// Альтернативный способ: парсим весь вывод arp -a
 	cmd = exec.CommandContext(ctx, "arp", "-a")
+	platform.HideWindow(cmd)
 	output, err = cmd.Output()
 	if err != nil {
 		// Проверяем, не был ли это таймаут

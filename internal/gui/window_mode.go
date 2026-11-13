@@ -2,20 +2,14 @@ package gui
 
 import (
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/driver"
 	"fyne.io/fyne/v2/widget"
+
+	"network-scanner/internal/platform"
 )
-
-// fullscreenLayoutRefreshDelay — задержка перед пересчётом layout после смены
-// режима окна. Даём оконному менеджеру принять новый размер, иначе профиль
-// применится к старому размеру канвы.
-const fullscreenLayoutRefreshDelay = 500 * time.Millisecond
-
-// fullscreenLayoutRefreshDelay2 — второй пересчёт layout (для надёжности).
-const fullscreenLayoutRefreshDelay2 = 1200 * time.Millisecond
 
 // windowMode — режим отображения окна приложения.
 type windowMode int
@@ -23,16 +17,15 @@ type windowMode int
 const (
 	// windowModeNormal — обычный оконный режим.
 	windowModeNormal windowMode = iota
-	// windowModeFullscreen — полноэкранный режим.
+	// windowModeFullscreen — полноэкранный режим (borderless, без рамок).
 	windowModeFullscreen
 )
 
 // prefWindowFullscreen — ключ Preferences для сохранения полноэкранного режима.
 const prefWindowFullscreen = "scan.ui.fullscreen"
 
-// maxWindowSize — максимальный размер окна, чтобы предотвратить выход за
-// границы экранов при ручном растягивании или на мульти-мониторных конфигурациях.
-// 7680×4320 — это 3×4K (UltraWide), больше не нужно ни одному монитору.
+// maxWindowSize — максимальный размер окна в логических пикселях канвы.
+// 7680×4320 покрывает 3×4K конфигурации; больше не нужно ни одному монитору.
 const (
 	maxWindowWidth  = 7680
 	maxWindowHeight = 4320
@@ -50,23 +43,41 @@ func clampToMaxSize(sz fyne.Size) fyne.Size {
 	return sz
 }
 
-// windowModeState хранит текущее состояние режима окна и виджет переключения.
+// windowModeCtrl — контроллер режимов окна, встраивается в App.
+//
+// Полноэкранный режим реализован как borderless-окно (снятие WS_CAPTION +
+// WS_THICKFRAME и растягивание на монитор через Win32 SetWindowPos), а НЕ
+// через fyne.Window.SetFullScreen.
+//
+// Причина: SetFullScreen вызывает glfwSetWindowMonitor, который пересоздаёт
+// OpenGL surface и меняет monitor у GLFW-окна. В Fyne v2.7.1 это приводит к
+// трём регрессиям:
+//   - menu bar теряется (canvas.buildMenu не вызывается повторно);
+//   - canvas.scale не пересчитывается (detectScale вызывается только в
+//     processMoved, а не в processResized) → координаты мыши проецируются по
+//     старому масштабу, клики «не попадают» по видимому положению виджетов;
+//   - layout пересобирается на промежуточный размер viewport.
+//
+// Borderless-подход не трогает ни surface, ни monitor, ни scale — поэтому все
+// три проблемы исчезают, а пользовательский эффект (окно без рамок на весь
+// экран) идентичен.
+type windowModeCtrl struct {
+	app       *App
+	window    fyne.Window // для RunNative / watcher
+	state     windowModeState
+	mu        sync.Mutex                // защищает state.mode при конкурентном доступе из watcher
+	watchStop chan struct{}             // канал для остановки goroutine watcher
+	hwnd      uintptr                   // кэшированный HWND (заполняется после Show)
+	borderSt  *platform.BorderlessState // снимок для выхода из fullscreen
+}
+
+// windowModeState хранит текущее режим и виджеты переключения.
 type windowModeState struct {
 	mode        windowMode
 	normalSize  fyne.Size // размер окна до входа в fullscreen
 	toggleBtn   *widget.Button
 	menuItemFS  *fyne.MenuItem
 	menuItemWin *fyne.MenuItem
-}
-
-// windowModeCtrl — контроллер режимов окна, встраивается в App.
-type windowModeCtrl struct {
-	state     windowModeState
-	app       *App
-	window    fyne.Window   // для syncFromWindow / watcher
-	layoutSeq atomic.Uint64 // debounce: отмена устаревших отложенных layout-задач
-	mu        sync.Mutex    // защищает state.mode при конкурентном доступе из watcher
-	watchStop chan struct{} // канал для остановки goroutine watcher
 }
 
 // newWindowModeCtrl создаёт контроллер режимов окна для данного App.
@@ -100,13 +111,24 @@ func (a *App) setupWindowMode() {
 	if a.winMode == nil {
 		a.initWindowMode()
 	}
-	if a.winMode.state.mode == windowModeFullscreen {
-		a.winMode.enterFullscreen()
-	}
 	// Подключаем watcher для синхронизации с внешними изменениями окна
 	// (Alt+Tab, Win+←, системные горячие клавиши WM и т.п.).
 	a.winMode.watchForExternalFullscreenChanges(a.myWindow)
 	// Примечание: stopWatcher() вызывается из SetOnClosed в Run() (app.go).
+	// Сам переход в fullscreen откладывается до Run(): borderless требует
+	// валидного HWND, которого нет до Show().
+}
+
+// applyPendingFullscreen вызывается из Run() ПОСЛЕ Show(): кэширует HWND и
+// применяет сохранённый из Preferences полноэкранный режим.
+func (a *App) applyPendingFullscreen() {
+	if a.winMode == nil {
+		return
+	}
+	a.winMode.cacheHWND()
+	if a.winMode.state.mode == windowModeFullscreen {
+		a.winMode.enterFullscreen()
+	}
 }
 
 // ToggleFullscreen переключает полноэкранный/оконный режим.
@@ -122,11 +144,15 @@ func (a *App) IsFullscreen() bool {
 	if a.winMode == nil {
 		return false
 	}
+	a.winMode.mu.Lock()
+	defer a.winMode.mu.Unlock()
 	return a.winMode.state.mode == windowModeFullscreen
 }
 
-// currentWindowMode возвращает текущий режим окна.
+// currentMode возвращает текущий режим окна.
 func (c *windowModeCtrl) currentMode() windowMode {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.state.mode
 }
 
@@ -139,22 +165,46 @@ func (c *windowModeCtrl) toggle() {
 	}
 }
 
-// enterFullscreen переходит в полноэкранный режим.
+// cacheHWND извлекает и кэширует нативный HWND окна.
+// Вызывается из UI-потока после Show(), когда viewport уже создан.
+func (c *windowModeCtrl) cacheHWND() {
+	if c.app == nil || c.app.myWindow == nil {
+		return
+	}
+	native, ok := c.app.myWindow.(driver.NativeWindow)
+	if !ok {
+		return
+	}
+	native.RunNative(func(ctx any) {
+		if wc, ok := ctx.(driver.WindowsWindowContext); ok {
+			c.hwnd = wc.HWND
+		}
+	})
+}
+
+// enterFullscreen переходит в полноэкранный режим (borderless).
 func (c *windowModeCtrl) enterFullscreen() {
 	if c.app == nil || c.app.myWindow == nil {
 		return
 	}
+	c.mu.Lock()
 	if c.state.mode == windowModeFullscreen {
+		c.mu.Unlock()
 		return
 	}
 	// Сохраняем текущий размер окна для восстановления (с ограничением max).
 	c.state.normalSize = clampToMaxSize(c.app.myWindow.Canvas().Size())
-	c.app.myWindow.SetFullScreen(true)
 	c.state.mode = windowModeFullscreen
+	c.mu.Unlock()
+
+	if c.hwnd != 0 {
+		if st, ok := platform.MakeBorderlessFullscreen(c.hwnd); ok {
+			c.borderSt = st
+		}
+	}
 	c.save()
-	// Fyne v2.7.1: при переключении fullscreen GLFW меняет viewport через
-	// SetMonitor(), что приводит к пересозданию canvas. Menu bar и layout
-	// не перерисовываются автоматически — принудительно обновляем.
+	// После borderless-перехода размер канвы изменился — пересобираем layout
+	// и принудительно перерисовываем menu bar.
 	c.refreshUI()
 	c.refreshMenuBar()
 }
@@ -164,16 +214,23 @@ func (c *windowModeCtrl) exitFullscreen() {
 	if c.app == nil || c.app.myWindow == nil {
 		return
 	}
+	c.mu.Lock()
 	if c.state.mode == windowModeNormal {
+		c.mu.Unlock()
 		return
 	}
-	c.app.myWindow.SetFullScreen(false)
+	c.state.mode = windowModeNormal
+	c.mu.Unlock()
+
+	if c.hwnd != 0 && c.borderSt != nil {
+		platform.RestoreBorderless(c.hwnd, c.borderSt)
+		c.borderSt = nil
+	}
 	// Восстанавливаем размер, если он был сохранён, с ограничением max.
 	if c.state.normalSize.Width > 0 && c.state.normalSize.Height > 0 {
 		c.app.myWindow.Resize(clampToMaxSize(c.state.normalSize))
 		c.app.myWindow.CenterOnScreen()
 	}
-	c.state.mode = windowModeNormal
 	c.save()
 	c.refreshUI()
 	c.refreshMenuBar()
@@ -184,18 +241,21 @@ func (c *windowModeCtrl) save() {
 	if c.app == nil || c.app.myApp == nil {
 		return
 	}
-	c.app.myApp.Preferences().SetBool(prefWindowFullscreen, c.state.mode == windowModeFullscreen)
+	c.mu.Lock()
+	mode := c.state.mode
+	c.mu.Unlock()
+	c.app.myApp.Preferences().SetBool(prefWindowFullscreen, mode == windowModeFullscreen)
 }
 
 // syncFromWindow сверяет внутреннее состояние с фактическим режимом окна,
 // установленным оконным менеджером (Alt+Tab, Win+← и т.п.).
 // Возвращает true, если режим изменился (для обновления UI вызывающим кодом).
 func (c *windowModeCtrl) syncFromWindow() bool {
-	if c.window == nil {
+	if c.hwnd == 0 {
 		return false
 	}
+	activeFullscreen := platform.IsBorderlessFullscreen(c.hwnd)
 	c.mu.Lock()
-	activeFullscreen := c.window.FullScreen()
 	changed := false
 	if c.state.mode != windowModeFullscreen && activeFullscreen {
 		c.state.mode = windowModeFullscreen
@@ -214,6 +274,9 @@ func (c *windowModeCtrl) syncFromWindow() bool {
 // и пересчитывает layout. Останавливается через stopWatcher().
 func (c *windowModeCtrl) watchForExternalFullscreenChanges(w fyne.Window) {
 	c.window = w
+	if c.watchStop == nil {
+		c.watchStop = make(chan struct{})
+	}
 	go func() {
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
@@ -222,11 +285,14 @@ func (c *windowModeCtrl) watchForExternalFullscreenChanges(w fyne.Window) {
 			case <-c.watchStop:
 				return
 			case <-ticker.C:
-				if c.syncFromWindow() {
-					// Внешний переход — обновляем виджеты и layout.
-					c.refreshWidgets()
-					c.refreshLayout()
-				}
+				// syncFromWindow читает HWND — делаем это из UI-потока.
+				fyne.Do(func() {
+					if c.syncFromWindow() {
+						// Внешний переход — обновляем виджеты и layout.
+						c.refreshWidgets()
+						c.refreshLayout()
+					}
+				})
 			}
 		}
 	}()
@@ -248,9 +314,12 @@ func (c *windowModeCtrl) refreshWidgets() {
 	if c.app == nil {
 		return
 	}
+	c.mu.Lock()
+	mode := c.state.mode
+	c.mu.Unlock()
 	// Обновляем кнопку в тулбаре.
 	if c.state.toggleBtn != nil {
-		if c.state.mode == windowModeFullscreen {
+		if mode == windowModeFullscreen {
 			c.state.toggleBtn.SetText("Оконный режим")
 			c.state.toggleBtn.SetIcon(iconRestore())
 		} else {
@@ -260,118 +329,50 @@ func (c *windowModeCtrl) refreshWidgets() {
 	}
 	// Обновляем пункты меню.
 	if c.state.menuItemFS != nil {
-		c.state.menuItemFS.Checked = c.state.mode == windowModeFullscreen
+		c.state.menuItemFS.Checked = mode == windowModeFullscreen
 	}
 	if c.state.menuItemWin != nil {
-		c.state.menuItemWin.Checked = c.state.mode == windowModeNormal
+		c.state.menuItemWin.Checked = mode == windowModeNormal
 	}
 }
 
-// refreshLayout пересчитывает layout под текущий размер окна без debounce.
-// Вызывается из watcher при внешнем изменении режима.
+// refreshLayout пересчитывает layout под текущий размер окна.
+// Вызывается из watcher при внешнем изменении режима (уже в UI-потоке).
 func (c *windowModeCtrl) refreshLayout() {
 	if c.app == nil {
 		return
 	}
 	a := c.app
-	fyne.Do(func() {
-		if a.myWindow == nil || a.myWindow.Canvas() == nil {
-			return
-		}
-		size := a.myWindow.Canvas().Size()
-		scale := a.myWindow.Canvas().Scale()
-		if size.Width <= 0 || size.Height <= 0 {
-			return
-		}
-		a.lastCanvasSize = size
-		a.lastCanvasScale = scale
-		profile := a.detectLayoutProfile(size.Width)
-		a.applyResponsiveLayout(profile)
-	})
-}
-
-// currentLayoutSeq возвращает текущее значение счётчика debounce.
-func (c *windowModeCtrl) currentLayoutSeq() uint64 {
-	return c.layoutSeq.Load()
-}
-
-// nextLayoutSeq инкрементирует счётчик debounce и возвращает новое значение.
-func (c *windowModeCtrl) nextLayoutSeq() uint64 {
-	return c.layoutSeq.Add(1)
-}
-
-// refreshUI обновляет виджеты и запускает отложенный пересчёт layout.
-// Вызывается из enterFullscreen/exitFullscreen (UI поток).
-//
-// Два пересчёта (500 мс + 1200 мс): GLFW fullscreen — асинхронная операция;
-// первый пересчёт может попасть на промежуточный размер canvas, второй —
-// гарантированно на финальный.
-func (c *windowModeCtrl) refreshUI() {
-	if c.app == nil {
+	if a.myWindow == nil || a.myWindow.Canvas() == nil {
 		return
 	}
-	// Обновляем виджеты (кнопка/меню) — синхронно.
-	c.refreshWidgets()
-	// Первый пересчёт layout.
-	a := c.app
-	seq := c.nextLayoutSeq()
-	go func() {
-		<-time.After(fullscreenLayoutRefreshDelay)
-		fyne.Do(func() {
-			if c.currentLayoutSeq() != seq {
-				return
-			}
-			if c.syncFromWindow() {
-				c.refreshWidgets()
-			}
-			if a.myWindow == nil || a.myWindow.Canvas() == nil {
-				return
-			}
-			size := a.myWindow.Canvas().Size()
-			scale := a.myWindow.Canvas().Scale()
-			if size.Width <= 0 || size.Height <= 0 {
-				return
-			}
-			profile := a.detectLayoutProfile(size.Width)
-			a.lastCanvasSize = size
-			a.lastCanvasScale = scale
-			a.applyResponsiveLayout(profile)
-		})
-	}()
-	// Второй пересчёт — страховка для медленных оконных менеджеров.
-	seq2 := c.nextLayoutSeq()
-	go func() {
-		<-time.After(fullscreenLayoutRefreshDelay2)
-		fyne.Do(func() {
-			if c.currentLayoutSeq() != seq2 {
-				return
-			}
-			if a.myWindow == nil || a.myWindow.Canvas() == nil {
-				return
-			}
-			size := a.myWindow.Canvas().Size()
-			scale := a.myWindow.Canvas().Scale()
-			if size.Width <= 0 || size.Height <= 0 {
-				return
-			}
-			profile := a.detectLayoutProfile(size.Width)
-			a.lastCanvasSize = size
-			a.lastCanvasScale = scale
-			a.applyResponsiveLayout(profile)
-		})
-	}()
+	size := a.myWindow.Canvas().Size()
+	scale := a.myWindow.Canvas().Scale()
+	if size.Width <= 0 || size.Height <= 0 {
+		return
+	}
+	a.lastCanvasSize = size
+	a.lastCanvasScale = scale
+	profile := a.detectLayoutProfile(size.Width)
+	a.applyResponsiveLayout(profile)
 }
 
-// refreshMenuBar принудительно перерисовывает menu bar после смены режима окна.
-// В Fyne v2.7.1 GLFW fullscreen меняет viewport через SetMonitor(), и
-// canvas.buildMenu() не вызывается повторно — меню «пропадает».
-// Повторный SetMainMenu() с тем же объектом запускает buildMenu заново.
+// refreshUI обновляет виджеты и пересчитывает layout под текущий размер окна.
+// Вызывается из enterFullscreen/exitFullscreen (UI поток).
+func (c *windowModeCtrl) refreshUI() {
+	c.refreshWidgets()
+	c.refreshLayout()
+}
+
+// refreshMenuBar принудительно перерисовывает menu bar.
+// Вызывается из enterFullscreen/exitFullscreen. В borderless-режиме canvas не
+// пересоздаётся, поэтому SetMainMenu не требуется; оставляем пересборку как
+// страховку на случай, если Fyne всё же сбросит overlay.
 func (c *windowModeCtrl) refreshMenuBar() {
 	a := c.app
 	if a == nil || a.myWindow == nil {
 		return
 	}
-	// SetMainMenu вызывается из UI-потока (toggle — из обработчика кнопки/меню).
 	if menu := a.myWindow.MainMenu(); menu != nil {
 		a.myWindow.SetMainMenu(menu)
 	}

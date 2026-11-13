@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"network-scanner/internal/platform"
 	"network-scanner/internal/scanner"
 )
 
@@ -618,6 +619,7 @@ func (t *Topology) RenderWithGraphviz(outputFormat, outputFile string) error {
 	}
 
 	cmd := exec.Command(dotPath, "-T"+outputFormat, tmp.Name(), "-o", outputFile)
+	platform.HideWindow(cmd)
 	if out, runErr := cmd.CombinedOutput(); runErr != nil {
 		return fmt.Errorf("ошибка запуска dot: %w (%s)", runErr, string(out))
 	}

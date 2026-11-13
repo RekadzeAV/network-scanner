@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"network-scanner/internal/platform"
 	"os/exec"
 	"strings"
 	"time"
@@ -100,6 +101,7 @@ func runCmd(ctx context.Context, args []string, timeout time.Duration) (string, 
 	cctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(cctx, toolPath, args[1:]...)
+	platform.HideWindow(cmd)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &out
