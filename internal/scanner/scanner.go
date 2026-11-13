@@ -217,6 +217,12 @@ const (
 	hostProbeTimeoutMin = 150 * time.Millisecond
 	hostProbeTimeoutMax = 800 * time.Millisecond
 
+	// Максимальный таймаут для TCP-коннекта при сканировании портов.
+	// Для локальной сети RST от закрытого порта приходит за <1мс.
+	// Ограничиваем до 500мс, чтобы сканирование 65535 портов на одном
+	// хосте не занимало 130с (65535 × 2с) — с лимитом: ~13с.
+	portProbeTimeoutMax = 500 * time.Millisecond
+
 	// Таймауты для banner grabbing
 	bannerGrabTimeoutDivisor = 2
 	bannerGrabTimeoutMin     = 300 * time.Millisecond
@@ -499,17 +505,57 @@ func (ns *NetworkScanner) Scan() {
 			fmt.Println("Сбор данных о хостах (TCP-порты не сканируются)...")
 			logger.Log("Сбор данных о хостах на %d адресах без перебора TCP-портов", len(aliveIPs))
 		}
-		logger.LogDebug("Всего портов для сканирования: %d хостов × %d портов = %d проверок", len(aliveIPs), len(ports), len(aliveIPs)*len(ports))
+		totalProbes := int64(len(aliveIPs)) * int64(len(ports))
+		logger.LogDebug("Всего портов для сканирования: %d хостов × %d портов = %d проверок", len(aliveIPs), len(ports), totalProbes)
 		if ns.progressCallback != nil {
 			ns.progressCallback("ports", 0, len(aliveIPs), "Сканирование портов...")
 		}
 		scannedCount := 0
 		scannedMutex := sync.Mutex{}
 
+		// Гранулярный прогресс по TCP-probe: каждые 200мс отправляем
+		// обновлённый процент на основе завершённых проверок портов.
+		// Без этого прогресс обновляется только когда хост полностью
+		// закончен (может быть 1024 порта × 500мс = 8 мин без обновлений).
+		var progressTicker *time.Ticker
+		var progressStop chan struct{}
+		if totalProbes > 0 && ns.progressCallback != nil {
+			progressTicker = time.NewTicker(200 * time.Millisecond)
+			progressStop = make(chan struct{})
+			go func() {
+				for {
+					select {
+					case <-progressTicker.C:
+						done := atomic.LoadInt64(&ns.tcpProbeTotal)
+						pct := 0.0
+						if totalProbes > 0 {
+							pct = float64(done) / float64(totalProbes) * 100
+						}
+						elapsed := time.Since(portsScanStartTime)
+						var eta string
+						if done > 0 && pct > 0 {
+							etaSec := float64(elapsed.Seconds()) / (pct / 100) * (1 - pct/100)
+							if etaSec > 1 {
+								eta = fmt.Sprintf(" | ETA: %ds", int(etaSec))
+							}
+						}
+						ns.progressCallback("ports", int(done), int(totalProbes),
+							fmt.Sprintf("Порты: %d/%d проверок (%.0f%%)%s", done, totalProbes, pct, eta))
+					case <-progressStop:
+						progressTicker.Stop()
+						return
+					}
+				}
+			}()
+		}
+
 		for _, ip := range aliveIPs {
 			select {
 			case <-ns.ctx.Done():
 				logger.LogDebug("Сканирование отменено во время сканирования портов")
+				if progressStop != nil {
+					close(progressStop)
+				}
 				return
 			default:
 			}
@@ -547,6 +593,9 @@ func (ns *NetworkScanner) Scan() {
 			}(ip)
 		}
 		ns.wg.Wait()
+		if progressStop != nil {
+			close(progressStop)
+		}
 		portsScanDuration = time.Since(portsScanStartTime)
 		atomic.StoreInt64(&ns.lastPortscanNs, portsScanDuration.Nanoseconds())
 		fmt.Println() // Новая строка после прогресса
@@ -719,7 +768,14 @@ func (ns *NetworkScanner) scanTCPPort(ip string, port int) bool {
 		}
 		logger.LogDebug("PortScanner вернул ошибку для %s:%d, fallback на IsPortOpen: %v", ip, port, err)
 	}
-	return network.IsPortOpen(ip, port, ns.timeout)
+	// Ограничиваем таймаут для TCP-коннекта: в локальной сети RST приходит
+	// мгновенно, а ожидание 2с на каждый закрытый порт делает сканирование
+	// неприемлемо долгим (1024 порта × 2с = 34 мин на хост).
+	tcpTimeout := ns.timeout
+	if tcpTimeout > portProbeTimeoutMax {
+		tcpTimeout = portProbeTimeoutMax
+	}
+	return network.IsPortOpen(ip, port, tcpTimeout)
 }
 
 // scanUDPPort checks a single UDP port using injected UDP scanner when available.
