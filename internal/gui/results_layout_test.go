@@ -5,18 +5,22 @@ import "testing"
 func TestDetectLayoutProfile(t *testing.T) {
 	a := &App{}
 	tests := []struct {
-		width float32
-		want  string
+		width, height float32
+		want          string
 	}{
-		{width: 1200, want: "compact"},
-		{width: 1366, want: "compact"},
-		{width: 1367, want: "normal"},
-		{width: 1920, want: "normal"},
-		{width: 2200, want: "wide"},
+		{width: 1200, height: 800, want: "compact"},    // 3:2
+		{width: 1366, height: 768, want: "compact"},    // 16:9
+		{width: 1367, height: 768, want: "normal"},     // 16:9
+		{width: 1920, height: 1080, want: "normal"},    // 16:9
+		{width: 2200, height: 1237, want: "wide"},      // 16:9
+		{width: 2560, height: 1440, want: "wide"},      // 16:9
+		{width: 3000, height: 1688, want: "ultrawide"}, // 16:9 (ширина > 3000)
+		{width: 3440, height: 1440, want: "ultrawide"}, // 21:9
+		{width: 2293, height: 960, want: "ultrawide"},  // 34" @ 150% 21:9
 	}
 	for _, tt := range tests {
-		if got := a.detectLayoutProfile(tt.width); got != tt.want {
-			t.Fatalf("detectLayoutProfile(%v) = %q, want %q", tt.width, got, tt.want)
+		if got := a.detectLayoutProfile(tt.width, tt.height); got != tt.want {
+			t.Fatalf("detectLayoutProfile(%v, %v) = %q, want %q", tt.width, tt.height, got, tt.want)
 		}
 	}
 }

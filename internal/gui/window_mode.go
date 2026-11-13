@@ -353,7 +353,7 @@ func (c *windowModeCtrl) refreshLayout() {
 	}
 	a.lastCanvasSize = size
 	a.lastCanvasScale = scale
-	profile := a.detectLayoutProfile(size.Width)
+	profile := a.detectLayoutProfile(size.Width, size.Height)
 	a.applyResponsiveLayout(profile)
 }
 

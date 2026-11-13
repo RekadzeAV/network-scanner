@@ -373,7 +373,7 @@ func TestCurrentLayoutProfile_Set(t *testing.T) {
 
 func TestDetectLayoutProfile_Compact(t *testing.T) {
 	a := &App{}
-	profile := a.detectLayoutProfile(1366)
+	profile := a.detectLayoutProfile(1366, 768)
 	if profile != "compact" {
 		t.Errorf("expected 'compact', got %q", profile)
 	}
@@ -381,7 +381,7 @@ func TestDetectLayoutProfile_Compact(t *testing.T) {
 
 func TestDetectLayoutProfile_Normal(t *testing.T) {
 	a := &App{}
-	profile := a.detectLayoutProfile(1920)
+	profile := a.detectLayoutProfile(1920, 1080)
 	if profile != "normal" {
 		t.Errorf("expected 'normal', got %q", profile)
 	}
@@ -389,15 +389,43 @@ func TestDetectLayoutProfile_Normal(t *testing.T) {
 
 func TestDetectLayoutProfile_Wide(t *testing.T) {
 	a := &App{}
-	profile := a.detectLayoutProfile(2200)
+	// 2200×1237 — реалистичное 16:9 разрешение
+	profile := a.detectLayoutProfile(2200, 1237)
 	if profile != "wide" {
 		t.Errorf("expected 'wide', got %q", profile)
 	}
 }
 
+func TestDetectLayoutProfile_Ultrawide_AbsoluteWidth(t *testing.T) {
+	a := &App{}
+	// 32" 4K @ 100%: width > 3000
+	profile := a.detectLayoutProfile(3840, 2160)
+	if profile != "ultrawide" {
+		t.Errorf("expected 'ultrawide' at 3840x2160, got %q", profile)
+	}
+}
+
+func TestDetectLayoutProfile_Ultrawide_AspectRatio(t *testing.T) {
+	a := &App{}
+	// 34" 21:9 @ 100%: aspect > 2.0
+	profile := a.detectLayoutProfile(3440, 1440)
+	if profile != "ultrawide" {
+		t.Errorf("expected 'ultrawide' at 3440x1440, got %q", profile)
+	}
+}
+
+func TestDetectLayoutProfile_Ultrawide_AspectRatioHiDPI(t *testing.T) {
+	a := &App{}
+	// 34" 21:9 @ 150%: aspect > 2.0, width=2293
+	profile := a.detectLayoutProfile(2293, 960)
+	if profile != "ultrawide" {
+		t.Errorf("expected 'ultrawide' at 2293x960 (34\" @ 150%%), got %q", profile)
+	}
+}
+
 func TestDetectLayoutProfile_Boundary1366(t *testing.T) {
 	a := &App{}
-	profile := a.detectLayoutProfile(1366)
+	profile := a.detectLayoutProfile(1366, 768)
 	if profile != "compact" {
 		t.Errorf("expected 'compact' at 1366, got %q", profile)
 	}
@@ -405,8 +433,16 @@ func TestDetectLayoutProfile_Boundary1366(t *testing.T) {
 
 func TestDetectLayoutProfile_Boundary2200(t *testing.T) {
 	a := &App{}
-	profile := a.detectLayoutProfile(2200)
+	profile := a.detectLayoutProfile(2200, 1237)
 	if profile != "wide" {
 		t.Errorf("expected 'wide' at 2200, got %q", profile)
+	}
+}
+
+func TestDetectLayoutProfile_Boundary3000(t *testing.T) {
+	a := &App{}
+	profile := a.detectLayoutProfile(3000, 1080)
+	if profile != "ultrawide" {
+		t.Errorf("expected 'ultrawide' at 3000, got %q", profile)
 	}
 }

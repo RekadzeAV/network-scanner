@@ -406,3 +406,65 @@ func TestSyncFromWindow_MutexSafe(t *testing.T) {
 		t.Errorf("expected Normal after concurrent access, got %v", ctrl.state.mode)
 	}
 }
+
+// --- applyResponsiveLayout: ultrawide ---
+
+func TestApplyResponsiveLayout_Ultrawide_34inch(t *testing.T) {
+	a := &App{lastCanvasSize: fyne.NewSize(3440, 1440), lastCanvasScale: 1}
+	a.applyResponsiveLayout("ultrawide") // не должен паниковать
+}
+
+func TestApplyResponsiveLayout_Ultrawide_32inch_4K(t *testing.T) {
+	a := &App{lastCanvasSize: fyne.NewSize(3840, 2160), lastCanvasScale: 1}
+	a.applyResponsiveLayout("ultrawide") // не должен паниковать
+}
+
+func TestApplyResponsiveLayout_Ultrawide_HiDPI(t *testing.T) {
+	a := &App{lastCanvasSize: fyne.NewSize(2293, 960), lastCanvasScale: 1.5}
+	a.applyResponsiveLayout("ultrawide") // не должен паниковать
+}
+
+// --- split offsets: ultrawide ---
+
+func TestDefaultTopologySplitOffset_Ultrawide(t *testing.T) {
+	c, w, n, uw := defaultTopologySplitOffset("compact"), defaultTopologySplitOffset("wide"), defaultTopologySplitOffset("normal"), defaultTopologySplitOffset("ultrawide")
+	// Ultrawide должен давать больше места для карты, чем wide
+	if uw >= w {
+		t.Errorf("ultrawide topology split (%v) should be < wide (%v)", uw, w)
+	}
+	// Но больше, чем fullscreen (0.55) — т.е. не должно быть слишком маленьким
+	if uw <= 0 {
+		t.Errorf("ultrawide topology split should be positive, got %v", uw)
+	}
+	_ = c
+	_ = n // используем compact/normal для сравнения
+	if c <= w {
+		t.Errorf("compact topology split (%v) should be > wide (%v)", c, w)
+	}
+}
+
+func TestDefaultToolsSplitOffset_Ultrawide(t *testing.T) {
+	c, w, n, uw := defaultToolsSplitOffset("compact"), defaultToolsSplitOffset("wide"), defaultToolsSplitOffset("normal"), defaultToolsSplitOffset("ultrawide")
+	// Ultrawide должен давать больше места для вывода, чем wide
+	if uw >= w {
+		t.Errorf("ultrawide tools split (%v) should be < wide (%v)", uw, w)
+	}
+	_ = c
+	_ = n
+	if c <= n {
+		t.Errorf("compact tools split (%v) should be > normal (%v)", c, n)
+	}
+}
+
+func TestSuggestedScanTabOffset_Ultrawide(t *testing.T) {
+	m := layoutAdaptiveMultiplier(3440, 1440, 1)
+	off := suggestedScanTabOffset("ultrawide", 3440, 1440, 1, m)
+	if off < 0.20 || off > 0.54 {
+		t.Fatalf("ultrawide scan tab offset out of range: %v", off)
+	}
+	// Ultrawide должен отдавать меньше места для scan controls, чем normal
+	offN := suggestedScanTabOffset("normal", 3440, 1440, 1, m)
+	if off >= offN {
+		t.Errorf("ultrawide offset (%v) should be < normal (%v)", off, offN)
+	}
+}

@@ -22,13 +22,19 @@ func (a *App) currentLayoutProfile() string {
 }
 
 // fullscreenMinWidth — минимальная ширина, при которой в fullscreen
-// применяется расширенный профиль с многоколоночными гридами.
-// На экранах уже этого порога используется адаптация по ширине (compact/normal),
-// чтобы избежать «слипания» 5-7-колоночных сеток на маленьких мониторах.
+// применяется профиль fullscreen. На экранах уже этого порога fullscreen
+// не переопределяет компактный профиль, чтобы избежать «слипания»
+// многоколоночных сеток на маленьких мониторах.
 const fullscreenMinWidth = 1600
 
-// detectLayoutProfile определяет профиль макета по ширине окна.
-func (a *App) detectLayoutProfile(width float32) string {
+// aspectRatioUltrawide — порог соотношения сторон для определения
+// ultrawide-экранов (21:9 ≈ 2.33). 16:9 = 1.778, 16:10 = 1.6.
+const aspectRatioUltrawide = 2.0
+
+// detectLayoutProfile определяет профиль макета по ширине и высоте окна.
+// Профили: compact (≤14" HiDPI), normal (15"–24"), wide (24"–27"),
+// ultrawide (31"+ или 21:9).
+func (a *App) detectLayoutProfile(width, height float32) string {
 	// В полноэкранном режиме используем профиль "fullscreen",
 	// который даёт максимум места для контента.
 	// На узких экранах (≤fullscreenMinWidth) fullscreen не переопределяет
@@ -36,9 +42,21 @@ func (a *App) detectLayoutProfile(width float32) string {
 	if a != nil && a.IsFullscreen() && width >= fullscreenMinWidth {
 		return "fullscreen"
 	}
+
+	// Ultrawide: определяем по соотношению сторон (21:9 ≈ 2.33)
+	// или по абсолютной ширине (> 3000 logical px ≈ 32"+ 4K @ 100%).
+	if height > 0 {
+		aspect := width / height
+		if aspect > aspectRatioUltrawide {
+			return "ultrawide"
+		}
+	}
+
 	switch {
 	case width <= 1366:
 		return "compact"
+	case width >= 3000:
+		return "ultrawide"
 	case width >= 2200:
 		return "wide"
 	default:
@@ -102,6 +120,8 @@ func suggestedScanTabOffset(profile string, canvasW, canvasH, canvasScale, layou
 		topFrac = 0.41
 	case "wide":
 		topFrac = 0.32
+	case "ultrawide":
+		topFrac = 0.26 // Минимум места для панели сканирования
 	case "fullscreen":
 		topFrac = 0.28 // Минимум места для панели сканирования
 	}
@@ -122,6 +142,8 @@ func defaultTopologySplitOffset(profile string) float64 {
 		return 0.72
 	case "wide":
 		return 0.6
+	case "ultrawide":
+		return 0.48 // Максимум места для карты
 	case "fullscreen":
 		return 0.55 // Максимум места для превью
 	default:
@@ -136,6 +158,8 @@ func defaultToolsSplitOffset(profile string) float64 {
 		return 0.48
 	case "wide":
 		return 0.40
+	case "ultrawide":
+		return 0.32 // Больше места для вывода
 	case "fullscreen":
 		return 0.35 // Больше места для вывода
 	default:
@@ -188,6 +212,8 @@ func (a *App) applyAdaptiveToolsScrollMinSizes(profile string, mul float32) {
 		baseOut, baseOps = 280, 110
 	case "wide":
 		baseOut, baseOps = 420, 170
+	case "ultrawide":
+		baseOut, baseOps = 380, 140
 	case "fullscreen":
 		// В fullscreen минимальные размеры панелей — минимальны,
 		// чтобы дать максимум места результатам сканирования.
@@ -292,6 +318,48 @@ func (a *App) applyResponsiveLayout(profile string) {
 		}
 		if a.operationsHeaderGrid != nil {
 			a.operationsHeaderGrid.Layout = layout.NewGridLayoutWithColumns(2)
+			a.operationsHeaderGrid.Refresh()
+		}
+	case "ultrawide":
+		// Ultrawide (21:9, 31"+): максимум колонок, широкие панели,
+		// минимум места для управления, максимум для контента.
+		if a.resultsDiagnosticsGrid != nil {
+			a.resultsDiagnosticsGrid.Layout = layout.NewGridLayoutWithColumns(5)
+			a.resultsDiagnosticsGrid.Refresh()
+		}
+		if a.resultsSortGrid != nil {
+			a.resultsSortGrid.Layout = layout.NewGridLayoutWithColumns(7)
+			a.resultsSortGrid.Refresh()
+		}
+		if a.resultsCidrGrid != nil {
+			a.resultsCidrGrid.Layout = layout.NewGridLayoutWithColumns(6)
+			a.resultsCidrGrid.Refresh()
+		}
+		if a.resultsPresetGrid != nil {
+			a.resultsPresetGrid.Layout = layout.NewGridLayoutWithColumns(5)
+			a.resultsPresetGrid.Refresh()
+		}
+		if a.scanControlsScroll != nil {
+			a.scanControlsScroll.SetMinSize(fyne.NewSize(0, a.adaptivePanelMinHeight(150, mul, 0.26, 100)))
+		}
+		if a.resultsScroll != nil {
+			a.resultsScroll.SetMinSize(fyne.NewSize(0, a.adaptivePanelMinHeight(55, mul, 0.52, 35)))
+		}
+		if a.topologyControlsScroll != nil {
+			a.topologyControlsScroll.SetMinSize(fyne.NewSize(360, 0))
+		}
+		if a.topologyScroll != nil {
+			a.topologyScroll.SetMinSize(fyne.NewSize(0, a.adaptivePanelMinHeight(380, mul, 0.62, 190)))
+		}
+		if a.toolsControlsScroll != nil {
+			a.toolsControlsScroll.SetMinSize(fyne.NewSize(0, a.adaptivePanelMinHeight(340, mul, 0.42, 170)))
+		}
+		if a.toolButtonsGrid != nil {
+			a.toolButtonsGrid.Layout = layout.NewGridLayoutWithColumns(7)
+			a.toolButtonsGrid.Refresh()
+		}
+		if a.operationsHeaderGrid != nil {
+			a.operationsHeaderGrid.Layout = layout.NewGridLayoutWithColumns(3)
 			a.operationsHeaderGrid.Refresh()
 		}
 	case "fullscreen":
@@ -442,7 +510,7 @@ func (a *App) startResultsLayoutWatcher() {
 				})
 				continue // Ждём следующего тика для применения layout к clamped размеру
 			}
-			profile := a.detectLayoutProfile(size.Width)
+			profile := a.detectLayoutProfile(size.Width, size.Height)
 			sizeChanged := lastW < 0 ||
 				absFloat32(size.Width-lastW) >= sizeStep ||
 				absFloat32(size.Height-lastH) >= sizeStep ||
@@ -491,7 +559,7 @@ func (a *App) applyDefaultSplitOffsetsForProfile(profile string) {
 	}
 	prof := strings.TrimSpace(profile)
 	switch prof {
-	case "compact", "wide", "normal", "fullscreen":
+	case "compact", "wide", "normal", "ultrawide", "fullscreen":
 	default:
 		prof = "normal"
 	}
