@@ -63,7 +63,8 @@ internal/gui/
 ├── topology_tappable_node.go # Кастомные виджеты: кликабельные узлы и hit-area связей (H-01, H-02)
 ├── topology_layout.go        # Слоистая раскладка карты: ярусы core→dist→host, hit-зоны (H-08)
 ├── topology_viewport.go      # Слой ввода: зум колесом, панорама drag'ом (H-07)
-├── window_mode.go            # Контроллер режимов окна (fullscreen/windowed), debounce, syncFromWindow
+├── window_mode.go            # Контроллер режимов окна (fullscreen/windowed), debounce, syncFromWindow, refreshMenuBar
+├── content_layout.go         # maxWidthLayout: коридор максимальной ширины контента для ultrawide
 ├── theme.go                  # ModernTheme (токены, followSystem, вариант-зависимая палитра)
 ├── theme_tokens.go           # Единый источник цветовых токенов WCAG AA (light/dark)
 ├── theme_selector.go         # Меню «Тема»/«Акцент», applyThemeToUI, invalidateThemeCaches
@@ -127,30 +128,72 @@ internal/gui/
 - `setupWindowMode()` — инициализация, восстановление из Preferences, запуск watcher
 - `watchForExternalFullscreenChanges()` — фоновая синхронизация с оконным менеджером (500 мс)
 - `syncFromWindow()` — сверка внутреннего состояния с `Window.FullScreen()`
-- `refreshUI()` — обновление виджетов и отложенный пересчёт layout с debounce
+- `refreshUI()` — обновление виджетов и **два** отложенных пересчёта layout (500 мс и 1200 мс)
+- `refreshMenuBar()` — принудительная пересборка main menu после смены режима окна
 
 #### Отложенный пересчёт layout (debounce):
 
-При переключении режима запускается goroutine с задержкой `fullscreenLayoutRefreshDelay` (350 мс). Каждая задача запоминает номер `layoutSeq`; если к моменту срабатывания номер изменился (быстрое двойное переключение) — задача отбрасывается.
+ GLFW переводит окно в fullscreen асинхронно (`SetMonitor`), поэтому canvas
+может ещё не принять новый размер к моменту первого пересчёта. `refreshUI()`
+ставит две задачи — `fullscreenLayoutRefreshDelay` (500 мс) и
+`fullscreenLayoutRefreshDelay2` (1200 мс). Каждая запоминает номер `layoutSeq`;
+если к моменту срабатывания номер изменился (быстрое двойное переключение) —
+задача отбрасывается.
+
+#### Почему нужен `refreshMenuBar()`:
+
+В Fyne v2.7.1 `canvas.buildMenu()` вызывается только из `Window.SetMainMenu()`.
+При переходе в fullscreen драйвер пересоздает viewport, а меню (оно является
+overlay-виджетом, а не частью контента) не перестраивается — визуально меню
+«пропадает». `refreshMenuBar()` повторно передаёт тот же `*fyne.MainMenu` через
+`SetMainMenu()`, что запускает `buildMenu()` заново.
+
+### internal/gui/content_layout.go
+
+Коридор максимальной ширины контента для ultrawide-мониторов.
+
+- `maxWidthLayout` — layout с единственным дочерним объектом: при ширине канвы
+  больше `maxContentWidth` (2400 логических px) контент центрируется, иначе
+  занимает всю ширину. Высота всегда используется полностью.
+- `wrapContentMaxWidth()` — оборачивает текущий контент окна в этот layout;
+  идемпотентен (проверяет, что контент уже не обёрнут).
+- Применяется в `initUI()` после `SetContent()`, поэтому на 34"+ интерфейс не
+  растягивается на весь экран и не уходит за его границы.
 
 ### cmd/gui/main.go
 
-Точка входа GUI приложения. Содержит минимальный код для запуска:
+Точка входа GUI приложения.
 
 ```go
 func main() {
+    platform.SetProcessDPIAwareness() // ДО создания окна!
     app := gui.NewApp()
     app.Run()
 }
 ```
+
+`platform.SetProcessDPIAwareness()` включает Per-Monitor V2 DPI awareness.
+Без него Windows возвращает системный DPI (96) вместо реального DPI монитора,
+Fyne вычисляет неверный `canvas.scale`, и на HiDPI/ultrawide экраном происходит:
+контент не влезает в окно, окно «заходит» за границы экрана (DWM растягивает
+неосведомлённый процесс), а координаты мыши проецируются по старому масштабу —
+клики не попадают по видимому положению кнопок.
 
 ## Использование
 
 ### Сборка
 
 ```bash
+# Linux / macOS
 go build -o network-scanner-gui ./cmd/gui
+
+# Windows — обязательно с -H windowsgui, иначе при запуске открывается
+# консольное окно (cmd.exe) рядом с GUI.
+go build -ldflags "-s -w -H windowsgui" -o network-scanner-gui.exe ./cmd/gui
 ```
+
+Официальные скрипты (`scripts/build.bat`, `scripts/build-os-separate.bat`,
+`scripts/build-windows.sh`) уже передают `-H windowsgui` для Windows-сборки GUI.
 
 Релизный скрипт **`./scripts/build-gui-release.sh`** сохраняет GUI-бинарники в **`build/release/<YYYY-MM-DD-N>/`** в корне репозитория. Для запуска на macOS используйте `./scripts/build-gui-release.sh && ./build/release/<YYYY-MM-DD-N>/gui-darwin-universal`. Подробнее: [BUILD_STRUCTURE.md](BUILD_STRUCTURE.md).
 

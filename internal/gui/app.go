@@ -237,7 +237,7 @@ type App struct {
 	operations                  *OperationsManager
 	services                    *AppServices
 	eventBus                    *eventbus.EventBus // P2-5: шина событий сканера для event-driven GUI
-	mainToolbar                 *fyne.Container
+	mainToolbar                 fyne.CanvasObject
 	resultsFiltersAccordion     *widget.Accordion
 	resultsFiltersAccordionOpen bool
 	quickTypeCheckRow           []fyne.CanvasObject
@@ -406,21 +406,10 @@ func NewApp() *App {
 		myWindow.SetIcon(icon)
 	}
 
-	// Адаптивный стартовый размер: 85% от размера экрана, но не уже
-	// minWindowWidth (D-04: константа применялась «вхолостую», теперь
-	// используется; Fyne не поддерживает обязательный минимум окна, поэтому
-	// ограничение действует на стартовый размер).
-	screenSize := myWindow.Canvas().Size()
-	width := float32(int(screenSize.Width * 0.85))
-	height := float32(int(screenSize.Height * 0.85))
-	if width < float32(minWindowWidth) {
-		width = float32(minWindowWidth)
-	}
-	if height < 600 {
-		height = 600
-	}
-
-	myWindow.Resize(fyne.NewSize(width, height))
+	// Стартовый размер задаётся в Run() ПОСЛЕ Show(), когда canvas уже
+	// знает реальный scale и размер монитора. Здесь — минимальный размер,
+	// чтобы окно не «хлопнулось» в ноль до адаптации.
+	myWindow.Resize(fyne.NewSize(1024, 600))
 	myWindow.CenterOnScreen()
 
 	// Устанавливаем максимальный размер окна, чтобы оно не выходило за границы экрана
@@ -598,6 +587,35 @@ func (a *App) Run() {
 			_ = os.Remove(a.previewPath)
 		}
 	})
+
+	// Адаптивный размер: до Show() canvas.Size() возвращает (0,0) и scale
+	// не вычислен — окно получается 1024x600. После Show() Fyne/DPI-awareness
+	// уже знает реальный размер монитора и масштаб → задаём окно 85% экрана.
+	// Вызываем Show() вручную, а не ShowAndRun(), чтобы подогнать размер.
+	a.myWindow.Show()
+	go func() {
+		// Даем GLFW/DWM время на инициализацию viewport и scale.
+		time.Sleep(100 * time.Millisecond)
+		fyne.Do(func() {
+			if a.myWindow == nil || a.myWindow.Canvas() == nil {
+				return
+			}
+			size := a.myWindow.Canvas().Size()
+			if size.Width <= 0 || size.Height <= 0 {
+				return
+			}
+			w := float32(int(size.Width * 0.85))
+			h := float32(int(size.Height * 0.85))
+			if w < 1280 {
+				w = 1280
+			}
+			if h < 720 {
+				h = 720
+			}
+			a.myWindow.Resize(fyne.NewSize(w, h))
+		})
+	}()
+
 	a.myWindow.ShowAndRun()
 }
 

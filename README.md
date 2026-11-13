@@ -45,8 +45,12 @@ go build -o network-scanner ./cmd/network-scanner
 ### GUI версия (графический интерфейс)
 
 ```bash
-# Сборка
+# Сборка (Linux / macOS)
 go build -o network-scanner-gui ./cmd/gui
+
+# Сборка (Windows) — флаг -H windowsgui убирает консольное окно
+# при запуске GUI. Без него рядом с окном открывается cmd.exe.
+go build -ldflags "-s -w -H windowsgui" -o network-scanner-gui.exe ./cmd/gui
 
 # Запуск
 ./network-scanner-gui
@@ -198,7 +202,11 @@ go build -o network-scanner ./cmd/network-scanner
 ### GUI версия
 
 ```bash
+# Linux / macOS
 go build -o network-scanner-gui ./cmd/gui
+
+# Windows — без консольного окна
+go build -ldflags "-s -w -H windowsgui" -o network-scanner-gui.exe ./cmd/gui
 ```
 
 ### Использование скриптов

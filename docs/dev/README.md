@@ -63,6 +63,7 @@ pwsh -ExecutionPolicy Bypass -File .\scripts\gen-godoc.ps1
 | `nettools` | Сетевые инструменты (ping, traceroute, dns, whois, wifi) |
 | `network` | Сетевые операции (CIDR, prober, port_scanner) |
 | `osdetect` | Определение ОС |
+| `platform` | Кроссплатформенные системные вызовы (Per-Monitor V2 DPI awareness) |
 | `plugin` | Система плагинов (Loader, Manifest, Plugin interface) |
 | `ports` | Базы портов и сервисов |
 | `presenter` | Презентеры (CLI, JSON, XML) |

@@ -652,3 +652,96 @@ func TestRefreshLayout_NilApp(t *testing.T) {
 	}
 	ctrl.refreshLayout() // не должен паниковать
 }
+
+// --- refreshMenuBar: меню не должно «пропадать» после смены режима окна ---
+
+func TestRefreshMenuBar_NilApp(t *testing.T) {
+	ctrl := &windowModeCtrl{state: windowModeState{mode: windowModeFullscreen}}
+	ctrl.refreshMenuBar() // не должен паниковать
+}
+
+func TestRefreshMenuBar_NilWindow(t *testing.T) {
+	ctrl := &windowModeCtrl{app: &App{}, state: windowModeState{mode: windowModeFullscreen}}
+	ctrl.refreshMenuBar() // не должен паниковать
+}
+
+func TestRefreshMenuBar_NoMenuIsNoop(t *testing.T) {
+	a := NewTestApp(t)
+	ctrl := &windowModeCtrl{app: a, state: windowModeState{mode: windowModeFullscreen}}
+	ctrl.refreshMenuBar() // меню нет — тихо выходим, без паники
+}
+
+func TestRefreshMenuBar_ReappliesSameMenu(t *testing.T) {
+	a := NewTestApp(t)
+	menu := fyne.NewMainMenu(fyne.NewMenu("Вид", fyne.NewMenuItem("Полный экран", nil)))
+	a.myWindow.SetMainMenu(menu)
+
+	ctrl := &windowModeCtrl{app: a, state: windowModeState{mode: windowModeFullscreen}}
+	ctrl.refreshMenuBar()
+
+	if got := a.myWindow.MainMenu(); got != menu {
+		t.Errorf("меню должно остаться тем же объектом после перерисовки: получено %v", got)
+	}
+	if len(a.myWindow.MainMenu().Items) != 1 {
+		t.Errorf("пункты меню не должны теряться, получено %d", len(a.myWindow.MainMenu().Items))
+	}
+}
+
+// --- enterFullscreen/exitFullscreen: безопасны без окна ---
+
+func TestEnterFullscreen_NilWindow(t *testing.T) {
+	ctrl := &windowModeCtrl{app: &App{}, state: windowModeState{mode: windowModeNormal}}
+	ctrl.enterFullscreen() // не должен паниковать
+	if ctrl.state.mode != windowModeNormal {
+		t.Errorf("при nil окне режим не должен меняться, получено %v", ctrl.state.mode)
+	}
+}
+
+func TestExitFullscreen_NilWindow(t *testing.T) {
+	ctrl := &windowModeCtrl{app: &App{}, state: windowModeState{mode: windowModeFullscreen}}
+	ctrl.exitFullscreen() // не должен паниковать
+}
+
+func TestEnterFullscreen_AlreadyFullscreenIsNoop(t *testing.T) {
+	a := NewTestApp(t)
+	ctrl := &windowModeCtrl{app: a, state: windowModeState{mode: windowModeFullscreen}}
+	ctrl.enterFullscreen()
+	if ctrl.state.mode != windowModeFullscreen {
+		t.Errorf("режим должен остаться fullscreen, получено %v", ctrl.state.mode)
+	}
+}
+
+// --- refreshUI: два пересчёта layout (500 мс + 1200 мс) ---
+
+func TestRefreshUI_SchedulesTwoLayoutPasses(t *testing.T) {
+	a := NewTestApp(t)
+	a.myWindow.Resize(fyne.NewSize(1600, 900))
+	ctrl := &windowModeCtrl{app: a, state: windowModeState{mode: windowModeNormal}}
+
+	before := ctrl.layoutSeq.Load()
+	ctrl.refreshUI()
+
+	// Ожидание больше второй задержки: оба пересчёта должны отработать.
+	time.Sleep(fullscreenLayoutRefreshDelay2 + 300*time.Millisecond)
+
+	if got := ctrl.layoutSeq.Load(); got-before != 2 {
+		t.Errorf("refreshUI должен ставить ровно 2 пересчёта layout, получено %d", got-before)
+	}
+}
+
+func TestRefreshUI_DebounceCancelsStalePass(t *testing.T) {
+	a := NewTestApp(t)
+	a.myWindow.Resize(fyne.NewSize(1600, 900))
+	ctrl := &windowModeCtrl{app: a, state: windowModeState{mode: windowModeNormal}}
+
+	ctrl.refreshUI()
+	// Быстрое повторное переключение — старый отложенный пересчёт отбрасывается.
+	ctrl.refreshUI()
+
+	time.Sleep(fullscreenLayoutRefreshDelay + 200*time.Millisecond)
+
+	// Профиль применён без паники; проверяем, что состояние канвы согласовано.
+	if a.lastCanvasSize.Width > 0 && a.layoutProfile == "" {
+		t.Error("после пересчёта профиль layout должен быть установлен")
+	}
+}

@@ -11,6 +11,7 @@ import (
 
 	"network-scanner/cmd/network-scanner/cmd"
 	"network-scanner/internal/api"
+	"network-scanner/internal/platform"
 )
 
 // Build information - set via -ldflags during build
@@ -21,8 +22,10 @@ var (
 )
 
 func main() {
-	// Включаем Per-Monitor DPI awareness для корректного отображения на Windows
-	SetProcessDPIAwareness()
+	// Включаем Per-Monitor DPI awareness для корректного отображения на Windows.
+	// Вызывается ДО создания окна и app.New(). Без этого Fyne получает SYSTEM_DPI=96
+	// вместо реального DPI монитора, что ломает масштаб канвы и координаты мыши.
+	platform.SetProcessDPIAwareness()
 
 	// Передаём build-информацию в CLI-слой (для подкоманды `version`).
 	cmd.SetBuildInfo(Version, BuildTime, GitCommit)

@@ -58,7 +58,7 @@ type ScanUI struct {
 	ResultsStateLabel  *widget.Label
 	CopyDiagnosticsBtn *widget.Button
 	SaveDiagnosticsBtn *widget.Button
-	MainToolbar        *fyne.Container
+	MainToolbar        fyne.CanvasObject
 	Window             fyne.Window
 }
 

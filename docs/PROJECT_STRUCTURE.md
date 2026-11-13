@@ -10,10 +10,10 @@ network-scanner/
 ├── cmd/
 │   ├── network-scanner/    # CLI точка входа
 │   │   ├── main.go         # Точка входа CLI
-│   │   ├── cmd/            # Команды CLI (scan, security, topology, и т.д.)
-│   │   └── dpi_windows.go  # DPI awareness для Windows
+│   │   └── cmd/            # Команды CLI (scan, security, topology, и т.д.)
 │   └── gui/                # GUI точка входа
 ├── internal/
+│   ├── platform/           # Кроссплатформенные системные утилиты (DPI awareness)
 │   ├── builder/            # DI Container и сборка зависимостей
 │   ├── contracts/          # Service interfaces (общие интерфейсы)
 │   ├── services/           # Service wrappers и factory

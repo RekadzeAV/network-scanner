@@ -12,7 +12,10 @@ import (
 // fullscreenLayoutRefreshDelay — задержка перед пересчётом layout после смены
 // режима окна. Даём оконному менеджеру принять новый размер, иначе профиль
 // применится к старому размеру канвы.
-const fullscreenLayoutRefreshDelay = 350 * time.Millisecond
+const fullscreenLayoutRefreshDelay = 500 * time.Millisecond
+
+// fullscreenLayoutRefreshDelay2 — второй пересчёт layout (для надёжности).
+const fullscreenLayoutRefreshDelay2 = 1200 * time.Millisecond
 
 // windowMode — режим отображения окна приложения.
 type windowMode int
@@ -149,7 +152,11 @@ func (c *windowModeCtrl) enterFullscreen() {
 	c.app.myWindow.SetFullScreen(true)
 	c.state.mode = windowModeFullscreen
 	c.save()
+	// Fyne v2.7.1: при переключении fullscreen GLFW меняет viewport через
+	// SetMonitor(), что приводит к пересозданию canvas. Menu bar и layout
+	// не перерисовываются автоматически — принудительно обновляем.
 	c.refreshUI()
+	c.refreshMenuBar()
 }
 
 // exitFullscreen выходит из полноэкранного режима.
@@ -169,6 +176,7 @@ func (c *windowModeCtrl) exitFullscreen() {
 	c.state.mode = windowModeNormal
 	c.save()
 	c.refreshUI()
+	c.refreshMenuBar()
 }
 
 // save сохраняет текущий режим в Preferences.
@@ -294,23 +302,25 @@ func (c *windowModeCtrl) nextLayoutSeq() uint64 {
 
 // refreshUI обновляет виджеты и запускает отложенный пересчёт layout.
 // Вызывается из enterFullscreen/exitFullscreen (UI поток).
+//
+// Два пересчёта (500 мс + 1200 мс): GLFW fullscreen — асинхронная операция;
+// первый пересчёт может попасть на промежуточный размер canvas, второй —
+// гарантированно на финальный.
 func (c *windowModeCtrl) refreshUI() {
 	if c.app == nil {
 		return
 	}
 	// Обновляем виджеты (кнопка/меню) — синхронно.
 	c.refreshWidgets()
-	// Отложенный пересчёт layout с debounce.
+	// Первый пересчёт layout.
 	a := c.app
 	seq := c.nextLayoutSeq()
 	go func() {
 		<-time.After(fullscreenLayoutRefreshDelay)
 		fyne.Do(func() {
-			// Debounce: если счётчик уже изменился — задача устарела.
 			if c.currentLayoutSeq() != seq {
 				return
 			}
-			// Синхронизируем с фактическим состоянием окна.
 			if c.syncFromWindow() {
 				c.refreshWidgets()
 			}
@@ -328,6 +338,43 @@ func (c *windowModeCtrl) refreshUI() {
 			a.applyResponsiveLayout(profile)
 		})
 	}()
+	// Второй пересчёт — страховка для медленных оконных менеджеров.
+	seq2 := c.nextLayoutSeq()
+	go func() {
+		<-time.After(fullscreenLayoutRefreshDelay2)
+		fyne.Do(func() {
+			if c.currentLayoutSeq() != seq2 {
+				return
+			}
+			if a.myWindow == nil || a.myWindow.Canvas() == nil {
+				return
+			}
+			size := a.myWindow.Canvas().Size()
+			scale := a.myWindow.Canvas().Scale()
+			if size.Width <= 0 || size.Height <= 0 {
+				return
+			}
+			profile := a.detectLayoutProfile(size.Width)
+			a.lastCanvasSize = size
+			a.lastCanvasScale = scale
+			a.applyResponsiveLayout(profile)
+		})
+	}()
+}
+
+// refreshMenuBar принудительно перерисовывает menu bar после смены режима окна.
+// В Fyne v2.7.1 GLFW fullscreen меняет viewport через SetMonitor(), и
+// canvas.buildMenu() не вызывается повторно — меню «пропадает».
+// Повторный SetMainMenu() с тем же объектом запускает buildMenu заново.
+func (c *windowModeCtrl) refreshMenuBar() {
+	a := c.app
+	if a == nil || a.myWindow == nil {
+		return
+	}
+	// SetMainMenu вызывается из UI-потока (toggle — из обработчика кнопки/меню).
+	if menu := a.myWindow.MainMenu(); menu != nil {
+		a.myWindow.SetMainMenu(menu)
+	}
 }
 
 // makeFullscreenToggleBtn создаёт кнопку переключения fullscreen для тулбара.

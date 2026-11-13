@@ -312,6 +312,11 @@ func (a *App) initUI() {
 	)
 	a.mainToolbar.Show()
 
+	// Тулбар в горизонтальном скролле: на узких окнах (перетаскивание,
+	// оконный режим после выхода из fullscreen) кнопки не обрезаются, а
+	// скроллятся. На широких — скролл не нужен, но и не вредит.
+	a.mainToolbar = container.NewHScroll(a.mainToolbar)
+
 	// P1-5: глобальный статус-бар внизу окна (виден на всех вкладках).
 	a.statusLabel = widget.NewLabel(statusDefaultText)
 	a.scanProgressLabel = widget.NewLabel("")
@@ -330,6 +335,9 @@ func (a *App) initUI() {
 	)
 
 	a.myWindow.SetContent(mainContent)
+	// Ultrawide (34"+): контент центрируется в коридоре максимальной ширины,
+	// иначе формы и таблицы растягиваются на весь экран и уходят за границы.
+	a.wrapContentMaxWidth()
 	a.setPortRangeControlsEnabled(a.scanTCPPortsCheck.Checked)
 	a.refreshAutoProfileStateLabel()
 	a.startResultsLayoutWatcher()
