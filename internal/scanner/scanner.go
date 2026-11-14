@@ -506,43 +506,48 @@ func (ns *NetworkScanner) Scan() {
 			logger.Log("Сбор данных о хостах на %d адресах без перебора TCP-портов", len(aliveIPs))
 		}
 		totalProbes := int64(len(aliveIPs)) * int64(len(ports))
+		// byProbes — прогресс этапа идёт по числу завершённых TCP-проверок,
+		// а не по завершённым хостам. Иначе при 1024 портах на хост прогресс
+		// обновлялся бы раз в десятки секунд (только по завершении хоста) и
+		// выглядел бы как зависание. При отключённом TCP (ports пусто)
+		// шкала остаётся по хостам.
+		byProbes := len(ports) > 0
 		logger.LogDebug("Всего портов для сканирования: %d хостов × %d портов = %d проверок", len(aliveIPs), len(ports), totalProbes)
 		if ns.progressCallback != nil {
-			ns.progressCallback("ports", 0, len(aliveIPs), "Сканирование портов...")
+			if byProbes {
+				ns.progressCallback("ports", 0, int(totalProbes), "Сканирование портов...")
+			} else {
+				ns.progressCallback("ports", 0, len(aliveIPs), "Сбор данных о хостах...")
+			}
 		}
 		scannedCount := 0
 		scannedMutex := sync.Mutex{}
 
+		// Завершённые TCP-проверки = open + closed (инкремент после dial).
+		// tcpProbeTotal инкрементится ДО dial («запущено») — для прогресса
+		// нужны именно завершённые, иначе счётчик опережает реальный ход.
+		completedProbes := func() int64 {
+			return atomic.LoadInt64(&ns.tcpProbeOpen) + atomic.LoadInt64(&ns.tcpProbeClosed)
+		}
+
 		// Гранулярный прогресс по TCP-probe: каждые 200мс отправляем
-		// обновлённый процент на основе завершённых проверок портов.
-		// Без этого прогресс обновляется только когда хост полностью
-		// закончен (может быть 1024 порта × 500мс = 8 мин без обновлений).
-		var progressTicker *time.Ticker
+		// обновлённый процент на основе завершённых проверок портов. Это
+		// единственный источник прогресса для UI при byProbes — горутины
+		// хостов не шлют callback, чтобы шкала была монотонной (без прыжков
+		// «по пробам → по хостам → по пробам»).
 		var progressStop chan struct{}
-		if totalProbes > 0 && ns.progressCallback != nil {
-			progressTicker = time.NewTicker(200 * time.Millisecond)
+		if byProbes && ns.progressCallback != nil {
+			progressTicker := time.NewTicker(200 * time.Millisecond)
 			progressStop = make(chan struct{})
 			go func() {
+				defer progressTicker.Stop()
 				for {
 					select {
 					case <-progressTicker.C:
-						done := atomic.LoadInt64(&ns.tcpProbeTotal)
-						pct := 0.0
-						if totalProbes > 0 {
-							pct = float64(done) / float64(totalProbes) * 100
-						}
-						elapsed := time.Since(portsScanStartTime)
-						var eta string
-						if done > 0 && pct > 0 {
-							etaSec := float64(elapsed.Seconds()) / (pct / 100) * (1 - pct/100)
-							if etaSec > 1 {
-								eta = fmt.Sprintf(" | ETA: %ds", int(etaSec))
-							}
-						}
+						done := completedProbes()
 						ns.progressCallback("ports", int(done), int(totalProbes),
-							fmt.Sprintf("Порты: %d/%d проверок (%.0f%%)%s", done, totalProbes, pct, eta))
+							fmt.Sprintf("Проверено портов: %d/%d", done, totalProbes))
 					case <-progressStop:
-						progressTicker.Stop()
 						return
 					}
 				}
@@ -577,17 +582,22 @@ func (ns *NetworkScanner) Scan() {
 				progress := scannedCount
 				scannedMutex.Unlock()
 
-				// Обновляем прогресс через callback и консоль (ограничиваем частоту для избежания блокировки UI)
+				// Консольный прогресс по хостам — всегда (это stdout CLI,
+				// не влияет на шкалу UI-прогресса).
 				if progress%5 == 0 || progress == len(aliveIPs) {
 					fmt.Printf("\rСканирование портов: %d/%d хостов", progress, len(aliveIPs))
-					if ns.progressCallback != nil {
-						// Вызываем callback в неблокирующем режиме
-						select {
-						case <-ns.ctx.Done():
-							return
-						default:
-							ns.progressCallback("ports", progress, len(aliveIPs), fmt.Sprintf("Сканирование портов: %d/%d хостов", progress, len(aliveIPs)))
-						}
+				}
+
+				// UI-callback по хостам — только когда TCP-портов нет
+				// (byProbes==false): тогда тикер не запущен и это единственный
+				// источник прогресса. При byProbes шкалу ведёт тикер по пробам.
+				if !byProbes && ns.progressCallback != nil {
+					select {
+					case <-ns.ctx.Done():
+						return
+					default:
+						ns.progressCallback("ports", progress, len(aliveIPs),
+							fmt.Sprintf("Собрано данных: %d/%d хостов", progress, len(aliveIPs)))
 					}
 				}
 			}(ip)
@@ -595,6 +605,14 @@ func (ns *NetworkScanner) Scan() {
 		ns.wg.Wait()
 		if progressStop != nil {
 			close(progressStop)
+		}
+		// Финальное значение прогресса этапа — ровно 100% по выбранной шкале.
+		if ns.progressCallback != nil {
+			if byProbes {
+				ns.progressCallback("ports", int(totalProbes), int(totalProbes), "Проверка портов завершена")
+			} else {
+				ns.progressCallback("ports", len(aliveIPs), len(aliveIPs), "Сбор данных завершён")
+			}
 		}
 		portsScanDuration = time.Since(portsScanStartTime)
 		atomic.StoreInt64(&ns.lastPortscanNs, portsScanDuration.Nanoseconds())
