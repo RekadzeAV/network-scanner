@@ -186,6 +186,7 @@ type NetworkScanner struct {
 	resultPresenter  ResultPresenter
 	icmpPinger       ICMPPinger // подменяемый ICMP-пингер (setICMPPinger в тестах)
 	icmpPingEnabled  bool       // ICMP-пинг как первый способ проверки живости хоста
+	aliveHostCount   int        // число alive-хостов после ping-фазы (для portThreadsForHost)
 	tcpCancelBefore  int64
 	tcpCancelWait    int64
 	udpCancelHosts   int64
@@ -203,9 +204,9 @@ type NetworkScanner struct {
 const (
 	// globalPortProbeBudget ограничивает общее число одновременных TCP probe во время этапа порт-сканирования.
 	// Это предотвращает перегрузку сокетов/сети, когда одновременно сканируется много хостов.
-	globalPortProbeBudget = 512
+	globalPortProbeBudget = 1024
 	minPerHostPortThreads = 8
-	maxPerHostPortThreads = 64
+	maxPerHostPortThreads = 128
 
 	// Магические числа для сканирования
 	udpSemaphoreSize       = 50
@@ -218,10 +219,9 @@ const (
 	hostProbeTimeoutMax = 800 * time.Millisecond
 
 	// Максимальный таймаут для TCP-коннекта при сканировании портов.
-	// Для локальной сети RST от закрытого порта приходит за <1мс.
-	// Ограничиваем до 500мс, чтобы сканирование 65535 портов на одном
-	// хосте не занимало 130с (65535 × 2с) — с лимитом: ~13с.
-	portProbeTimeoutMax = 500 * time.Millisecond
+	// Для локальной сети RST от закрытого порта приходит за <1мс, а
+	// открытые порты отвечают за <10мс. 200мс — с запасом на Wi-Fi/VPN.
+	portProbeTimeoutMax = 200 * time.Millisecond
 
 	// Таймауты для banner grabbing
 	bannerGrabTimeoutDivisor = 2
@@ -490,6 +490,10 @@ func (ns *NetworkScanner) Scan() {
 		aliveIPsList[i] = ip.String()
 	}
 	logger.LogDebug("Список активных хостов (%d): %v", len(aliveIPs), aliveIPsList)
+	// Фактическое число хостов для порт-этапа — используется portThreadsForHost
+	// для расчёта параллелизма probe на хост (точнее, чем конфигурационный
+	// лимит горутин ns.threads).
+	ns.aliveHostCount = len(aliveIPs)
 	if ns.progressCallback != nil {
 		ns.progressCallback("ping", len(ips), len(ips), fmt.Sprintf("Найдено %d активных хостов", len(aliveIPs)))
 	}
@@ -515,7 +519,8 @@ func (ns *NetworkScanner) Scan() {
 		logger.LogDebug("Всего портов для сканирования: %d хостов × %d портов = %d проверок", len(aliveIPs), len(ports), totalProbes)
 		if ns.progressCallback != nil {
 			if byProbes {
-				ns.progressCallback("ports", 0, int(totalProbes), "Сканирование портов...")
+				ns.progressCallback("ports", 0, int(totalProbes),
+					fmt.Sprintf("Портов на хост: %d · Хостов: %d · Сканирование...", len(ports), len(aliveIPs)))
 			} else {
 				ns.progressCallback("ports", 0, len(aliveIPs), "Сбор данных о хостах...")
 			}
@@ -545,8 +550,12 @@ func (ns *NetworkScanner) Scan() {
 					select {
 					case <-progressTicker.C:
 						done := completedProbes()
+						scannedMutex.Lock()
+						hostsDone := scannedCount
+						scannedMutex.Unlock()
 						ns.progressCallback("ports", int(done), int(totalProbes),
-							fmt.Sprintf("Проверено портов: %d/%d", done, totalProbes))
+							fmt.Sprintf("Портов на хост: %d · Хосты: %d/%d · Проверок: %d/%d",
+								len(ports), hostsDone, len(aliveIPs), done, totalProbes))
 					case <-progressStop:
 						return
 					}
@@ -609,7 +618,9 @@ func (ns *NetworkScanner) Scan() {
 		// Финальное значение прогресса этапа — ровно 100% по выбранной шкале.
 		if ns.progressCallback != nil {
 			if byProbes {
-				ns.progressCallback("ports", int(totalProbes), int(totalProbes), "Проверка портов завершена")
+				ns.progressCallback("ports", int(totalProbes), int(totalProbes),
+					fmt.Sprintf("Портов на хост: %d · Хосты: %d/%d · Проверка завершена",
+						len(ports), len(aliveIPs), len(aliveIPs)))
 			} else {
 				ns.progressCallback("ports", len(aliveIPs), len(aliveIPs), "Сбор данных завершён")
 			}
@@ -1096,7 +1107,12 @@ func (ns *NetworkScanner) portThreadsForHost(portCount int) int {
 		return 0
 	}
 
-	hostWorkers := ns.threads
+	// Используем фактическое число alive-хостов (после ping-фазы) — оно
+	// точнее, чем ns.threads (конфигурационный лимит горутин).
+	hostWorkers := ns.aliveHostCount
+	if hostWorkers <= 0 {
+		hostWorkers = ns.threads
+	}
 	if hostWorkers <= 0 {
 		hostWorkers = 1
 	}

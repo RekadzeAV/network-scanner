@@ -69,12 +69,14 @@ type windowModeCtrl struct {
 	watchStop chan struct{}             // канал для остановки goroutine watcher
 	hwnd      uintptr                   // кэшированный HWND (заполняется после Show)
 	borderSt  *platform.BorderlessState // снимок для выхода из fullscreen
+	savedMenu *fyne.MainMenu            // сохранённая menu bar для hide/restore в fullscreen
 }
 
 // windowModeState хранит текущее режим и виджеты переключения.
 type windowModeState struct {
 	mode        windowMode
-	normalSize  fyne.Size // размер окна до входа в fullscreen
+	normalSize  fyne.Size     // canvas-size (fallback, если normalRect пуст)
+	normalRect  platform.Rect // фактическая геометрия окна (физ. px) до fullscreen
 	toggleBtn   *widget.Button
 	menuItemFS  *fyne.MenuItem
 	menuItemWin *fyne.MenuItem
@@ -192,7 +194,15 @@ func (c *windowModeCtrl) enterFullscreen() {
 		c.mu.Unlock()
 		return
 	}
-	// Сохраняем текущий размер окна для восстановления (с ограничением max).
+	// Сохраняем фактическую геометрию окна (физ. пиксели) для выхода.
+	// НЕ Canvas().Size() — он возвращает content-area в логических px,
+	// а Resize+CenterOnScreen после restore дают смещение из-за title bar.
+	if c.hwnd != 0 {
+		if wr, ok := platform.WindowRect(c.hwnd); ok {
+			c.state.normalRect = wr
+		}
+	}
+	// Резервная копия canvas size (на случай, если hwnd==0 или WindowRect fail).
 	c.state.normalSize = clampToMaxSize(c.app.myWindow.Canvas().Size())
 	c.state.mode = windowModeFullscreen
 	c.mu.Unlock()
@@ -203,17 +213,11 @@ func (c *windowModeCtrl) enterFullscreen() {
 		}
 	}
 	c.save()
+	// Скрываем menu bar в fullscreen: он перекрывает контент и кнопки
+	// недоступны без смещения курсора ниже.
+	c.hideMenuBar()
 	// После borderless-перехода размер канвы изменился — пересобираем layout.
-	// Меню bar может «пропасть» из-за того, что borderless не вызывает
-	// processResized → Fyne не знает, что нужно перерисовать overlay.
-	// Решаем двойным вызовом с задержкой.
 	c.refreshUI()
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		fyne.Do(func() {
-			c.refreshMenuBar()
-		})
-	}()
 }
 
 // exitFullscreen выходит из полноэкранного режима.
@@ -233,24 +237,60 @@ func (c *windowModeCtrl) exitFullscreen() {
 		platform.RestoreBorderless(c.hwnd, c.borderSt)
 		c.borderSt = nil
 	}
-	// Восстанавливаем размер, если он был сохранён, с ограничением max.
-	// НЕ используем c.borderSt.Rect для позиционирования: DWM добавляет
-	// title bar после restore, и SetWindowPos ставит окно на старые coords,
-	// из-за чего верхняя часть уходит за экран. Поэтому после restore
-	// позиционируем заново через Resize + CenterOnScreen.
-	if c.state.normalSize.Width > 0 && c.state.normalSize.Height > 0 {
-		time.AfterFunc(100*time.Millisecond, func() {
+	// Восстанавливаем позицию и размер окна через Win32 SetWindowPos.
+	// Canvas().Size() — это content-area, а не outer-window; плюс DWM
+	// добавляет title bar, из-за чего Resize+CenterOnScreen дают смещение.
+	// Используем SetWindowPos с расчётом screen center.
+	if c.hwnd != 0 {
+		time.AfterFunc(150*time.Millisecond, func() {
 			fyne.Do(func() {
-				if c.app.myWindow != nil {
-					c.app.myWindow.Resize(clampToMaxSize(c.state.normalSize))
-					c.app.myWindow.CenterOnScreen()
+				if c.app.myWindow == nil {
+					return
+				}
+				// Целевой размер окна в ФИЗИЧЕСКИХ пикселях.
+				var w, h int32
+				if c.state.normalRect.Width() > 0 && c.state.normalRect.Height() > 0 {
+					// normalRect — из WindowRect (физ. px): точный outer-window
+					// размер вместе с рамками, сохранённый до fullscreen.
+					w = int32(c.state.normalRect.Width())
+					h = int32(c.state.normalRect.Height())
+				} else if c.state.normalSize.Width > 0 && c.state.normalSize.Height > 0 {
+					// Fallback: canvas size в логических px → конвертируем.
+					scale := c.app.myWindow.Canvas().Scale()
+					if scale <= 0 {
+						scale = 1
+					}
+					sz := clampToMaxSize(c.state.normalSize)
+					w = int32(sz.Width * scale)
+					h = int32(sz.Height * scale)
+				} else {
+					scale := c.app.myWindow.Canvas().Scale()
+					if scale <= 0 {
+						scale = 1
+					}
+					w = int32(1366 * scale)
+					h = int32(768 * scale)
+				}
+				// Позиционируем по центру рабочей зоны монитора — это
+				// исключает выход окна за верхний/нижний край экрана.
+				if mr, ok := platform.MonitorWorkRectForWindow(c.hwnd); ok {
+					if w > mr.Width() {
+						w = mr.Width()
+					}
+					if h > mr.Height() {
+						h = mr.Height()
+					}
+					centerX := mr.Left + (mr.Width()-w)/2
+					centerY := mr.Top + (mr.Height()-h)/2
+					_ = platform.SetWindowPos(c.hwnd, centerX, centerY, w, h, false)
 				}
 			})
 		})
 	}
 	c.save()
 	c.refreshUI()
-	c.refreshMenuBar()
+	// Восстанавливаем menu bar.
+	c.restoreMenuBar()
 }
 
 // save сохраняет текущий режим в Preferences.
@@ -438,4 +478,26 @@ func (a *App) fullscreenMenuItems() []*fyne.MenuItem {
 	a.winMode.state.menuItemWin = itemWin
 
 	return []*fyne.MenuItem{itemFS, itemWin}
+}
+
+// hideMenuBar скрывает menu bar в fullscreen: borderless-окно ставит menu bar
+// на самый край экрана, и кнопки недоступны без смещения курсора.
+// Тулбар приложения остаётся видимым и содержит все нужные действия.
+func (c *windowModeCtrl) hideMenuBar() {
+	if c.app == nil || c.app.myWindow == nil {
+		return
+	}
+	c.savedMenu = c.app.myWindow.MainMenu()
+	c.app.myWindow.SetMainMenu(nil)
+}
+
+// restoreMenuBar восстанавливает menu bar после выхода из fullscreen.
+func (c *windowModeCtrl) restoreMenuBar() {
+	if c.app == nil || c.app.myWindow == nil {
+		return
+	}
+	if c.savedMenu != nil {
+		c.app.myWindow.SetMainMenu(c.savedMenu)
+		c.savedMenu = nil
+	}
 }

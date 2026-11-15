@@ -408,6 +408,14 @@ func (c *ScanController) StartScan(results []scanner.Result) {
 		return
 	}
 	c.actions.ObserveScanRunner(runner, scanStartTime, scanUITimeout)
+
+	// Кнопки: сканирование запущено → Start неактивна, Stop активна.
+	if c.ui.ScanButton != nil {
+		c.ui.ScanButton.Disable()
+	}
+	if c.ui.StopButton != nil {
+		c.ui.StopButton.Enable()
+	}
 }
 
 // StopScan останавливает сканирование

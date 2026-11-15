@@ -490,10 +490,10 @@ func TestGetResults_CopySemantics(t *testing.T) {
 func TestPortThreadsForHost_ZeroThreads(t *testing.T) {
 	ns := &NetworkScanner{threads: 0}
 
-	got := ns.portThreadsForHost(100)
-	// При threads=0 код использует threads=1, затем budget/1=512, capped by maxPerHostPortThreads=64
+	got := ns.portThreadsForHost(1024)
+	// При threads=0 код использует threads=1, затем budget/1=1024, capped by maxPerHostPortThreads=128
 	if got != maxPerHostPortThreads {
-		t.Errorf("portThreadsForHost(100) with threads=0 = %d, want %d", got, maxPerHostPortThreads)
+		t.Errorf("portThreadsForHost(1024) with threads=0 = %d, want %d", got, maxPerHostPortThreads)
 	}
 }
 

@@ -366,19 +366,19 @@ func TestGetResultsReturnsCopy(t *testing.T) {
 
 func TestPortThreadsForHostZeroThreads(t *testing.T) {
 	ns := NewNetworkScanner("192.168.1.0/24", 1*time.Second, "80", 0, false)
-	got := ns.portThreadsForHost(100)
-	// При threads=0 код использует threads=1, затем budget/1=512, но capped by maxPerHostPortThreads=64
+	got := ns.portThreadsForHost(1024)
+	// При threads=0 код использует threads=1, затем budget/1=1024, capped by maxPerHostPortThreads=128
 	if got != maxPerHostPortThreads {
-		t.Errorf("portThreadsForHost(0 threads, 100 ports) = %d, want %d", got, maxPerHostPortThreads)
+		t.Errorf("portThreadsForHost(0 threads, 1024 ports) = %d, want %d", got, maxPerHostPortThreads)
 	}
 }
 
 func TestPortThreadsForHostNegativeThreads(t *testing.T) {
 	ns := NewNetworkScanner("192.168.1.0/24", 1*time.Second, "80", -1, false)
-	got := ns.portThreadsForHost(100)
-	// При threads=-1 код использует threads=1 (min), затем budget/1=512, но capped by maxPerHostPortThreads=64
+	got := ns.portThreadsForHost(1024)
+	// При threads=-1 код использует threads=1 (min), затем budget/1=1024, capped by maxPerHostPortThreads=128
 	if got != maxPerHostPortThreads {
-		t.Errorf("portThreadsForHost(-1 threads, 100 ports) = %d, want %d", got, maxPerHostPortThreads)
+		t.Errorf("portThreadsForHost(-1 threads, 1024 ports) = %d, want %d", got, maxPerHostPortThreads)
 	}
 }
 
