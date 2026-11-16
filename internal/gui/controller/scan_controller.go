@@ -423,10 +423,8 @@ func (c *ScanController) StopScan() {
 	if c.runner == nil {
 		return
 	}
-	// Скрываем тулбар при остановке
-	if c.ui.MainToolbar != nil {
-		c.ui.MainToolbar.Hide()
-	}
+	// ВАЖНО: не скрываем MainToolbar — в нём кнопка «Полный экран», без
+	// которой пользователь не мог вернуться в оконный режим.
 	logger.Log("Пользователь инициировал остановку сканирования из GUI")
 	if c.runner != nil {
 		c.runner.Stop()

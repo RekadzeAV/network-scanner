@@ -102,10 +102,12 @@ func scanProgressText(ev scand.Event, started time.Time, found int) string {
 }
 
 // scanProgressCompact — компактная версия для центрального блока статус-бара:
-// «37/254 · 15% · осталось 00:41». Пустая строка, если прогресс не показан.
+// «Порты 453/2114 · 21% · осталось 00:15». Пустая строка, если прогресс не показан.
 func scanProgressCompact(ev scand.Event, started time.Time) string {
 	var parts []string
-	if ev.Current > 0 && ev.Total > 0 {
+	if stage := localizeScanStage(ev.Stage); stage != "" && ev.Current > 0 && ev.Total > 0 {
+		parts = append(parts, fmt.Sprintf("%s %d/%d", stage, ev.Current, ev.Total))
+	} else if ev.Current > 0 && ev.Total > 0 {
 		parts = append(parts, fmt.Sprintf("%d/%d", ev.Current, ev.Total))
 	}
 	if pct := scanProgressPercent(ev); pct >= 0 {
@@ -118,6 +120,20 @@ func scanProgressCompact(ev scand.Event, started time.Time) string {
 		return ""
 	}
 	return strings.Join(parts, " · ")
+}
+
+// localizeScanStage переводит внутреннее имя этапа сканирования на русский.
+func localizeScanStage(stage string) string {
+	switch stage {
+	case "ping":
+		return "Хосты"
+	case "ports":
+		return "Порты"
+	case "complete":
+		return "Готово"
+	default:
+		return stage
+	}
 }
 
 // scanProgressPercent — процент готовности или -1, если он неизвестен.

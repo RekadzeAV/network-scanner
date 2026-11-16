@@ -66,7 +66,7 @@ func (a *App) ObserveScanRunner(runner *scand.Runner, startTime time.Time, timeo
 					fyne.Do(func() {
 						if a.stageLabel != nil {
 							a.stageLabel.Show()
-							a.stageLabel.SetText(fmt.Sprintf("%s: %s", ev.Stage, ev.Message))
+							a.stageLabel.SetText(fmt.Sprintf("%s: %s", localizeScanStage(ev.Stage), ev.Message))
 						}
 						if a.progressBar != nil {
 							a.progressBar.Show()

@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -315,6 +316,7 @@ var portChipSize = fyne.NewSize(200, 30)
 // buildPortChips — чипы портов как семантический компонент (R-05/P1-4):
 // открытые первыми, затем closed/filtered (если скан их возвращал); состояние
 // различимо маркером формы и палитрой состояний, GridWrap переносит чипы.
+// Возвращает VBox: GridWrap чипов + кнопка «Все порты…» для детального просмотра.
 func (a *App) buildPortChips(r scanner.Result) fyne.CanvasObject {
 	chips := portChipOrder(r.Ports)
 	if len(chips) == 0 {
@@ -332,7 +334,16 @@ func (a *App) buildPortChips(r scanner.Result) fyne.CanvasObject {
 		}
 		cells = append(cells, a.buildPortChip(p))
 	}
-	return container.NewGridWrap(portChipSize, cells...)
+	grid := container.NewGridWrap(portChipSize, cells...)
+
+	// Кнопка «Все порты…»: открывает диалог с полной таблицей портов хоста.
+	// В чипах видны только первые N — остальные скрыты, длинный текст
+	// (сервис + версия + баннер) обрезан и накладывается на соседние чипы.
+	btn := widget.NewButtonWithIcon(fmt.Sprintf("Все порты (%d)", len(r.Ports)), iconInspect(), func() {
+		a.showPortsDialog(r)
+	})
+	btn.Importance = widget.LowImportance
+	return container.NewVBox(grid, btn)
 }
 
 // portChipOrder — порядок чипов: сначала open (стабильно, в исходном порядке),
@@ -368,7 +379,9 @@ func (a *App) buildPortChip(p scanner.PortInfo) fyne.CanvasObject {
 }
 
 // portChipLabel — текст чипа: сервис (или порт/протокол), версия и, по
-// настройке, баннер; всё усечено по рунам (R-11) до ширины ячейки.
+// настройке, баннер. Усекается по рунам до ширины ячейки (portChipSize.Width),
+// иначе длинный сервис+версия+баннер «размазывается» за границы чипа и
+// накладывается на соседние ячейки GridWrap.
 func portChipLabel(p scanner.PortInfo, showBanner bool) string {
 	lbl := p.Service
 	if lbl == "" || lbl == "Unknown" {
@@ -377,14 +390,71 @@ func portChipLabel(p scanner.PortInfo, showBanner bool) string {
 		lbl = fmt.Sprintf("%d %s", p.Port, lbl)
 	}
 	if v := strings.TrimSpace(p.Version); v != "" {
-		lbl += " · " + truncateStr(v, 24)
+		lbl += " · " + truncateStr(v, 18)
 	}
 	if showBanner {
 		if b := strings.TrimSpace(p.Banner); b != "" {
-			lbl += " · " + truncateStr(b, 24)
+			lbl += " · " + truncateStr(b, 18)
 		}
 	}
-	return lbl
+	// Жёсткий потолок всей метки чипа — ячейка фиксированной ширины.
+	return truncateStr(lbl, portChipMaxLabelRunes)
+}
+
+// portChipMaxLabelRunes — максимум рун в подписи чипа порта при ширине
+// ячейки portChipSize.Width (≈200px, caption text). Выше — вылезает за чип.
+const portChipMaxLabelRunes = 26
+
+// showPortsDialog открывает диалог с полной таблицей портов хоста.
+// Потоковый чипы в карточке ограничены maxPortChips и шириной ячейки;
+// здесь видны ВСЕ порты с полным текстом сервиса, версии и баннера.
+func (a *App) showPortsDialog(r scanner.Result) {
+	if a.myWindow == nil {
+		return
+	}
+	ports := portChipOrder(r.Ports)
+	if len(ports) == 0 {
+		dialog.ShowInformation("Порты", fmt.Sprintf("Хост %s: портов нет", r.IP), a.myWindow)
+		return
+	}
+
+	cols := []string{"Порт", "Протокол", "Состояние", "Сервис", "Версия", "Баннер"}
+	colWidths := []float32{60, 70, 80, 120, 150, 200}
+
+	tbl := widget.NewTable(
+		func() (int, int) { return len(ports), len(cols) },
+		func() fyne.CanvasObject { return widget.NewLabel("placeholder") },
+		func(id widget.TableCellID, cell fyne.CanvasObject) {
+			label, ok := cell.(*widget.Label)
+			if !ok || id.Row < 0 || id.Row >= len(ports) || id.Col < 0 || id.Col >= len(cols) {
+				return
+			}
+			p := ports[id.Row]
+			switch id.Col {
+			case 0:
+				label.SetText(strconv.Itoa(p.Port))
+			case 1:
+				label.SetText(p.Protocol)
+			case 2:
+				label.SetText(p.State)
+			case 3:
+				label.SetText(p.Service)
+			case 4:
+				label.SetText(p.Version)
+			case 5:
+				label.SetText(truncateStr(p.Banner, 60))
+			}
+		},
+	)
+	for i, w := range colWidths {
+		tbl.SetColumnWidth(i, w)
+	}
+
+	title := fmt.Sprintf("Порты хоста %s (%d записей)", r.IP, len(ports))
+	d := dialog.NewCustom(title, "Закрыть",
+		container.NewPadded(tbl), a.myWindow)
+	d.Resize(fyne.NewSize(800, 500))
+	d.Show()
 }
 
 // truncateStr — rune-safe усечение (делегрует truncateString, R-11).
