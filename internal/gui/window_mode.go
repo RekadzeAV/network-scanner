@@ -65,17 +65,15 @@ type windowModeCtrl struct {
 	app       *App
 	window    fyne.Window // для RunNative / watcher
 	state     windowModeState
-	mu        sync.Mutex                // защищает state.mode при конкурентном доступе из watcher
-	watchStop chan struct{}             // канал для остановки goroutine watcher
-	hwnd      uintptr                   // кэшированный HWND (заполняется после Show)
-	borderSt  *platform.BorderlessState // снимок для выхода из fullscreen
+	mu        sync.Mutex    // защищает state.mode при конкурентном доступе из watcher
+	watchStop chan struct{} // канал для остановки goroutine watcher
+	hwnd      uintptr       // кэшированный HWND (для watcher-синхронизации)
 }
 
 // windowModeState хранит текущее режим и виджеты переключения.
 type windowModeState struct {
 	mode        windowMode
-	normalSize  fyne.Size     // canvas-size (fallback, если normalRect пуст)
-	normalRect  platform.Rect // фактическая геометрия окна (физ. px) до fullscreen
+	normalSize  fyne.Size // размер канвы до входа в fullscreen (для восстановления)
 	toggleBtn   *widget.Button
 	menuItemFS  *fyne.MenuItem
 	menuItemWin *fyne.MenuItem
@@ -183,7 +181,18 @@ func (c *windowModeCtrl) cacheHWND() {
 	})
 }
 
-// enterFullscreen переходит в полноэкранный режим (borderless).
+// enterFullscreen переходит в полноэкранный режим.
+//
+// Используется нативный fyne.Window.SetFullScreen (glfwSetWindowMonitor),
+// а НЕ borderless-трюк через SetWindowPos. Причина: при прямом изменении
+// геометрии окна в обход GLFW драйвер не получает событие resized, его
+// viewport и canvas.size остаются рассогласованы с фактическим окном, а
+// DPI-масштаб (detectScale) пересчитывается только на событии moved. Итог —
+// координаты мыши проецируются по устаревшей геометрии: клики «не попадают»
+// по видимому положению виджетов, причём направление смещения зависело от
+// кэшированного масштаба (отсюда «курсор ниже кнопки» в одном случае и
+// «выше» — в другом). Нативный fullscreen синхронизирует viewport, размер
+// канвы и координаты мыши средствами GLFW — рассинхрон исчезает.
 func (c *windowModeCtrl) enterFullscreen() {
 	if c.app == nil || c.app.myWindow == nil {
 		return
@@ -193,52 +202,17 @@ func (c *windowModeCtrl) enterFullscreen() {
 		c.mu.Unlock()
 		return
 	}
-	// Сохраняем фактическую геометрию окна (физ. пиксели) для выхода.
-	// НЕ Canvas().Size() — он возвращает content-area в логических px,
-	// а Resize+CenterOnScreen после restore дают смещение из-за title bar.
-	if c.hwnd != 0 {
-		if wr, ok := platform.WindowRect(c.hwnd); ok {
-			c.state.normalRect = wr
-		}
-	}
-	// Резервная копия canvas size (на случай, если hwnd==0 или WindowRect fail).
+	// Сохраняем размер канвы для восстановления при выходе (логические px).
 	c.state.normalSize = clampToMaxSize(c.app.myWindow.Canvas().Size())
 	c.state.mode = windowModeFullscreen
 	c.mu.Unlock()
 
-	if c.hwnd != 0 {
-		if st, ok := platform.MakeBorderlessFullscreen(c.hwnd); ok {
-			c.borderSt = st
-		}
-	}
+	c.app.myWindow.SetFullScreen(true)
 	c.save()
-	// После borderless-перехода размер канвы изменился — пересобираем layout.
+	// GLFW пересоздаёт surface при смене monitor — пересобираем menu bar
+	// overlay и layout под новый размер канвы.
+	c.refreshMenuBar()
 	c.refreshUI()
-	// Принудительно сообщаем Fyne новый размер КЛИЕНТСКОЙ области.
-	// Без этого внутренний размер viewport остаётся рассогласован с
-	// фактическим окном (мы меняли его в обход GLFW через SetWindowPos),
-	// и координаты мыши проецируются по старой геометрии — клики
-	// «попадают ниже» видимого положения виджетов.
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		fyne.Do(func() {
-			if c.app.myWindow == nil || c.app.myWindow.Canvas() == nil {
-				return
-			}
-			mr, ok := platform.MonitorFullRectForWindow(c.hwnd)
-			if !ok || mr.Width() <= 0 || mr.Height() <= 0 {
-				return
-			}
-			scale := c.app.myWindow.Canvas().Scale()
-			if scale <= 0 {
-				scale = 1
-			}
-			c.app.myWindow.Resize(fyne.NewSize(
-				float32(mr.Width())/scale,
-				float32(mr.Height())/scale,
-			))
-		})
-	}()
 }
 
 // exitFullscreen выходит из полноэкранного режима.
@@ -254,71 +228,22 @@ func (c *windowModeCtrl) exitFullscreen() {
 	c.state.mode = windowModeNormal
 	c.mu.Unlock()
 
-	if c.hwnd != 0 && c.borderSt != nil {
-		platform.RestoreBorderless(c.hwnd, c.borderSt)
-		c.borderSt = nil
-	}
-	// Восстанавливаем позицию и размер окна через Win32 SetWindowPos.
-	// Canvas().Size() — это content-area, а не outer-window; плюс DWM
-	// добавляет title bar, из-за чего Resize+CenterOnScreen дают смещение.
-	// Используем SetWindowPos с расчётом screen center.
-	if c.hwnd != 0 {
-		time.AfterFunc(150*time.Millisecond, func() {
+	c.app.myWindow.SetFullScreen(false)
+	// Восстанавливаем размер и центрируем. Делаем это на следующем тике UI,
+	// чтобы GLFW завершил переход monitor→window и не перезаписал размер.
+	if c.state.normalSize.Width > 0 && c.state.normalSize.Height > 0 {
+		size := clampToMaxSize(c.state.normalSize)
+		time.AfterFunc(120*time.Millisecond, func() {
 			fyne.Do(func() {
-				if c.app.myWindow == nil {
-					return
+				if c.app.myWindow != nil {
+					c.app.myWindow.Resize(size)
+					c.app.myWindow.CenterOnScreen()
 				}
-				// Целевой размер окна в ФИЗИЧЕСКИХ пикселях.
-				var w, h int32
-				if c.state.normalRect.Width() > 0 && c.state.normalRect.Height() > 0 {
-					// normalRect — из WindowRect (физ. px): точный outer-window
-					// размер вместе с рамками, сохранённый до fullscreen.
-					w = int32(c.state.normalRect.Width())
-					h = int32(c.state.normalRect.Height())
-				} else if c.state.normalSize.Width > 0 && c.state.normalSize.Height > 0 {
-					// Fallback: canvas size в логических px → конвертируем.
-					scale := c.app.myWindow.Canvas().Scale()
-					if scale <= 0 {
-						scale = 1
-					}
-					sz := clampToMaxSize(c.state.normalSize)
-					w = int32(sz.Width * scale)
-					h = int32(sz.Height * scale)
-				} else {
-					scale := c.app.myWindow.Canvas().Scale()
-					if scale <= 0 {
-						scale = 1
-					}
-					w = int32(1366 * scale)
-					h = int32(768 * scale)
-				}
-				// Позиционируем по центру рабочей зоны монитора — это
-				// исключает выход окна за верхний/нижний край экрана.
-				if mr, ok := platform.MonitorWorkRectForWindow(c.hwnd); ok {
-					if w > mr.Width() {
-						w = mr.Width()
-					}
-					if h > mr.Height() {
-						h = mr.Height()
-					}
-					centerX := mr.Left + (mr.Width()-w)/2
-					centerY := mr.Top + (mr.Height()-h)/2
-					_ = platform.SetWindowPos(c.hwnd, centerX, centerY, w, h, false)
-				}
-				// Синхронизируем внутренний размер Fyne с фактическим окном
-				// (та же причина, что в enterFullscreen: геометрия менялась
-				// в обход GLFW, иначе смещение кликов).
-				scale := float32(1)
-				if c.app.myWindow.Canvas() != nil {
-					if s := c.app.myWindow.Canvas().Scale(); s > 0 {
-						scale = s
-					}
-				}
-				c.app.myWindow.Resize(fyne.NewSize(float32(w)/scale, float32(h)/scale))
 			})
 		})
 	}
 	c.save()
+	c.refreshMenuBar()
 	c.refreshUI()
 }
 
