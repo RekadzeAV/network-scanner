@@ -28,6 +28,9 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// geomLog — диагностический логгер геометрии (включается NS_GEOM_LOG).
+var geomLog *geomLogger
+
 type topologyBuildMetrics struct {
 	snmpDuration  time.Duration
 	buildDuration time.Duration
@@ -583,6 +586,7 @@ func (a *App) Run() {
 		if a.winMode != nil {
 			a.winMode.stopWatcher()
 		}
+		geomLog.stop() // no-op, если диагностика не включена
 		if a.previewPath != "" {
 			_ = os.Remove(a.previewPath)
 		}
@@ -595,8 +599,15 @@ func (a *App) Run() {
 	a.myWindow.Resize(fyne.NewSize(1366, 768))
 	a.myWindow.CenterOnScreen()
 
+	// Диагностика геометрии (включается NS_GEOM_LOG). no-op без переменной.
+	geomLog = newGeomLogger()
+	geomLog.attach(a.myWindow)
+
 	// Применяем полноэкранный режим (borderless), если нужно.
 	a.applyPendingFullscreen()
+
+	// Диагностика: автоцикл fullscreen (включается NS_GEOM_CYCLE=<мс>).
+	a.startGeomCycle()
 
 	a.myWindow.ShowAndRun()
 }

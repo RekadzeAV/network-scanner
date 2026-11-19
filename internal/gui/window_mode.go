@@ -207,7 +207,9 @@ func (c *windowModeCtrl) enterFullscreen() {
 	c.state.mode = windowModeFullscreen
 	c.mu.Unlock()
 
+	geomLog.logNow("enterFullscreen BEFORE SetFullScreen(true)")
 	c.app.myWindow.SetFullScreen(true)
+	geomLog.logNow("enterFullscreen AFTER SetFullScreen(true)")
 	c.save()
 	// GLFW пересоздаёт surface при смене monitor — пересобираем menu bar
 	// overlay и layout под новый размер канвы.
@@ -228,7 +230,9 @@ func (c *windowModeCtrl) exitFullscreen() {
 	c.state.mode = windowModeNormal
 	c.mu.Unlock()
 
+	geomLog.logNow("exitFullscreen BEFORE SetFullScreen(false)")
 	c.app.myWindow.SetFullScreen(false)
+	geomLog.logNow("exitFullscreen AFTER SetFullScreen(false)")
 	// Восстанавливаем размер и центрируем. Делаем это на следующем тике UI,
 	// чтобы GLFW завершил переход monitor→window и не перезаписал размер.
 	if c.state.normalSize.Width > 0 && c.state.normalSize.Height > 0 {
@@ -382,12 +386,21 @@ func (c *windowModeCtrl) refreshUI() {
 }
 
 // refreshMenuBar принудительно перерисовывает menu bar.
-// Вызывается из enterFullscreen/exitFullscreen. В borderless-режиме canvas не
-// пересоздаётся, поэтому SetMainMenu не требуется; оставляем пересборку как
-// страховку на случай, если Fyne всё же сбросит overlay.
+// Вызывается из enterFullscreen/exitFullscreen. В fullscreen режиме Fyne
+// рисует menu bar как overlay поверх OpenGL — вызов SetMainMenu там вызывает
+// glfwSetWindowMonitor(NULL), что СБРАСЫВАЕТ fullscreen. Поэтому в fullscreen
+// мы просто не трогаем меню (оно уже отрисовано как overlay).
 func (c *windowModeCtrl) refreshMenuBar() {
 	a := c.app
 	if a == nil || a.myWindow == nil {
+		return
+	}
+	c.mu.Lock()
+	mode := c.state.mode
+	c.mu.Unlock()
+	// В fullscreen режиме SetMainMenu вызывает glfwSetWindowMonitor(NULL),
+	// что автоматически выходит из fullscreen — см. Fyne internal/driver/glfw.
+	if mode == windowModeFullscreen {
 		return
 	}
 	if menu := a.myWindow.MainMenu(); menu != nil {

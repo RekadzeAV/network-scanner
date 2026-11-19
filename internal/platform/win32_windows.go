@@ -47,6 +47,7 @@ var (
 	procGetMonitorInfo    = user32.NewProc("GetMonitorInfoW")
 	procSetWindowPos      = user32.NewProc("SetWindowPos")
 	procGetWindowRect     = user32.NewProc("GetWindowRect")
+	procGetClientRect     = user32.NewProc("GetClientRect")
 )
 
 // getLongPtrWrapped wraps GetWindowLongPtrW with GetWindowLongW fallback (32-bit).
@@ -177,4 +178,16 @@ func RestoreBorderless(hwnd uintptr, st *BorderlessState) bool {
 func IsBorderlessFullscreen(hwnd uintptr) bool {
 	style := getLongPtrWrapped(hwnd, gwlStyle)
 	return style&wsCaption == 0
+}
+
+// ClientRect возвращает клиентскую область окна в экранных координатах.
+func ClientRect(hwnd uintptr) (Rect, bool) {
+	var r rectW
+	ret, _, _ := procGetClientRect.Call(hwnd, uintptr(unsafe.Pointer(&r)))
+	if ret == 0 {
+		return Rect{}, false
+	}
+	// GetClientRect возвращает координаты относительно левого верхнего угла
+	// клиентской области (0,0), поэтому Left/Top всегда 0.
+	return Rect{r.Left, r.Top, r.Right, r.Bottom}, true
 }

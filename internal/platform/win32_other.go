@@ -37,3 +37,6 @@ func RestoreBorderless(_ uintptr, _ *BorderlessState) bool { return false }
 
 // IsBorderlessFullscreen — заглушка (только Windows).
 func IsBorderlessFullscreen(_ uintptr) bool { return false }
+
+// ClientRect — заглушка (только Windows).
+func ClientRect(_ uintptr) (Rect, bool) { return Rect{}, false }
